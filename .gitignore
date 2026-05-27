@@ -1,0 +1,25 @@
+/backups
+/cache
+/debug
+/downloads
+/file-history
+/ide
+/plans
+/plugins
+/projects
+# /rules
+/session-env
+/sessions
+/shell-snapshots
+# /skills
+/statsig
+/telemetry
+/todos
+.credentials.json
+.last-cleanup
+history.jsonl
+mcp-needs-auth-cache.json
+policy-limits.json
+settings.json
+settings.local.json
+stats-cache.json
