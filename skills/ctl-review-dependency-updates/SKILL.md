@@ -55,6 +55,7 @@ Use this table as the basis for all subsequent checks.
 
 - Every non-package file change must be directly traceable to resolving a breaking change introduced by one of the upgrades in this changeset. Flag any source code change that cannot be explained by a breaking change as out-of-scope.
 - If multiple package ecosystems are updated in a single changeset, flag it as a structural concern — mixed-ecosystem PRs are harder to reason about and revert selectively.
+- **Dockerfile OS-level package updates** (`apt-get upgrade`, `apk upgrade`, `yum update`, `dnf upgrade`, installation of security-related system packages such as `ca-certificates`, `curl`, or `openssl`, etc.) are an exception to the scope rule. These changes address OS-level CVEs and share the same security intent as package dependency fixes, so they are permitted in a dependency update PR. Flag them at **Informational** severity — not as Scope Violations — and note that keeping OS-level and dependency fixes in separate PRs improves rollback granularity, but bundling them is acceptable when the shared intent is security hardening.
 
 ### Version Safety
 
