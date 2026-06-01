@@ -408,7 +408,7 @@ obj.SetName("some value");
 
 ### Refactor deeply nested code using guard clauses
 
-When code has multiple levels of nesting (`if` inside `if` inside `if`), consider extracting it into a method and returning early for each failing condition. This is the *guard clause* pattern and flattens the indentation significantly.
+When code has multiple levels of nesting (`if` inside `if` inside `if`), consider extracting it into a method and returning early for each failing condition. This is the _guard clause_ pattern and flattens the indentation significantly.
 
 ```cs
 // Before: pyramid of doom

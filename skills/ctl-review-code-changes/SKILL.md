@@ -1,59 +1,81 @@
 ---
 name: ctl-review-code-changes
-description: Review the code changes using the established mode and guidelines.
+description: Review the code changes using the established mode and guidelines. Intended for active development and pull request reviews.
 disable-model-invocation: true
 allowed-tools: Read Grep Bash(git diff:*)
 argument-hint: mode
 ---
 
-The supported review modes are:
+## Supported Modes
+
 - `default`: An alias for the `unstaged` mode.
 - `unstaged`: Review the current changes that are unstaged only.
 - `current`: Review the current changes that are both unstaged and staged.
 - `commit`: Review the changes in a single commit. If the commit hash is not specified, prompt the user for it.
-- `commits`: Review the changes in multiple commits. The commits can be specified in two ways, #1 - a list of commits; or #2 - a range of commits (start commit and end commit, inclusive). If the commits are not specified, prompt the user for them.
-- `branch`: Review the changes in comparison to another git branch. If the branch is not specified, compare against the main/master branch.
+- `commits`: Review the changes in multiple commits. The commits can be specified in two ways — a list of commits, or a range of commits (start and end, inclusive). If not specified, prompt the user for them.
+- `branch`: Review the changes in comparison to another git branch. If not specified, compare against the main/master branch.
 - `other`: Prompt the user what changes need to be reviewed.
 
-If the mode is not specified, null, empty or invalid, use the `default` mode.
+If the mode is not specified, null, empty, or invalid, use the `default` mode.
 
-Review the code changes in $ARGUMENTS mode using these guidelines sorted by importance:
+---
 
-1. Functional Requirements
-  1. Are edge cases considered?
-  2. Are the changes backwards compatible?
-  3. Are there any breaking changes?
-2. Security
-  1. Is there user input validation?
-  2. Is there any sensitive data being exposed?
-  3. Are there any unwanted packages/libraries being installed?
-  4. Are we allowing remote code execution, SQL injection or C# Linq injection?
-3. Performance & Scalability
-  1. Does the code degrade the performance?
-  2. Are there any unnecessary loops, database calls, network requests, etc.?
-  3. Is the code performant with large data sets?
-  4. Is the code resilient? (retry policies, timeouts, circuit breaker, etc.)
-  5. Can the code be optimized using parallelization, batching or streaming?
-  6. Can the code be optimized with in-memory or distributed caching?
-4. Clean Code
-  1. Is the code readable and easy to follow for newcomers into the codebase?
-  2. Does the code need to be documented with additional context?
-  3. Can the code be reduced with reusable methods?
-  4. Can the code be improved using common best practices? DRY, YAGNI, SOLID, etc.
-  5. Is there any unnecessary or dead code?
-5. Styling & Formatting
-  1. Does the code follow naming conventions?
-  2. Does the code follow styling conventions? (spacing, indentation, file/directory structure, etc.)
+## Guidelines
 
-Explain each finding one by one. Each finding should have:
-- **Title**: A user-friendly title describing the finding in a few words.
-- **Code**: A unique code that identifies this finding in PascalCase format, e.g. `UniqueIdentificationCode`.
-- **Category**: One of `Functional Requirements`, `Security`, `Performance & Scalability`, `Clean Code`, `Styling & Formatting`, or `Other`.
-- **Severity**: One of `Critical`, `High`, `Medium`, `Low`, `Informational`
-- **Description**: Thorough description of the finding.
+### Step 1 — Load Shared Guidelines
 
-At the end of the review generate a summary table showcasing each finding, sorted by severity, then category and finally code. The table should have the columns:
-- **Severity**
-- **Category**
-- **Code**
-- **Finding**: A brief description with a max length of 150 characters.
+Read `.claude/rules/review-guidelines.md` and apply every item defined there as part of this review.
+
+### Step 2 — Apply Review-Specific Guidelines
+
+Apply the following additional checks, which are unique to change-safety reviews and are not covered in the shared guidelines.
+
+#### Functional Requirements
+
+- Are edge cases considered?
+- Are the changes backwards compatible?
+- Are there any breaking changes?
+
+#### Security
+
+- Is there user input validation?
+- Is there any sensitive data being exposed?
+- Are there any unwanted packages or libraries being installed?
+- Are we allowing remote code execution, SQL injection, or query injection?
+
+#### Resilience
+
+- Is the code resilient under failure? (retry policies, timeouts, circuit breakers)
+
+---
+
+## Finding Schema
+
+Present each finding as a numbered section using this exact format:
+
+```
+## {N}. {Title}
+
+**Code:** `{PascalCaseCode}`
+**Category:** {Category}
+**Severity:** {Severity}
+
+**Description** (`{file}:{line range}`):
+{Thorough description of the finding — what is wrong, why it matters, and what to do about it.}
+```
+
+- **Title**: short, human-readable phrase, e.g. "Unique Identification Code".
+- **Code**: unique PascalCase identifier, e.g. `UniqueIdentificationCode`.
+- **Category**: one of `Functional Requirements`, `Security`, `Resilience`, `Clean Code`, `Naming & Formatting`, `Async & Concurrency`, `Performance`, or `Other`.
+- **Severity**: one of `Critical`, `High`, `Medium`, `Low`, `Informational`.
+
+---
+
+## Summary Table
+
+At the end of the review, generate a summary table of all findings sorted by severity (Critical → Informational), then category, then code:
+
+| Severity | Category | Code | Finding |
+| -------- | -------- | ---- | ------- |
+
+Keep the **Finding** column under 150 characters.
