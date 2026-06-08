@@ -74,6 +74,11 @@ Apply the following additional checks, which are unique to deep quality passes a
 - Persistence calls not guarded by a check that the data actually changed.
 - Mutation methods that give callers no way to know whether a change occurred, forcing them to persist unconditionally.
 
+## Formatting
+
+- Do file and directory names follow the project's structural conventions?
+- Is spacing and indentation consistent with the rest of the codebase?
+
 ---
 
 ## Candidate Schema

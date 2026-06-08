@@ -8,13 +8,23 @@ argument-hint: mode
 
 ## Supported Modes
 
-- `default`: An alias for the `unstaged` mode.
+### Change Scope Modes
+
+These modes control **which changes** are reviewed. They apply the full review checklist.
+
+- `default`: An alias for the `current` mode.
 - `unstaged`: Review the current changes that are unstaged only.
 - `current`: Review the current changes that are both unstaged and staged.
 - `commit`: Review the changes in a single commit. If the commit hash is not specified, prompt the user for it.
 - `commits`: Review the changes in multiple commits. The commits can be specified in two ways — a list of commits, or a range of commits (start and end, inclusive). If not specified, prompt the user for them.
 - `branch`: Review the changes in comparison to another git branch. If not specified, compare against the main/master branch.
 - `other`: Prompt the user what changes need to be reviewed.
+
+### Review Depth Modes
+
+These modes control **how deeply** the changes are reviewed. They can be combined with a change scope by specifying both, e.g. `fast branch` or `fast commit <hash>`. When no change scope is given alongside a depth mode, use `default` as the default scope.
+
+- `fast`: **Bugs-only mode.** Skip all of the guidelines and focus exclusively on bugs and issues that can cause failures in production. Ideal when working under a deadline or when iterating quickly and only want to catch what would break.
 
 If the mode is not specified, null, empty, or invalid, use the `default` mode.
 
@@ -24,9 +34,13 @@ If the mode is not specified, null, empty, or invalid, use the `default` mode.
 
 ### Step 1 — Load Shared Guidelines
 
+> If using the `fast` mode, skip this step.
+
 Read `.claude/rules/review-guidelines.md` and apply every item defined there as part of this review.
 
 ### Step 2 — Apply Review-Specific Guidelines
+
+> If using the `fast` mode, skip this step and look only for bugs.
 
 Apply the following additional checks, which are unique to change-safety reviews and are not covered in the shared guidelines.
 

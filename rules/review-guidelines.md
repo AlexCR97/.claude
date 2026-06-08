@@ -30,9 +30,7 @@ Shared checklist applied by both `ctl-review-code-changes` and `ctl-refactor`. E
 - Can throughput be improved with parallelization, batching, or streaming?
 - Can repeated expensive lookups be reduced with in-memory or distributed caching?
 
-## Naming & Formatting
+## Naming
 
 - Do identifiers (types, methods, variables, parameters) follow the project's naming conventions?
 - Do method names clearly indicate intent with verbs? e.g. bad -> ReRunEvent, good -> RequestEventReRun
-- Do file and directory names follow the project's structural conventions?
-- Is spacing and indentation consistent with the rest of the codebase?
