@@ -37,23 +37,36 @@ From the output of `git log main..HEAD` and `git diff main...HEAD`, extract:
 
 One sentence explaining the changes in the shortest most concise way possible.
 
-## Summary
+## What changed
 
-<1–3 bullet points summarizing what changed and why>
+<Changes grouped under bold category labels. Only include categories that apply — omit the rest.>
 
-## Changes
+**Added**
+- ...
 
-<bullet list of individual changes grouped logically — one bullet per logical change, not per commit>
+**Changed**
+- ...
+
+**Fixed**
+- ...
+
+**Removed**
+- ...
+
+**Refactored**
+- ...
 
 ## Notes
 
-<any migration steps, breaking changes, side effects, or reviewer hints — omit this section entirely if there is nothing notable>
+<any migration steps, breaking changes, side effects, or reviewer hints that don't fit the categories above — omit this section entirely if there is nothing notable>
 ```
 
 Rules:
+
 - Use imperative mood throughout ("Add", "Fix", "Remove" — not "Added", "Fixed")
 - Be specific: name the files, classes, methods, or endpoints that changed where relevant
-- If there is only one commit ahead of main, the summary and changes can overlap — keep only what adds value
+- Only include category labels that have at least one item — omit empty categories entirely
+- One bullet per logical change, not per commit
 - Omit the `## Notes` section entirely if there is nothing notable to call out
 
 ### 3. Create or update the pull request
@@ -85,6 +98,7 @@ EOF
 ### 4. Confirm
 
 Report the result to the user:
+
 - Whether the PR was **created** or **updated**
 - The PR **title**
 - The PR **URL**
