@@ -33,7 +33,7 @@ Locate the `.claude` directory for the current working directory of the session:
 Check for an existing config file at:
 
 ```
-<cwd>/.claude/.az-workitem-digests/config.json
+<cwd>/.claude/.az-workitems/config.json
 ```
 
 If it exists, read the values from it:
@@ -55,7 +55,7 @@ If the file does not exist, or any of the three values is missing from it, ask t
 Once all three values are available, write (or overwrite) the config file with the resolved values before proceeding:
 
 ```bash
-mkdir -p <cwd>/.claude/.az-workitem-digests
+mkdir -p <cwd>/.claude/.az-workitems
 ```
 
 ```json
@@ -95,15 +95,15 @@ The script will:
 - Write everything to:
 
 ```
-.claude/.az-workitem-digests/<id>/raw/raw.json     ← all API data
-.claude/.az-workitem-digests/<id>/raw/<filename>   ← downloaded files
+.claude/.az-workitems/<id>/raw/raw.json     ← all API data
+.claude/.az-workitems/<id>/raw/<filename>   ← downloaded files
 ```
 
 Wait for the script to complete before proceeding. If it exits with an error, report the stderr output to the user and stop.
 
 ### 4. Analyze the raw data and assets
 
-Read `.claude/.az-workitem-digests/<id>/raw/raw.json`. The structure is:
+Read `.claude/.az-workitems/<id>/raw/raw.json`. The structure is:
 
 ```
 {
@@ -170,7 +170,7 @@ From `tree.discussion.comments`, sort by `createdDate` ascending. For each comme
 For each entry in `tree.attachments` where `download_ok` is `true`, the file is available at:
 
 ```
-.claude/.az-workitem-digests/<id>/raw/<local_filename>
+.claude/.az-workitems/<id>/raw/<local_filename>
 ```
 
 Read and analyze each file:
@@ -191,12 +191,12 @@ Nodes with a `skipped_reason` of `already_visited` or `max_depth_reached` should
 Write the digest to:
 
 ```
-.claude/.az-workitem-digests/<id>/digest.md
+.claude/.az-workitems/<id>/digest.md
 ```
 
 Do not print the full digest body in chat. Once the file is written, confirm with a single line:
 
-> Digest written to `.claude/.az-workitem-digests/<id>/digest.md`
+> Digest written to `.claude/.az-workitems/<id>/digest.md`
 
 #### Link patterns
 
