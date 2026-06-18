@@ -2,7 +2,7 @@
 """
 Fetches a complete Azure DevOps work item by ID and dumps all raw data
 (work item fields, comments, relations, attachments) into a structured JSON
-file plus downloaded attachment files under .claude/.az-workitem-digests/{id}/raw/.
+file plus downloaded attachment files under .claude/.az-workitems/{id}/raw/.
 
 Related work items (parent, children, siblings) are fetched recursively up to
 MAX_DEPTH levels deep. Already-visited IDs are tracked to prevent cycles.
@@ -236,7 +236,7 @@ def main() -> None:
     import shutil
     cwd = Path.cwd()
     claude_dir = find_claude_dir(cwd)
-    wi_dir = claude_dir / ".az-workitem-digests" / str(work_item_id)
+    wi_dir = claude_dir / ".az-workitems" / str(work_item_id)
     if wi_dir.exists():
         shutil.rmtree(wi_dir)
     out_dir = wi_dir / "raw"
