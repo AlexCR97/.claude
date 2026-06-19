@@ -29,8 +29,13 @@ Resolve the config and digest paths from the **current working directory of the
 session** (same `.claude` resolution logic as `az-workitem-digest`):
 
 - If `.claude/` exists in the CWD, use it; otherwise the plan cannot proceed.
+- Config path: `.claude/.az-workitems/config.json`
 - Digest path: `.claude/.az-workitems/{id}/digest.md`
 - Plan path: `.claude/.az-workitems/{id}/plan.md`
+
+If `config.json` does not exist, stop and tell the user:
+
+> No config found. Run `/az-workitem-init` first to set up your workspace.
 
 If `digest.md` does not exist, stop and tell the user:
 
