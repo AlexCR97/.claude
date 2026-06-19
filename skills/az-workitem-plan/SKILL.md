@@ -29,12 +29,12 @@ Resolve the config and digest paths from the **current working directory of the
 session** (same `.claude` resolution logic as `az-workitem-digest`):
 
 - If `.claude/` exists in the CWD, use it; otherwise the plan cannot proceed.
-- Digest path: `.claude/.az-workitems/<id>/digest.md`
-- Plan path: `.claude/.az-workitems/<id>/plan.md`
+- Digest path: `.claude/.az-workitems/{id}/digest.md`
+- Plan path: `.claude/.az-workitems/{id}/plan.md`
 
 If `digest.md` does not exist, stop and tell the user:
 
-> No digest found for work item #\<id\>. Run `/az-workitem-digest <id>` first.
+> No digest found for work item #{id}. Run `/az-workitem-digest {id}` first.
 
 ### 2. Check for an existing plan
 
@@ -159,12 +159,12 @@ Adjust down for:
 Compose the plan using the template below and write it to:
 
 ```
-.claude/.az-workitems/<id>/plan.md
+.claude/.az-workitems/{id}/plan.md
 ```
 
 Confirm in chat with a **single line** once written:
 
-> Plan written to `.claude/.az-workitems/<id>/plan.md`
+> Plan written to `.claude/.az-workitems/{id}/plan.md`
 
 Do not print the plan body in chat.
 
@@ -187,67 +187,7 @@ Omit any phase for which there is no work to do.
 
 #### Plan template
 
-```markdown
-# Implementation Plan — [#<id>: <title>](ado-work-item-url)
-
-> Generated on <YYYY-MM-DD> at <HH:MM> UTC
-> Based on [digest.md](.claude/.az-workitems/<id>/digest.md)
-
-## Progress
-
-| Phase           | Estimate     | Status      |
-| --------------- | ------------ | ----------- |
-| Prerequisites   | —            | [ ] Pending |
-| Phase 1: <name> | ~<X> hrs     | [ ] Pending |
-| Phase 2: <name> | ~<X> hrs     | [ ] Pending |
-| ...             |              |             |
-| **Total**       | **~<X> hrs** |             |
-
----
-
-## Summary
-
-<2-3 sentence overview of what this plan covers, derived from the digest TL;DR and the implementation steps.>
-
-## Discovered Services
-
-| Service | Path            | Technology |
-| ------- | --------------- | ---------- |
-| <name>  | <relative path> | <stack>    |
-
-## Prerequisites
-
-Before any phase begins, ensure the following are in place:
-
-- [ ] <prerequisite — e.g. environment variable X is set in all target environments>
-- [ ] <prerequisite — e.g. feature flag Y exists in the flag management system>
-- [ ] <prerequisite — e.g. NuGet package Z is available in the internal feed>
-
-## Open Questions
-
-<Carried over from digest.md. Remove items as they are resolved. Omit this section if digest.md had no open questions or if they are already resolved.>
-
-- [ ] <question or blocker>
-
----
-
-## Phase 1: <name> (~<X> hrs)
-
-**Scope:** <one sentence describing what this phase achieves>
-**Services touched:** <comma-separated list>
-
-### Steps
-
-- [ ] `<File/Class>` — <what to do and why, specific enough to act on>
-- [ ] `<File/Class>` — <what to do and why>
-- [ ] ...
-
----
-
-## Phase 2: <name> (~<X> hrs)
-
-...
-```
+Read the template from `skills/az-workitem-plan/plan-template.md` and use it as the structure for the output file.
 
 Rules for the template:
 
@@ -256,7 +196,7 @@ Rules for the template:
   first thing visible when opening the file; it is updated alongside the phase
   checkboxes on subsequent runs
 - The ADO work item URL follows the pattern:
-  `https://dev.azure.com/<org>/<project>/_workitems/edit/<id>`
+  `https://dev.azure.com/{org}/{project}/_workitems/edit/{id}`
   (read `org` and `project` from `.claude/.az-workitems/config.json`)
 - Omit Prerequisites and Open Questions sections if they have no content
 
@@ -278,12 +218,12 @@ total checkboxes:
 Print a compact summary table in chat:
 
 ```
-Implementation Plan — #<id>: <title>
+Implementation Plan — #{id}: {title}
 
 | Phase                       | Estimate     | Status            |
 | --------------------------- | ------------ | ----------------- |
-| Prerequisites               | —            | [x] Done      |
-| Phase 1: Database migration | ~0.5 hrs     | [x] Done      |
+| Prerequisites               | —            | [x] Done          |
+| Phase 1: Database migration | ~0.5 hrs     | [x] Done          |
 | Phase 2: Repository layer   | ~1.5 hrs     | [~] In Progress   |
 | Phase 3: API endpoint       | ~1.5 hrs     | [ ] Pending       |
 | **Total**                   | **~3.5 hrs** | 2 / 4 phases done |
@@ -311,7 +251,7 @@ Based on the user's answer:
 
 Confirm with a single line:
 
-> Updated `.claude/.az-workitems/<id>/plan.md`
+> Updated `.claude/.az-workitems/{id}/plan.md`
 
 ---
 

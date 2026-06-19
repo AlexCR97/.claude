@@ -6,16 +6,16 @@ description: Follow-up to az-workitem-plan. Reads plan.md for a work item and im
 ## Input
 
 ```
-/az-workitem-implement <id> [<phases>]
+/az-workitem-implement {id} [{phases}]
 ```
 
-- `<id>` — required. The work item ID.
-- `<phases>` — optional. One of:
+- `{id}` — required. The work item ID.
+- `{phases}` — optional. One of:
   - A comma-separated list of phase numbers: `1`, `1,3`, `2,3,4`
   - The literal string `all` — runs every pending phase in order
   - Omitted — the skill shows the current progress table and prompts the user to specify
 
-If `<id>` is not provided, ask for it before proceeding.
+If `{id}` is not provided, ask for it before proceeding.
 
 ---
 
@@ -28,12 +28,12 @@ Run the following steps **in order**. Do not skip any step.
 Resolve paths from the **current working directory of the session**:
 
 - If `.claude/` exists in the CWD, use it; otherwise stop and inform the user.
-- Plan path: `.claude/.az-workitems/<id>/plan.md`
-- Digest path: `.claude/.az-workitems/<id>/digest.md`
+- Plan path: `.claude/.az-workitems/{id}/plan.md`
+- Digest path: `.claude/.az-workitems/{id}/digest.md`
 
 If `plan.md` does not exist, stop and tell the user:
 
-> No plan found for work item #\<id\>. Run `/az-workitem-plan <id>` first.
+> No plan found for work item #{id}. Run `/az-workitem-plan {id}` first.
 
 ### 2. Read the plan
 
@@ -45,13 +45,13 @@ Parse `plan.md` and extract:
 
 ### 3. Resolve which phases to implement
 
-If `<phases>` was provided as `all`, collect every phase whose status is not `[x] Done`.
+If `{phases}` was provided as `all`, collect every phase whose status is not `[x] Done`.
 
-If `<phases>` was provided as a comma-separated list, collect those phase numbers — but **skip any that are already `[x] Done`** and warn the user for each skipped one:
+If `{phases}` was provided as a comma-separated list, collect those phase numbers — but **skip any that are already `[x] Done`** and warn the user for each skipped one:
 
-> Phase \<N\> (\<name\>) is already marked done — skipping.
+> Phase {N} ({name}) is already marked done — skipping.
 
-If `<phases>` was not provided, print the current progress table and ask:
+If `{phases}` was not provided, print the current progress table and ask:
 
 > Which phases would you like to implement? Enter phase numbers separated by commas, or "all" for all pending phases.
 
@@ -139,9 +139,9 @@ Run the build command from the project root directory (the folder containing the
 3. Re-run the build. If it succeeds, proceed.
 4. If the build still fails after one fix attempt, stop and report the error to the user:
 
-   > Build failed for \<project\> after phase \<N\>. Please review the compiler output below before continuing.
+   > Build failed for {project} after phase {N}. Please review the compiler output below before continuing.
    >
-   > \<compiler output\>
+   > {compiler output}
 
    Do not mark the phase complete or continue to the next phase until the build passes.
 
@@ -172,15 +172,15 @@ Print the touched projects as the completion message — one line per project:
 ```
 Done. Projects touched:
 
-  • <Service name> — <relative path to project root>
-  • <Service name> — <relative path to project root>
+  • {Service name} — {relative path to project root}
+  • {Service name} — {relative path to project root}
 ```
 
 If any steps were implemented using inferred details (because the plan was underspecified), append a note:
 
 ```
 Inferences made:
-  • <step description> — <what was inferred and why>
+  • {step description} — {what was inferred and why}
 ```
 
 ---
