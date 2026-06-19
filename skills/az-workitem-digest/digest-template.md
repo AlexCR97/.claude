@@ -53,8 +53,3 @@ comment URL pattern. Omit this section if there are no comments.}
 description, acceptance criteria, attachments, discussion, and related items. Be specific — not generic
 boilerplate. Group logically (e.g. backend, frontend, testing, deployment) when work spans multiple
 concerns. Link steps to referenced work items where relevant.}
-
-## Open Questions
-
-{Ambiguities, missing information, or decisions needed before implementation can begin.
-Omit if everything is clear.}

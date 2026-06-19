@@ -13,77 +13,31 @@ The user must supply a **work item ID**. It may be passed as an argument to the 
 
 Run the following steps **in order**. Do not skip any step.
 
-### 1. Verify prerequisites
+### 1. Read the config
 
-Check that Python 3 is available:
-
-```bash
-python --version
-```
-
-If Python is not installed, inform the user and stop.
-
-### 2. Resolve organization, project, and credentials
-
-Locate the `.claude` directory for the current working directory of the session:
-
-- If a `.claude` directory exists in the current working directory, use it.
-- Otherwise, create `.claude` in the current working directory.
-
-Check for an existing config file at:
+Read credentials from:
 
 ```
-{cwd}/.claude/.az-workitems/config.json
+.claude/.az-workitems/config.json
 ```
 
-If it exists, read the values from it:
-
-```json
-{
-  "organization": "{org}",
-  "project": "{project}",
-  "pat": "{PAT}"
-}
-```
-
-If the file does not exist, or any of the three values is missing from it, stop and tell the user:
+If the file does not exist, stop and tell the user:
 
 > No config found. Run `/az-workitem-init` first to set up your workspace.
 
-Do not proceed until the config file exists with all three values.
+### 2. Check for raw data
 
-### 3. Run the data-fetching script
-
-Locate the script relative to this skill file:
+Check that the fetch output exists:
 
 ```
-skills/az-workitem-digest/digest-work-item.py
+.claude/.az-workitems/{id}/raw/raw.json
 ```
 
-Run it from the **current working directory of the session**:
+If it does not exist, stop and tell the user:
 
-```bash
-python "{path-to-skill}/digest-work-item.py" \
-  --id {work-item-id} \
-  --org {org} \
-  --project "{project}" \
-  --pat {PAT}
-```
+> No raw data found for work item #{id}. Run `/az-workitem-fetch {id}` first.
 
-The script will:
-
-- Fetch the work item, its comments, and all related work items (parent / children / related) recursively up to 3 levels deep
-- Download all attachments — both from `relations` and inline images embedded in comment HTML
-- Write everything to:
-
-```
-.claude/.az-workitems/{id}/raw/raw.json     ← all API data
-.claude/.az-workitems/{id}/raw/{filename}   ← downloaded files
-```
-
-Wait for the script to complete before proceeding. If it exits with an error, report the stderr output to the user and stop.
-
-### 4. Analyze the raw data and assets
+### 3. Analyze the raw data and assets
 
 Read `.claude/.az-workitems/{id}/raw/raw.json`. The structure is:
 
@@ -121,7 +75,7 @@ Read `.claude/.az-workitems/{id}/raw/raw.json`. The structure is:
 }
 ```
 
-#### 4a. Work item fields
+#### 3a. Work item fields
 
 From `tree.work_item.fields`, extract:
 
@@ -139,7 +93,7 @@ From `tree.work_item.fields`, extract:
 
 Description and Acceptance Criteria fields contain HTML. Strip all tags to get the plain text, then synthesize — do not copy verbatim into the digest (see the digest template for the expected format of each section).
 
-#### 4b. Discussion
+#### 3b. Discussion
 
 From `tree.discussion.comments`, sort by `createdDate` ascending. For each comment, parse the `text` field (HTML) to extract:
 
@@ -147,7 +101,7 @@ From `tree.discussion.comments`, sort by `createdDate` ascending. For each comme
 2. **@mentions** — `<a data-vss-mention>` elements; extract the visible display name
 3. **Work item references** — `<a href=".../_workitems/edit/{id}/">` or `#{number}` text patterns; note the referenced IDs and cross-reference them against the `tree.related` data already fetched
 
-#### 4c. Attachments and inline images
+#### 3c. Attachments and inline images
 
 For each entry in `tree.attachments` where `download_ok` is `true`, the file is available at:
 
@@ -162,13 +116,13 @@ Read and analyze each file:
 
 If `download_ok` is `false` for an attachment, note it as unavailable in the digest.
 
-#### 4d. Related work items
+#### 3d. Related work items
 
 Walk `tree.related` recursively. For each node that was not skipped, extract its title, type, and state from `node.work_item.fields`. Group by `relation_type` (parent / child / related).
 
 Nodes with a `skipped_reason` of `already_visited` or `max_depth_reached` should be listed as references only (ID, no title).
 
-### 5. Write the digest
+### 4. Write the digest
 
 Write the digest to:
 

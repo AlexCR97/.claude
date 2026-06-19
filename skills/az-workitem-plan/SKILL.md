@@ -58,7 +58,6 @@ Parse `digest.md` and extract:
 - **Description TL;DR**
 - **High-Level Implementation Steps** section — this is the primary input for planning
 - **Related Work Items** — note any child or related IDs that may map to separate services
-- **Open Questions** — carry these forward as blockers in the plan
 
 ### 4. Discover services in the codebase
 
@@ -203,7 +202,7 @@ Rules for the template:
 - The ADO work item URL follows the pattern:
   `https://dev.azure.com/{org}/{project}/_workitems/edit/{id}`
   (read `org` and `project` from `.claude/.az-workitems/config.json`)
-- Omit Prerequisites and Open Questions sections if they have no content
+- Omit the Prerequisites section if it has no content
 
 ---
 

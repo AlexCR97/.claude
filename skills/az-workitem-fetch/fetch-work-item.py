@@ -6,6 +6,11 @@ file plus downloaded attachment files under .claude/.az-workitems/{id}/raw/.
 
 Related work items (parent, children, siblings) are fetched recursively up to
 MAX_DEPTH levels deep. Already-visited IDs are tracked to prevent cycles.
+
+Re-fetch behavior:
+  - raw.json is always re-downloaded.
+  - Attachment files already present on disk are kept and NOT re-downloaded.
+  - New attachments (URLs not previously seen) are downloaded normally.
 """
 
 import argparse
@@ -13,7 +18,6 @@ import base64
 import json
 import os
 import re
-import shutil
 import sys
 import urllib.parse
 import urllib.request
@@ -62,8 +66,8 @@ def safe_filename(name: str) -> str:
 
 def find_claude_dir(start: Path) -> Path:
     """
-    Walk upward (and check siblings at each level) looking for an existing
-    .claude directory. Falls back to creating one in start.
+    Walk upward looking for an existing .claude directory.
+    Falls back to creating one in start.
     """
     current = start.resolve()
     while True:
@@ -94,11 +98,14 @@ def fetch_work_item_recursive(
     project_encoded: str,
     visited: set[int],
     depth: int,
+    allowed_relations: frozenset[str],
 ) -> dict:
     """
-    Fetch a work item and all its related items (parent/child/related) up to
-    MAX_DEPTH levels. Returns a structured dict with the work item data,
-    its comments, attachments metadata, and recursively resolved relations.
+    Fetch a work item and its relations up to MAX_DEPTH levels.
+
+    allowed_relations controls which relation types are expanded:
+      - User Story / Bug: {"parent", "child", "related"}
+      - Task:             {"parent"}  (children and siblings are not expanded)
     """
     indent = "  " * depth
     print(f"{indent}Fetching work item {wi_id} (depth {depth})…")
@@ -166,6 +173,17 @@ def fetch_work_item_recursive(
 
         relation_label = RELATION_TYPES[rel_type]
 
+        if relation_label not in allowed_relations:
+            print(f"{indent}  Skipping {relation_label} #{related_id} (not in traversal policy)")
+            related.append(
+                {
+                    "relation_type": relation_label,
+                    "id": related_id,
+                    "skipped_reason": "traversal_policy",
+                }
+            )
+            continue
+
         if related_id in visited:
             print(f"{indent}  Skipping {relation_label} #{related_id} (already visited)")
             related.append(
@@ -189,7 +207,7 @@ def fetch_work_item_recursive(
             continue
 
         node = fetch_work_item_recursive(
-            related_id, pat, org, project_encoded, visited, depth + 1
+            related_id, pat, org, project_encoded, visited, depth + 1, allowed_relations
         )
         related.append({"relation_type": relation_label, **node})
 
@@ -210,6 +228,33 @@ def collect_all_attachments(node: dict) -> list[dict]:
     return attachments
 
 
+def load_existing_url_map(out_dir: Path) -> dict[str, str]:
+    """
+    Read the existing raw.json (if present) and return a mapping of
+    attachment URL → local_filename for files that were already downloaded.
+    """
+    raw_json = out_dir / "raw.json"
+    if not raw_json.exists():
+        return {}
+
+    try:
+        data = json.loads(raw_json.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return {}
+
+    url_map: dict[str, str] = {}
+
+    def walk(node: dict) -> None:
+        for att in node.get("attachments") or []:
+            if att.get("download_ok") and att.get("local_filename"):
+                url_map[att["url"]] = att["local_filename"]
+        for child in node.get("related") or []:
+            walk(child)
+
+    walk(data.get("tree") or {})
+    return url_map
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Fetch an Azure DevOps work item and dump raw data to disk."
@@ -226,31 +271,64 @@ def main() -> None:
     project: str = args.project
     project_encoded: str = urllib.parse.quote(project, safe="")
 
-    # Recursively fetch the entire work item tree
-    visited: set[int] = set()
-    tree = fetch_work_item_recursive(
-        work_item_id, pat, org, project_encoded, visited, depth=0
-    )
-
-    # Resolve output directory — wipe any previous run for this work item
-    import shutil
     cwd = Path.cwd()
     claude_dir = find_claude_dir(cwd)
     wi_dir = claude_dir / ".az-workitems" / str(work_item_id)
-    if wi_dir.exists():
-        shutil.rmtree(wi_dir)
     out_dir = wi_dir / "raw"
-    out_dir.mkdir(parents=True)
+    out_dir.mkdir(parents=True, exist_ok=True)
 
-    # Download every attachment collected across the whole tree
+    # Remember which attachments were already downloaded before this run
+    existing_url_map = load_existing_url_map(out_dir)
+
+    # Determine traversal policy from the root work item type
+    try:
+        root_wi = get(
+            f"https://dev.azure.com/{org}/_apis/wit/workItems/{work_item_id}"
+            f"?fields=System.WorkItemType&api-version=7.1",
+            pat,
+        )
+        root_type = (root_wi.get("fields") or {}).get("System.WorkItemType", "").lower()
+    except Exception as exc:
+        print(f"Warning: could not determine work item type — {exc}", file=sys.stderr)
+        root_type = ""
+
+    if root_type == "task":
+        # Tasks: fetch the task itself and its parent only
+        allowed_relations: frozenset[str] = frozenset({"parent"})
+        print(f"Work item type: Task — traversal limited to parent only")
+    else:
+        # User Story, Bug, and anything else: full traversal
+        allowed_relations = frozenset({"parent", "child", "related"})
+        print(f"Work item type: {root_type.title() or 'Unknown'} — full traversal")
+
+    # Recursively fetch the entire work item tree (always fresh)
+    visited: set[int] = set()
+    tree = fetch_work_item_recursive(
+        work_item_id, pat, org, project_encoded, visited, depth=0,
+        allowed_relations=allowed_relations,
+    )
+
+    # Download attachments — skip files already present on disk
     all_attachments = collect_all_attachments(tree)
-    print(f"\nDownloading {len(all_attachments)} attachment(s)…")
+    new_count = sum(1 for a in all_attachments if a["url"] not in existing_url_map)
+    kept_count = len(all_attachments) - new_count
+    print(f"\nAttachments: {kept_count} kept from previous fetch, {new_count} new to download…")
 
     downloaded: dict[str, dict] = {}  # url → download result, deduped by URL
+
     for att in all_attachments:
         url = att["url"]
         if url in downloaded:
             continue
+
+        # Reuse existing file if already downloaded
+        if url in existing_url_map:
+            existing_fname = existing_url_map[url]
+            existing_path = out_dir / existing_fname
+            if existing_path.exists():
+                downloaded[url] = {"local_filename": existing_fname, "download_ok": True}
+                continue
+            # File was recorded but missing from disk — re-download it
 
         raw_name = att["name"] or "attachment"
         fname = safe_filename(raw_name)
@@ -261,7 +339,7 @@ def main() -> None:
             dest = out_dir / f"{stem}_{counter}{suffix}"
             counter += 1
 
-        print(f"  {fname}…")
+        print(f"  Downloading {fname}…")
         ok = download_file(url, pat, dest)
         downloaded[url] = {
             "local_filename": dest.name if ok else None,
@@ -278,7 +356,7 @@ def main() -> None:
 
     annotate(tree)
 
-    # Write master raw JSON
+    # Write master raw JSON (always overwritten)
     raw = {
         "meta": {
             "organization": org,
