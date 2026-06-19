@@ -33,12 +33,6 @@ Before any phase begins, ensure the following are in place:
 - [ ] {prerequisite — e.g. feature flag Y exists in the flag management system}
 - [ ] {prerequisite — e.g. NuGet package Z is available in the internal feed}
 
-## Open Questions
-
-{Carried over from digest.md. Remove items as they are resolved. Omit this section if digest.md had no open questions or if they are already resolved.}
-
-- [ ] {question or blocker}
-
 ---
 
 ## Phase 1: {name} (~{X} hrs)
