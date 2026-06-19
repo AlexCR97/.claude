@@ -46,29 +46,11 @@ If it exists, read the values from it:
 }
 ```
 
-If the file does not exist, or any of the three values is missing from it, ask the user to provide the missing values:
+If the file does not exist, or any of the three values is missing from it, stop and tell the user:
 
-- **Organization** — the ADO org name (e.g. `mycompany`, not the full URL)
-- **Project** — the ADO project name (e.g. `MyProject`)
-- **PAT** — a Personal Access Token with at least `Work Items (Read)` scope
+> No config found. Run `/az-workitem-init` first to set up your workspace.
 
-Once all three values are available, write (or overwrite) the config file with the resolved values before proceeding:
-
-```bash
-mkdir -p {cwd}/.claude/.az-workitems
-```
-
-```json
-{
-  "organization": "{org}",
-  "project": "{project}",
-  "pat": "{PAT}"
-}
-```
-
-Use this same `{cwd}/.claude` root for all output paths in subsequent steps.
-
-Do not proceed until all three values are available.
+Do not proceed until the config file exists with all three values.
 
 ### 3. Run the data-fetching script
 
