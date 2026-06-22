@@ -78,12 +78,6 @@ Also read:
 - **Attachments** — for each entry in `tree.attachments` where `download_ok` is `true`, read and internalize the file so you can reference it during the interview
 - **Related work items** — titles and types from `tree.related`, for domain context
 
-Then scan the **codebase** in the current working directory at a structural level (file names, directory layout, project files) — do not read entire source files. The goal is to understand:
-
-- What services and layers exist
-- What domain entities and patterns are already established
-- What the technology stack is
-
 This combined context is the foundation for challenging the user's requirements.
 
 ### 5. Conduct the refinement interview
@@ -125,7 +119,8 @@ Cover:
 
 Cover:
 
-- Which domain entities are created, updated, or deleted by this work item?
+- Which services and projects are involved in or affected by this work item? (e.g. files, folders, directories, backends, frontends, APIs, databases, shared libraries)
+- Which domain entities are created, updated, deleted or involved in any way by this work item?
 - Are there any new fields, relationships, or constraints being introduced to the data model?
 - What invariants must always hold after this change? (e.g. uniqueness, foreign key integrity, business rules)
 - Are there existing patterns in the codebase this should follow? If so, which files or classes are the best reference?
