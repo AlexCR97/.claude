@@ -138,11 +138,11 @@ Do not print the full digest body in chat. Once the file is written, confirm wit
 
 Use these URL patterns wherever references appear in the digest:
 
-| Reference type | Pattern                                                                                          |
-| -------------- | ------------------------------------------------------------------------------------------------ |
-| Work item      | `https://dev.azure.com/{org}/{project}/_workitems/edit/{id}`                                     |
-| Comment        | `https://dev.azure.com/{org}/{project}/_workitems/edit/{work-item-id}?discussionId={comment-id}` |
-| Attachment     | the original `url` from `raw.json`                                                               |
+| Reference type | Pattern                                                                             |
+| -------------- | ----------------------------------------------------------------------------------- |
+| Work item      | `https://dev.azure.com/{org}/{project}/_workitems/edit/{id}`                        |
+| Comment        | `https://dev.azure.com/{org}/{project}/_workitems/edit/{work-item-id}#{comment-id}` |
+| Attachment     | the original `url` from `raw.json`                                                  |
 
 #### Digest template
 
