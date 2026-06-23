@@ -109,29 +109,26 @@ def main() -> int:
         except (json.JSONDecodeError, OSError):
             existing = {}
 
-        masked_pat = mask_pat(existing.get("pat", ""))
-        print("A config.json already exists with the following values:")
-        print(f"  Organization : {existing.get('organization', '(not set)')}")
-        print(f"  Project      : {existing.get('project', '(not set)')}")
-        print(f"  PAT          : {masked_pat}")
-        print()
-
-        answer = input("Overwrite? [y/N]: ").strip().lower()
-        if answer not in ("y", "yes"):
-            print("Keeping existing config. Nothing changed.")
-            return 0
-        print()
-
     # Resolve values: CLI args → existing config → interactive prompt
     org = args.org or existing.get("organization") or None
     project = args.project or existing.get("project") or None
     pat_from_args = args.pat
 
-    print("Enter values (press Enter to keep the current value where shown):")
-    print()
+    interactive = not (args.org and args.project and pat_from_args)
 
-    org = prompt_value("Organization", org)
-    project = prompt_value("Project", project)
+    if interactive:
+        print("Enter values (press Enter to keep the current value where shown):")
+        print()
+
+    if args.org:
+        org = args.org
+    else:
+        org = prompt_value("Organization", org)
+
+    if args.project:
+        project = args.project
+    else:
+        project = prompt_value("Project", project)
 
     if pat_from_args:
         pat = pat_from_args
