@@ -21,6 +21,7 @@ import re
 import sys
 import urllib.parse
 import urllib.request
+import zipfile
 from pathlib import Path
 
 MAX_DEPTH = 3
@@ -341,6 +342,12 @@ def main() -> None:
 
         print(f"  Downloading {fname}…")
         ok = download_file(url, pat, dest)
+        if ok and zipfile.is_zipfile(dest):
+            extract_dir = dest.parent / dest.stem
+            extract_dir.mkdir(exist_ok=True)
+            with zipfile.ZipFile(dest) as zf:
+                zf.extractall(extract_dir)
+            print(f"    Extracted to {extract_dir.name}/")
         downloaded[url] = {
             "local_filename": dest.name if ok else None,
             "download_ok": ok,
