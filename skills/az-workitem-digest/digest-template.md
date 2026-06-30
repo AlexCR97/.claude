@@ -37,7 +37,7 @@
 
 ## Attachments
 
-### [{filename}](attachment-url)
+### [{filename}](raw/{local_filename})
 
 {Visual description for images, or content summary for documents. If download failed, note it as unavailable.}
 
