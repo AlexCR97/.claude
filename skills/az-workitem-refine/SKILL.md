@@ -186,8 +186,19 @@ Wait for the script to complete. If it exits with an error, report the stderr ou
 Report the result with a single line:
 
 > Refinement comment posted to work item #{id}.
-> Run `/az-workitem-fetch {id}` to pull the updated discussion, then
-> `/az-workitem-digest {id}` when you are ready to generate the digest.
+
+### 11. Auto-run az-workitem-fetch
+
+The refinement comment just posted changes the ADO discussion history, so the local snapshot is now stale. Automatically invoke the `az-workitem-fetch` skill for the same work item ID (do not ask the user for confirmation — this is a mandatory follow-up step):
+
+```
+Skill: az-workitem-fetch
+args: {id}
+```
+
+Once it completes, tell the user:
+
+> Updated discussion pulled. Run `/az-workitem-digest {id}` when you are ready to generate the digest.
 
 ---
 
