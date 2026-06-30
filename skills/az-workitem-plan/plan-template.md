@@ -37,14 +37,28 @@ Before any phase begins, ensure the following are in place:
 **Activity:** {Development | Testing | Design | Deployment | Documentation | Human Review}
 **Services touched:** {comma-separated list}
 
-### Steps
+### Step 1.1
 
-- [ ] `{File/Class}` — {what to do and why, specific enough to act on}
-- [ ] `{File/Class}` — {what to do and why}
-- [ ] ...
+**Status:** Pending
+
+**Target:** `{File/Class}`
+
+{what to do and why, specific enough to act on}
+
+### Step 1.2
+
+**Status:** Pending
+
+**Target:** `{File/Class}`
+
+{what to do and why, specific enough to act on}
+
+### Step 1.M
+
+...
 
 ---
 
-## Phase 2: {name} (~{X} hrs)
+## Phase N: {name} (~{X} hrs)
 
 ...

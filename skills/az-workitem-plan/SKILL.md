@@ -1,6 +1,6 @@
 ---
 name: az-workitem-plan
-description: Follow-up to az-workitem-digest. Reads the digest.md for a work item, analyzes the current codebase to discover related services and projects, and produces a phased, file-level implementation plan written to plan.md. On subsequent runs, shows progress and updates checkboxes. Makes NO code changes.
+description: Follow-up to az-workitem-digest. Reads the digest.md for a work item, analyzes the current codebase to discover related services and projects, and produces a phased, file-level implementation plan written to plan.md. On subsequent runs, shows progress and updates step status. Makes NO code changes.
 ---
 
 ## Scope
@@ -207,8 +207,8 @@ Read the template from `skills/az-workitem-plan/plan-template.md` and use it as 
 
 Rules for the template:
 
-- Every step is a checkbox (`- [ ]`)
-- The Progress table sits at the top, immediately after the header, so it is the first thing visible when opening the file; it is updated alongside the phase checkboxes on subsequent runs
+- Every step is its own markdown sub-section under `## Phase {N}`, headed `### Step {N}.{M}` (the phase number, a dot, and the step number within that phase, starting at 1), followed by a `**Status:**` line set to `Pending` or `Done` and a `**Target:**` line naming the file/class
+- The Progress table sits at the top, immediately after the header, so it is the first thing visible when opening the file; it is updated alongside the phase step statuses on subsequent runs
 - Each phase's `**Activity:**` line must use exactly one value from the Activity Type set defined in step 8; the Progress table's Activity column for that phase must match
 - The ADO work item URL follows the pattern: `https://dev.azure.com/{org}/{project}/_workitems/edit/{id}` (read `org` and `project` from `.claude/.az-workitems/config.json`)
 - Omit the Prerequisites section if it has no content
@@ -221,11 +221,11 @@ When `plan.md` already exists:
 
 ### 3. Read and summarize current progress
 
-Read `plan.md` and compute the status of each phase by counting its checked vs. total checkboxes:
+Read `plan.md` and compute the status of each phase by counting how many of its `**Status:**` lines (one per step sub-section) read `Done` vs. `Pending`:
 
-- All boxes checked → [x] Done
-- Some boxes checked → [~] In Progress
-- No boxes checked → [ ] Pending
+- All steps `Done` → [x] Done
+- Some steps `Done` → [~] In Progress
+- No steps `Done` → [ ] Pending
 
 Print a compact summary table in chat:
 
@@ -246,16 +246,16 @@ Implementation Plan — #{id}: {title}
 Ask the user:
 
 > Which phase would you like to mark as complete? You can also name a specific step
-> to tick, or say "none" to exit.
+> (e.g. "Step 2.1"), or say "none" to exit.
 
 Wait for the response.
 
-### 5. Update checkboxes in plan.md
+### 5. Update step status in plan.md
 
 Based on the user's answer:
 
-- If they name a **phase**: tick all step checkboxes within that phase section and update the Progress table row to [x] Done
-- If they name a **specific step**: tick only that checkbox; if all steps in the phase are now checked, also update the Progress table to [x] Done
+- If they name a **phase**: set `**Status:** Done` on every step sub-section within that phase section and update the Progress table row to [x] Done
+- If they name a **specific step**: set `**Status:** Done` on only that step's sub-section; if all steps in the phase are now `Done`, also update the Progress table to [x] Done
 - Update the Progress table's status column to reflect the new state
 - If they say "none" or similar, exit without changes
 

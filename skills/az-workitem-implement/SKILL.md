@@ -40,7 +40,7 @@ If `plan.md` does not exist, stop and tell the user:
 Parse `plan.md` and extract:
 
 - The **Progress table** — phase names, estimates, and current status (`[ ] Pending`, `[~] In Progress`, `[x] Done`)
-- Each **Phase section** — its scope, services touched, and step list
+- Each **Phase section** — its scope, services touched, and step sub-sections (`### Step {N}.{M}`, each with a `**Status:**` and `**Target:**` line)
 - The **Discovered Services table** — maps service names to relative paths and technology stack; used in step 9 to report touched projects
 
 ### 3. Resolve which phases to implement
@@ -69,7 +69,7 @@ For each resolved phase, **in ascending order**, run the following sub-steps.
 
 ### 4. Read the phase steps
 
-Re-read the phase section from `plan.md`. Extract each step line (`- [ ] ...`).
+Re-read the phase section from `plan.md`. Extract each step sub-section (`### Step {N}.{M}`), its `**Status:**`, and its `**Target:**`.
 
 If any step references a file or class that does not exist yet, note it as a **new artifact** to be created. If any step is ambiguous or underspecified:
 
@@ -149,7 +149,7 @@ Run the build command from the project root directory (the folder containing the
 
 After the build passes for all affected projects:
 
-1. Tick every step checkbox in the phase section: `- [ ]` → `- [x]`
+1. Set `**Status:** Done` on every step sub-section in the phase section
 2. Update the phase row in the Progress table: status → `[x] Done`
 3. If all phases in the table are now `[x] Done`, update the overall summary line if present.
 
