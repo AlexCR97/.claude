@@ -55,8 +55,8 @@ jump directly to [Subsequent-run flow](#subsequent-run-flow).
 Parse `digest.md` and extract:
 
 - **Title** and **work item type** (from the `# Work Item Digest` heading)
-- **Description TL;DR**
-- **High-Level Implementation Steps** section — this is the primary input for planning
+- **Description** — the TL;DR of the problem or goal; this is the primary input for planning
+- **Acceptance Criteria** — the conditions that must be met; use these to derive concrete, actionable steps
 - **Related Work Items** — note any child or related IDs that may map to separate services
 
 ### 4. Discover services in the codebase
@@ -120,13 +120,13 @@ If the user confirms with no changes, proceed.
 
 ### 6. Analyze relevant services
 
-For each confirmed service that is relevant to the high-level implementation steps,
-do a **targeted read** — enough to identify:
+For each confirmed service that is relevant to the description and acceptance
+criteria, do a **targeted read** — enough to identify:
 
 - The entry point or main module
 - Key directories (controllers, services, components, routes, etc.)
 - Existing patterns (naming conventions, folder structure, test locations)
-- Files most likely to be touched based on the implementation steps
+- Files most likely to be touched based on the description and acceptance criteria
 
 The goal is to be able to name specific files and classes in the plan. Read only
 what is necessary — do not read entire codebases.

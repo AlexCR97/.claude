@@ -2,13 +2,14 @@
 
 > Generated on {YYYY-MM-DD} at {HH:MM} UTC
 
-## Overview
+## Metadata
 
 | Field       | Value                    |
 | ----------- | ------------------------ |
+| ID          | {id}                     |
 | Type        | {type}                   |
-| State       | {state}                  |
-| Priority    | {priority}               |
+| Area        | {area path}              |
+| Sprint      | {iteration path}         |
 | Assigned To | {assignee or Unassigned} |
 | Tags        | {tags or —}              |
 
@@ -46,10 +47,3 @@
 people involved, and the current status or next agreed action. Synthesize — do not list comments one by one.
 Incorporate what inline images showed where relevant. Link to particularly significant comments using the
 comment URL pattern. Omit this section if there are no comments.}
-
-## High-Level Implementation Steps
-
-{Numbered list of concrete, actionable steps to implement or resolve this work item. Derive from the
-description, acceptance criteria, attachments, discussion, and related items. Be specific — not generic
-boilerplate. Group logically (e.g. backend, frontend, testing, deployment) when work spans multiple
-concerns. Link steps to referenced work items where relevant.}

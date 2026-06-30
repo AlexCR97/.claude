@@ -1,6 +1,6 @@
 ---
 name: az-workitem-digest
-description: Reads an Azure DevOps work item by ID (user story, bug, or task), analyzes its description, acceptance criteria, attached files and images, and related work items, then outputs a structured digest and high-level implementation steps.
+description: Reads an Azure DevOps work item by ID (user story, bug, or task), analyzes its description, acceptance criteria, attached files and images, and related work items, then outputs a structured digest.
 ---
 
 ## Input
@@ -84,10 +84,10 @@ From `tree.work_item.fields`, extract:
 | ID                        | `System.Id`                                             |
 | Type                      | `System.WorkItemType`                                   |
 | Title                     | `System.Title`                                          |
-| State                     | `System.State`                                          |
+| Area                      | `System.AreaPath`                                       |
+| Sprint                    | `System.IterationPath`                                  |
 | Description / Repro Steps | `System.Description` or `Microsoft.VSTS.TCM.ReproSteps` |
 | Acceptance Criteria       | `Microsoft.VSTS.Common.AcceptanceCriteria`              |
-| Priority                  | `Microsoft.VSTS.Common.Priority`                        |
 | Assigned To               | `System.AssignedTo.displayName`                         |
 | Tags                      | `System.Tags`                                           |
 
@@ -162,4 +162,3 @@ Rules:
 - Strip all HTML from description, acceptance criteria, and comment text before writing to the digest
 - If a related work item was skipped due to `max_depth_reached` or `already_visited`, list it by ID only
 - If an attachment download failed, note it as unavailable rather than omitting it silently
-- The Implementation Steps must be specific to this work item, not a generic template
