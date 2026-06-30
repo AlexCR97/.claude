@@ -34,7 +34,9 @@ Before any phase begins, ensure the following are in place:
 ## Phase 1: {name} (~{X} hrs)
 
 **Scope:** {one sentence describing what this phase achieves}
+
 **Activity:** {Development | Testing | Design | Deployment | Documentation | Human Review}
+
 **Services touched:** {comma-separated list}
 
 ### Step 1.1
