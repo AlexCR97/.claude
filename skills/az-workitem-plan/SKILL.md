@@ -5,17 +5,20 @@ description: Follow-up to az-workitem-digest. Reads the digest.md for a work ite
 
 ## Scope
 
-This skill is a **planning-only** tool. It reads, analyzes, and writes documentation.
-It must **never** create, edit, or delete source code files, run migrations, install
-packages, or make any change to the codebase being analyzed.
+This skill is a **planning-only** tool. It reads, analyzes, and writes documentation. It must **never** create, edit, or delete source code files, run migrations, install packages, or make any change to the codebase being analyzed.
+
+The `digest.md` is the **single source of truth** for all ADO work item context during planning. Planning reasoning must be derived exclusively from:
+- `digest.md`
+- the downloaded attachments it references (under `.claude/.az-workitems/{id}/raw/`)
+- the codebase being planned against
+
+**Never read `raw.json`.** If `digest.md` is missing information needed to plan, ask the user or run `/az-workitem-refine {id}` followed by `/az-workitem-digest {id}` — do not fall back to the raw data.
 
 ---
 
 ## Input
 
-The user must supply a **work item ID**. It may be passed as an argument (e.g.
-`/az-workitem-plan 12345`) or stated in the message. If no ID is provided, ask for
-one before proceeding.
+The user must supply a **work item ID**. It may be passed as an argument (e.g. `/az-workitem-plan 12345`) or stated in the message. If no ID is provided, ask for one before proceeding.
 
 ---
 
@@ -25,8 +28,7 @@ Run the following steps **in order**. Do not skip any step.
 
 ### 1. Locate the digest
 
-Resolve the config and digest paths from the **current working directory of the
-session** (same `.claude` resolution logic as `az-workitem-digest`):
+Resolve the config and digest paths from the **current working directory of the session** (same `.claude` resolution logic as `az-workitem-digest`):
 
 - If `.claude/` exists in the CWD, use it; otherwise the plan cannot proceed.
 - Config path: `.claude/.az-workitems/config.json`
@@ -43,8 +45,7 @@ If `digest.md` does not exist, stop and tell the user:
 
 ### 2. Check for an existing plan
 
-If `plan.md` already exists for this work item, **do not regenerate it**. Instead,
-jump directly to [Subsequent-run flow](#subsequent-run-flow).
+If `plan.md` already exists for this work item, **do not regenerate it**. Instead, jump directly to [Subsequent-run flow](#subsequent-run-flow).
 
 ---
 
@@ -58,12 +59,11 @@ Parse `digest.md` and extract:
 - **Description** — the TL;DR of the problem or goal; this is the primary input for planning
 - **Acceptance Criteria** — the conditions that must be met; use these to derive concrete, actionable steps
 - **Related Work Items** — note any child or related IDs that may map to separate services
+- **Attachments** — for each attachment listed, if its description suggests it carries information relevant to planning (a mockup, a log file, a spec document, a diagram), open the downloaded file at `.claude/.az-workitems/{id}/raw/{filename}` and factor its content into the plan. Rely on the digest's existing description first; only open the file itself when more detail is needed than the digest provides.
 
 ### 4. Discover services in the codebase
 
-Scan the current working directory for signals that identify projects and services.
-Do **not** read source file contents at this stage — only file names, paths, and
-directory structure matter here.
+Scan the current working directory for signals that identify projects and services. Do **not** read source file contents at this stage — only file names, paths, and directory structure matter here.
 
 Look for the following indicators, in order of priority:
 
@@ -112,24 +112,20 @@ Does this look correct? Are there any services I missed or should ignore?
 
 Wait for the user's response before continuing.
 
-If the user corrects or adds a path, read only those specific paths/files to gather
-the missing context, then incorporate the correction. Do not re-scan the entire
-directory.
+If the user corrects or adds a path, read only those specific paths/files to gather the missing context, then incorporate the correction. Do not re-scan the entire directory.
 
 If the user confirms with no changes, proceed.
 
 ### 6. Analyze relevant services
 
-For each confirmed service that is relevant to the description and acceptance
-criteria, do a **targeted read** — enough to identify:
+For each confirmed service that is relevant to the description and acceptance criteria, do a **targeted read** — enough to identify:
 
 - The entry point or main module
 - Key directories (controllers, services, components, routes, etc.)
 - Existing patterns (naming conventions, folder structure, test locations)
 - Files most likely to be touched based on the description and acceptance criteria
 
-The goal is to be able to name specific files and classes in the plan. Read only
-what is necessary — do not read entire codebases.
+The goal is to be able to name specific files and classes in the plan. Read only what is necessary — do not read entire codebases.
 
 ### 7. Derive hour estimates
 
@@ -174,8 +170,7 @@ Do not print the plan body in chat.
 
 #### Phase ordering
 
-Order phases by logical dependency — each phase must be completable before the next
-begins:
+Order phases by logical dependency — each phase must be completable before the next begins:
 
 1. Prerequisites / environment setup
 2. Database / schema changes
@@ -196,12 +191,8 @@ Read the template from `skills/az-workitem-plan/plan-template.md` and use it as 
 Rules for the template:
 
 - Every step is a checkbox (`- [ ]`)
-- The Progress table sits at the top, immediately after the header, so it is the
-  first thing visible when opening the file; it is updated alongside the phase
-  checkboxes on subsequent runs
-- The ADO work item URL follows the pattern:
-  `https://dev.azure.com/{org}/{project}/_workitems/edit/{id}`
-  (read `org` and `project` from `.claude/.az-workitems/config.json`)
+- The Progress table sits at the top, immediately after the header, so it is the first thing visible when opening the file; it is updated alongside the phase checkboxes on subsequent runs
+- The ADO work item URL follows the pattern: `https://dev.azure.com/{org}/{project}/_workitems/edit/{id}` (read `org` and `project` from `.claude/.az-workitems/config.json`)
 - Omit the Prerequisites section if it has no content
 
 ---
@@ -212,8 +203,7 @@ When `plan.md` already exists:
 
 ### 3. Read and summarize current progress
 
-Read `plan.md` and compute the status of each phase by counting its checked vs.
-total checkboxes:
+Read `plan.md` and compute the status of each phase by counting its checked vs. total checkboxes:
 
 - All boxes checked → [x] Done
 - Some boxes checked → [~] In Progress
@@ -246,10 +236,8 @@ Wait for the response.
 
 Based on the user's answer:
 
-- If they name a **phase**: tick all step checkboxes within that phase section and
-  update the Progress table row to [x] Done
-- If they name a **specific step**: tick only that checkbox; if all steps in the
-  phase are now checked, also update the Progress table to [x] Done
+- If they name a **phase**: tick all step checkboxes within that phase section and update the Progress table row to [x] Done
+- If they name a **specific step**: tick only that checkbox; if all steps in the phase are now checked, also update the Progress table to [x] Done
 - Update the Progress table's status column to reflect the new state
 - If they say "none" or similar, exit without changes
 
@@ -261,13 +249,10 @@ Confirm with a single line:
 
 ## Constraints
 
-- **Never create, edit, or delete any source code file** — this skill is
-  planning-only
-- **Never run commands** that modify the codebase (no `dotnet`, `npm install`,
-  migrations, git commits, etc.)
+- **Never create, edit, or delete any source code file** — this skill is planning-only
+- **Never run commands** that modify the codebase (no `dotnet`, `npm install`, migrations, git commits, etc.)
 - Read only enough of the codebase to produce specific, accurate step descriptions
-- Derive all plan content from the digest and the codebase — do not fabricate
-  file names or class names that do not exist
-- Do not regenerate the plan if `plan.md` already exists unless the user explicitly
-  asks (e.g. "regenerate the plan" or "refresh the plan")
+- Derive all plan content from `digest.md`, the attachments it references, and the codebase — do not fabricate file names or class names that do not exist
+- **Never read `raw.json`** — `digest.md` is the single source of truth for the work item's content during planning
+- Do not regenerate the plan if `plan.md` already exists unless the user explicitly asks (e.g. "regenerate the plan" or "refresh the plan")
 - Hour estimates are heuristic guides only — always qualify them with `~`

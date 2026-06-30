@@ -15,10 +15,6 @@
 
 ---
 
-## Summary
-
-{2-3 sentence overview of what this plan covers, derived from the digest TL;DR and the implementation steps.}
-
 ## Discovered Services
 
 | Service | Path            | Technology |
