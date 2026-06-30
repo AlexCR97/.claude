@@ -142,7 +142,9 @@ Use these URL patterns wherever references appear in the digest:
 | -------------- | ----------------------------------------------------------------------------------- |
 | Work item      | `https://dev.azure.com/{org}/{project}/_workitems/edit/{id}`                        |
 | Comment        | `https://dev.azure.com/{org}/{project}/_workitems/edit/{work-item-id}#{comment-id}` |
-| Attachment     | the original `url` from `raw.json`                                                  |
+| Attachment     | the local file when downloaded; otherwise the original `url` from `raw.json`        |
+
+For attachments, **always prefer the local downloaded file over the remote URL**. When an attachment has `download_ok: true`, link to the local copy using a path relative to the digest (`digest.md` lives in `.claude/.az-workitems/{id}/`, so the file is at `raw/{local_filename}`). Only fall back to the original remote `url` when `download_ok` is `false` (i.e. no local file is present).
 
 #### Digest template
 
