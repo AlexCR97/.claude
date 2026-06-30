@@ -5,13 +5,13 @@
 
 ## Progress
 
-| Phase           | Estimate     | Status      |
-| --------------- | ------------ | ----------- |
-| Prerequisites   | —            | [ ] Pending |
-| Phase 1: {name} | ~{X} hrs     | [ ] Pending |
-| Phase 2: {name} | ~{X} hrs     | [ ] Pending |
-| ...             |              |             |
-| **Total**       | **~{X} hrs** |             |
+| Phase           | Activity   | Estimate     | Status      |
+| --------------- | ---------- | ------------ | ----------- |
+| Prerequisites   | —          | —            | [ ] Pending |
+| Phase 1: {name} | {Activity} | ~{X} hrs     | [ ] Pending |
+| Phase 2: {name} | {Activity} | ~{X} hrs     | [ ] Pending |
+| ...             |            |              |             |
+| **Total**       |            | **~{X} hrs** |             |
 
 ---
 
@@ -34,6 +34,7 @@ Before any phase begins, ensure the following are in place:
 ## Phase 1: {name} (~{X} hrs)
 
 **Scope:** {one sentence describing what this phase achieves}
+**Activity:** {Development | Testing | Design | Deployment | Documentation | Human Review}
 **Services touched:** {comma-separated list}
 
 ### Steps
