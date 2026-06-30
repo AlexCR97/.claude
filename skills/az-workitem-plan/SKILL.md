@@ -154,7 +154,22 @@ Adjust down for:
 
 - Highly repetitive changes following an obvious existing pattern (−25%)
 
-### 8. Write plan.md
+### 8. Assign an Activity Type to each phase
+
+Every phase must declare exactly one **Activity** from the following fixed set:
+
+| Activity      | Use when the phase is primarily...                                             |
+| ------------- | -------------------------------------------------------------------------------- |
+| Development   | writing or modifying source code (backend, frontend, scripts)                    |
+| Testing       | authoring or updating unit, integration, or E2E tests                            |
+| Design        | defining schema, API contracts, or architecture before code is written           |
+| Deployment    | CI/CD pipeline changes, IaC, release/rollout steps                               |
+| Documentation | README, ADRs, comments, or other written artifacts                               |
+| Human Review  | a checkpoint requiring manual approval/decision rather than autonomous execution |
+
+If a phase's work spans more than one activity, assign the activity that represents the majority of the effort. If the split is significant, divide the work into separate phases instead.
+
+### 9. Write plan.md
 
 Compose the plan using the template below and write it to:
 
@@ -170,17 +185,19 @@ Do not print the plan body in chat.
 
 #### Phase ordering
 
-Order phases by logical dependency — each phase must be completable before the next begins:
+Order phases by logical dependency — each phase must be completable before the next begins. Within that dependency chain, also order phases by their Activity Type, following the natural execution lifecycle: **Design → Development → Testing → Documentation → Deployment**. A **Human Review** phase is a checkpoint, not a lifecycle stage — place it immediately after the phase(s) whose output it gates, wherever that falls in the sequence.
 
 1. Prerequisites / environment setup
-2. Database / schema changes
-3. Backend — data access layer
-4. Backend — business logic / domain
-5. Backend — API / contracts
-6. Shared libraries or contracts (if updated)
-7. Frontend
-8. Tests (unit, integration, E2E)
-9. DevOps / CI / deployment
+2. Design — schema, API contracts, architecture decisions
+3. Database / schema changes
+4. Backend — data access layer
+5. Backend — business logic / domain
+6. Backend — API / contracts
+7. Shared libraries or contracts (if updated)
+8. Frontend
+9. Tests (unit, integration, E2E)
+10. Documentation
+11. DevOps / CI / deployment
 
 Omit any phase for which there is no work to do.
 
@@ -192,6 +209,7 @@ Rules for the template:
 
 - Every step is a checkbox (`- [ ]`)
 - The Progress table sits at the top, immediately after the header, so it is the first thing visible when opening the file; it is updated alongside the phase checkboxes on subsequent runs
+- Each phase's `**Activity:**` line must use exactly one value from the Activity Type set defined in step 8; the Progress table's Activity column for that phase must match
 - The ADO work item URL follows the pattern: `https://dev.azure.com/{org}/{project}/_workitems/edit/{id}` (read `org` and `project` from `.claude/.az-workitems/config.json`)
 - Omit the Prerequisites section if it has no content
 
@@ -214,13 +232,13 @@ Print a compact summary table in chat:
 ```
 Implementation Plan — #{id}: {title}
 
-| Phase                       | Estimate     | Status            |
-| --------------------------- | ------------ | ----------------- |
-| Prerequisites               | —            | [x] Done          |
-| Phase 1: Database migration | ~0.5 hrs     | [x] Done          |
-| Phase 2: Repository layer   | ~1.5 hrs     | [~] In Progress   |
-| Phase 3: API endpoint       | ~1.5 hrs     | [ ] Pending       |
-| **Total**                   | **~3.5 hrs** | 2 / 4 phases done |
+| Phase                       | Activity    | Estimate     | Status            |
+| --------------------------- | ----------- | ------------ | ----------------- |
+| Prerequisites               | —           | —            | [x] Done          |
+| Phase 1: Database migration | Development | ~0.5 hrs     | [x] Done          |
+| Phase 2: Repository layer   | Development | ~1.5 hrs     | [~] In Progress   |
+| Phase 3: API endpoint       | Development | ~1.5 hrs     | [ ] Pending       |
+| **Total**                   |             | **~3.5 hrs** | 2 / 4 phases done |
 ```
 
 ### 4. Ask which phase to update
