@@ -1,6 +1,6 @@
 ---
 name: az-workitem-init
-description: Initializes the .claude/.az-workitems directory and config.json for the current workspace. Run this once before using az-workitem-digest, az-workitem-plan, or az-workitem-implement.
+description: Initializes the .claude/.az-workitems directory and config.json for the current workspace. Run this once before using az-workitem-fetch, az-workitem-refine, az-workitem-digest, az-workitem-plan, or az-workitem-implement.
 ---
 
 ## Purpose
