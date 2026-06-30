@@ -1,6 +1,6 @@
 ---
 name: az-workitem-refine
-description: Runs an interactive refinement session between Claude and the user to challenge and sharpen a work item's requirements against the existing codebase, domain model, and business context. Posts a structured Q&A summary as a comment on the ADO work item when complete.
+description: Runs an interactive refinement session between Claude and the user to challenge and sharpen a work item's requirements against its domain model and business context. Posts a structured Q&A summary as a comment on the ADO work item when complete.
 ---
 
 ## Purpose
@@ -91,7 +91,7 @@ Present each question in this format:
 ```
 {N.M} {Question}
 
-> Recommended: {your recommended answer, derived from the work item context and codebase}
+> Recommended: {your recommended answer, derived from the work item context}
 ```
 
 Where `N` is the round number and `M` is the question number within the round.
@@ -123,7 +123,6 @@ Cover:
 - Which domain entities are created, updated, deleted or involved in any way by this work item?
 - Are there any new fields, relationships, or constraints being introduced to the data model?
 - What invariants must always hold after this change? (e.g. uniqueness, foreign key integrity, business rules)
-- Are there existing patterns in the codebase this should follow? If so, which files or classes are the best reference?
 - Does this change affect any shared contracts (APIs, events, DTOs, database schemas) that other services depend on?
 
 #### Round 3 — Edge cases and failure modes
@@ -196,7 +195,7 @@ Report the result with a single line:
 
 - Never modify source code files
 - Never run git operations
+- Never read, search, or explore the codebase — base all questions and recommendations solely on the work item data (raw.json, discussion, attachments, related items). Codebase exploration is exclusive to `az-workitem-plan`
 - Never post the comment without the user's explicit confirmation in step 7
-- Do not fabricate codebase patterns — only reference files and classes that actually exist
 - Never print the raw PAT value in chat
 - Do not delete `refinement-comment.md` manually — the script deletes it automatically via `--delete-after-post` once the comment is confirmed posted
