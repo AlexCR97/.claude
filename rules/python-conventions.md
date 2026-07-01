@@ -38,6 +38,24 @@ def total(items, tax_rate=0.0):
     return sum(i.price for i in items) * (1 + tax_rate)
 ```
 
+#### Prefer `uvx ruff` when it's available
+
+When `uvx` and `ruff` are available, lint-fix and format Python code with Ruff via `uvx` — no separate install step needed. First confirm both are available:
+
+```bash
+uvx -V        # verify uvx (from uv) is installed
+uvx ruff -V   # verify ruff can be resolved and run through uvx
+```
+
+If both commands succeed, run the linter (with autofix) first, then the formatter:
+
+```bash
+uvx ruff check --fix   # apply lint rules and autofix what it safely can
+uvx ruff format        # apply the formatter
+```
+
+Run `check --fix` before `format` so that any import sorting or rule fixes are applied before the formatter does its final pass. If either availability check fails, fall back to whatever formatter/linter the project already configures (`black`, `ruff` installed locally, `autopep8`, etc.).
+
 ### Prefer f-strings over `%` formatting or `.format()`
 
 f-strings are more readable and faster than the alternatives. Reserve `.format()` for cases where the template is built dynamically (e.g., loaded from a config file).
