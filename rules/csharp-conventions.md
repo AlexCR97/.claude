@@ -353,6 +353,21 @@ public Product? Find(int id) => null;
 
 ## Code Style & Readability
 
+### Use `var` only when the type is exactly inferrable from the right-hand side
+
+Use `var` when the assigned expression's type is unambiguous at a glance — typically when the type name already appears in the expression (a constructor call, a cast, or a generic method whose return type matches its type argument exactly). If the right-hand side returns a different type than its generic argument (e.g., a method that wraps `T` in a collection, `Task<T>`, or some other type), declare the variable with its actual type instead. This keeps the type visible to the reader without relying on IDE tooltips.
+
+```cs
+// Good: the type is exactly inferrable from the expression
+var something = obj.ProduceOutput<MyType>();         // returns MyType
+
+// Bad: ProduceOutputs returns IReadOnlyList<MyType>, not MyType — the var hides this
+var anotherThing = obj.ProduceOutputs<MyType>();
+
+// Good: the actual return type is made explicit
+IReadOnlyList<MyType> anotherThing = obj.ProduceOutputs<MyType>();
+```
+
 ### Mark classes `static` if they are not meant to be instantiated
 
 If a class contains only static members and will never be instantiated, mark it `static`. This prevents accidental instantiation and clearly communicates intent.
