@@ -177,6 +177,23 @@ class User:
 
 Type hints are not enforced at runtime (except by optional tools). At system boundaries — parsing user input, deserializing API payloads — validate explicitly (e.g., with `pydantic` or manual checks) rather than trusting the annotation alone.
 
+### Type-check with `uvx ty` when it's available
+
+When `uvx` and `ty` are available, type-check Python code with `ty` via `uvx` — no separate install step needed. First confirm both are available:
+
+```bash
+uvx -V         # verify uvx (from uv) is installed
+uvx ty --version   # verify ty can be resolved and run through uvx
+```
+
+If both commands succeed, run the type checker and fix the issues it reports:
+
+```bash
+uvx ty check   # run the type checker across the project
+```
+
+Resolve every reported error before considering the change complete — fix the underlying type mismatch rather than silencing it with a blanket ignore. If either availability check fails, fall back to whatever type checker the project already configures (`mypy`, `pyright`, etc.).
+
 ---
 
 ## Functions & Readability
