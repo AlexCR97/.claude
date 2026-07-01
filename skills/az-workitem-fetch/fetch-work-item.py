@@ -46,7 +46,9 @@ def get(url: str, pat: str) -> dict:
 
 def download_file(url: str, pat: str, dest: Path) -> bool:
     try:
-        req = urllib.request.Request(url, headers={"Authorization": make_auth_header(pat)})
+        req = urllib.request.Request(
+            url, headers={"Authorization": make_auth_header(pat)}
+        )
         with urllib.request.urlopen(req) as resp:
             dest.write_bytes(resp.read())
         return True
@@ -121,7 +123,10 @@ def fetch_work_item_recursive(
         )
         work_item = get(wi_url, pat)
     except Exception as exc:
-        print(f"{indent}  Warning: could not fetch work item {wi_id} → {exc}", file=sys.stderr)
+        print(
+            f"{indent}  Warning: could not fetch work item {wi_id} → {exc}",
+            file=sys.stderr,
+        )
         return {"id": wi_id, "error": str(exc), "skipped_reason": "fetch_failed"}
 
     # Fetch discussion comments
@@ -132,7 +137,10 @@ def fetch_work_item_recursive(
     try:
         comments_data = get(comments_url, pat)
     except Exception as exc:
-        print(f"{indent}  Warning: could not fetch comments for {wi_id} → {exc}", file=sys.stderr)
+        print(
+            f"{indent}  Warning: could not fetch comments for {wi_id} → {exc}",
+            file=sys.stderr,
+        )
         comments_data = {"count": 0, "comments": []}
 
     # Collect attachment metadata (actual downloads happen in main)
@@ -147,7 +155,7 @@ def fetch_work_item_recursive(
                     "comment_id": None,
                 }
             )
-    for comment in (comments_data.get("comments") or []):
+    for comment in comments_data.get("comments") or []:
         comment_html = comment.get("text") or ""
         for img_url in extract_attachment_urls_from_html(comment_html):
             guid_match = re.search(r"attachments/([^?/]+)", img_url)
@@ -175,7 +183,9 @@ def fetch_work_item_recursive(
         relation_label = RELATION_TYPES[rel_type]
 
         if relation_label not in allowed_relations:
-            print(f"{indent}  Skipping {relation_label} #{related_id} (not in traversal policy)")
+            print(
+                f"{indent}  Skipping {relation_label} #{related_id} (not in traversal policy)"
+            )
             related.append(
                 {
                     "relation_type": relation_label,
@@ -186,7 +196,9 @@ def fetch_work_item_recursive(
             continue
 
         if related_id in visited:
-            print(f"{indent}  Skipping {relation_label} #{related_id} (already visited)")
+            print(
+                f"{indent}  Skipping {relation_label} #{related_id} (already visited)"
+            )
             related.append(
                 {
                     "relation_type": relation_label,
@@ -197,7 +209,9 @@ def fetch_work_item_recursive(
             continue
 
         if depth >= MAX_DEPTH:
-            print(f"{indent}  Skipping {relation_label} #{related_id} (max depth {MAX_DEPTH} reached)")
+            print(
+                f"{indent}  Skipping {relation_label} #{related_id} (max depth {MAX_DEPTH} reached)"
+            )
             related.append(
                 {
                     "relation_type": relation_label,
@@ -261,8 +275,12 @@ def main() -> None:
         description="Fetch an Azure DevOps work item and dump raw data to disk."
     )
     parser.add_argument("--id", required=True, type=int, help="Work item ID")
-    parser.add_argument("--pat", required=True, help="Azure DevOps Personal Access Token")
-    parser.add_argument("--org", required=True, help="ADO organization name (e.g. mycompany)")
+    parser.add_argument(
+        "--pat", required=True, help="Azure DevOps Personal Access Token"
+    )
+    parser.add_argument(
+        "--org", required=True, help="ADO organization name (e.g. mycompany)"
+    )
     parser.add_argument("--project", required=True, help="ADO project name")
     args = parser.parse_args()
 
@@ -296,7 +314,7 @@ def main() -> None:
     if root_type == "task":
         # Tasks: fetch the task itself and its parent only
         allowed_relations: frozenset[str] = frozenset({"parent"})
-        print(f"Work item type: Task — traversal limited to parent only")
+        print("Work item type: Task — traversal limited to parent only")
     else:
         # User Story, Bug, and anything else: full traversal
         allowed_relations = frozenset({"parent", "child", "related"})
@@ -305,7 +323,12 @@ def main() -> None:
     # Recursively fetch the entire work item tree (always fresh)
     visited: set[int] = set()
     tree = fetch_work_item_recursive(
-        work_item_id, pat, org, project_encoded, visited, depth=0,
+        work_item_id,
+        pat,
+        org,
+        project_encoded,
+        visited,
+        depth=0,
         allowed_relations=allowed_relations,
     )
 
@@ -313,7 +336,9 @@ def main() -> None:
     all_attachments = collect_all_attachments(tree)
     new_count = sum(1 for a in all_attachments if a["url"] not in existing_url_map)
     kept_count = len(all_attachments) - new_count
-    print(f"\nAttachments: {kept_count} kept from previous fetch, {new_count} new to download…")
+    print(
+        f"\nAttachments: {kept_count} kept from previous fetch, {new_count} new to download…"
+    )
 
     downloaded: dict[str, dict] = {}  # url → download result, deduped by URL
 
@@ -327,7 +352,10 @@ def main() -> None:
             existing_fname = existing_url_map[url]
             existing_path = out_dir / existing_fname
             if existing_path.exists():
-                downloaded[url] = {"local_filename": existing_fname, "download_ok": True}
+                downloaded[url] = {
+                    "local_filename": existing_fname,
+                    "download_ok": True,
+                }
                 continue
             # File was recorded but missing from disk — re-download it
 
@@ -376,7 +404,9 @@ def main() -> None:
     }
 
     json_path = out_dir / "raw.json"
-    json_path.write_text(json.dumps(raw, indent=2, ensure_ascii=False), encoding="utf-8")
+    json_path.write_text(
+        json.dumps(raw, indent=2, ensure_ascii=False), encoding="utf-8"
+    )
 
     print(f"\nOutput directory: {out_dir}")
 
