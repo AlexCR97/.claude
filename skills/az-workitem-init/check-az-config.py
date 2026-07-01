@@ -19,14 +19,13 @@ def mask_pat(pat: str) -> str:
 def main() -> int:
     config_path = Path.cwd() / ".claude" / ".az-workitems" / "config.json"
 
-    if not config_path.exists():
-        print("not_found")
-        return 1
-
     try:
         config = json.loads(config_path.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError) as e:
-        print(f"not_found (unreadable: {e})")
+    except FileNotFoundError:
+        print("not_found")
+        return 1
+    except (json.JSONDecodeError, OSError) as exc:
+        print(f"not_found (unreadable: {exc})")
         return 1
 
     masked = dict(config)

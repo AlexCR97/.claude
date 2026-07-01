@@ -101,12 +101,10 @@ def main() -> int:
     workitems_dir = claude_dir / ".az-workitems"
     config_path = workitems_dir / "config.json"
 
-    existing: dict = {}
-    if config_path.exists():
-        try:
-            existing = json.loads(config_path.read_text(encoding="utf-8"))
-        except (json.JSONDecodeError, OSError):
-            existing = {}
+    try:
+        existing: dict = json.loads(config_path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        existing = {}
 
     # Resolve values: CLI args → existing config → interactive prompt
     org = args.org or existing.get("organization") or None
