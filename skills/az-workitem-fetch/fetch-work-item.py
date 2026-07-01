@@ -16,15 +16,19 @@ Re-fetch behavior:
 import argparse
 import base64
 import json
-import os
 import re
 import sys
+import urllib.error
 import urllib.parse
 import urllib.request
 import zipfile
 from pathlib import Path
 
 MAX_DEPTH = 3
+
+# Failures raised while fetching/downloading over the network or decoding a
+# response. Caught so a single bad relation doesn't abort the whole tree.
+NETWORK_ERRORS = (urllib.error.URLError, json.JSONDecodeError, OSError)
 
 RELATION_TYPES = {
     "System.LinkTypes.Hierarchy-Reverse": "parent",
@@ -52,7 +56,7 @@ def download_file(url: str, pat: str, dest: Path) -> bool:
         with urllib.request.urlopen(req) as resp:
             dest.write_bytes(resp.read())
         return True
-    except Exception as exc:
+    except (urllib.error.URLError, OSError) as exc:
         print(f"  Warning: could not download {url} → {exc}", file=sys.stderr)
         return False
 
@@ -122,7 +126,7 @@ def fetch_work_item_recursive(
             f"?$expand=all&api-version=7.1"
         )
         work_item = get(wi_url, pat)
-    except Exception as exc:
+    except NETWORK_ERRORS as exc:
         print(
             f"{indent}  Warning: could not fetch work item {wi_id} → {exc}",
             file=sys.stderr,
@@ -135,8 +139,8 @@ def fetch_work_item_recursive(
         f"/{wi_id}/comments?api-version=7.1-preview.4"
     )
     try:
-        comments_data = get(comments_url, pat)
-    except Exception as exc:
+        comments_data: dict = get(comments_url, pat)
+    except NETWORK_ERRORS as exc:
         print(
             f"{indent}  Warning: could not fetch comments for {wi_id} → {exc}",
             file=sys.stderr,
@@ -249,9 +253,6 @@ def load_existing_url_map(out_dir: Path) -> dict[str, str]:
     attachment URL → local_filename for files that were already downloaded.
     """
     raw_json = out_dir / "raw.json"
-    if not raw_json.exists():
-        return {}
-
     try:
         data = json.loads(raw_json.read_text(encoding="utf-8"))
     except (json.JSONDecodeError, OSError):
@@ -307,7 +308,7 @@ def main() -> None:
             pat,
         )
         root_type = (root_wi.get("fields") or {}).get("System.WorkItemType", "").lower()
-    except Exception as exc:
+    except NETWORK_ERRORS as exc:
         print(f"Warning: could not determine work item type — {exc}", file=sys.stderr)
         root_type = ""
 
@@ -360,15 +361,14 @@ def main() -> None:
             # File was recorded but missing from disk — re-download it
 
         raw_name = att["name"] or "attachment"
-        fname = safe_filename(raw_name)
-        dest = out_dir / fname
+        base = Path(safe_filename(raw_name))
+        dest = out_dir / base.name
         counter = 1
         while dest.exists():
-            stem, suffix = os.path.splitext(fname)
-            dest = out_dir / f"{stem}_{counter}{suffix}"
+            dest = out_dir / f"{base.stem}_{counter}{base.suffix}"
             counter += 1
 
-        print(f"  Downloading {fname}…")
+        print(f"  Downloading {dest.name}…")
         ok = download_file(url, pat, dest)
         if ok and zipfile.is_zipfile(dest):
             extract_dir = dest.parent / dest.stem
