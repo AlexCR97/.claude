@@ -19,9 +19,11 @@
 /todos
 .credentials.json
 .last-cleanup
+.last-update-result.json
 history.jsonl
 mcp-needs-auth-cache.json
 policy-limits.json
+remote-settings.json
 settings.json
 settings.local.json
 stats-cache.json
