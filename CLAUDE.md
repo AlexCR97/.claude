@@ -1,5 +1,9 @@
 # Global Claude Code Instructions
 
+## Command Line
+
+In Windows prefer using PowerShell. If a command cannot be executed fallback to the OS's configured shell, e.g. bash.
+
 ## JavaScript Package Manager
 
 Always use `pnpm` instead of `npm`. This applies to all commands:
