@@ -57,11 +57,11 @@ Read `.claude/.az-workitems/{id}/raw/raw.json`. The structure is:
     },
     "attachments": [            ← all attachments for this node
       {
-        "source": "relation" | "comment_inline_image",
-        "name": "{filename}",
+        "source": "relation" | "comment_inline_image" | "field_inline:{field}",
         "url": "{ado-url}",
         "comment_id": {id} | null,
-        "local_filename": "{filename}" | null,   ← null if download failed
+        "name": "{original filename}",           ← display name, may collide
+        "local_filename": "{guid}.{ext}" | null, ← on-disk name; null if download failed
         "download_ok": true | false
       }
     ],
@@ -109,9 +109,14 @@ For each entry in `tree.attachments` where `download_ok` is `true`, the file is 
 .claude/.az-workitems/{id}/raw/{local_filename}
 ```
 
+Attachment files on disk are named after their ADO attachment GUID (plus the
+original extension), because ADO names every pasted screenshot `image.png`.
+Always use `local_filename` for the path and `name` for any text shown to the
+reader — never assume the two match.
+
 Read and analyze each file:
 
-- **Image files** (`.png`, `.jpg`, `.jpeg`, `.gif`, `.webp`, `.bmp`) — view visually and describe what is shown (error screenshot, UI mockup, diagram, log output, etc.). Note which comment the image came from if `source` is `comment_inline_image`.
+- **Image files** (`.png`, `.jpg`, `.jpeg`, `.gif`, `.webp`, `.bmp`) — view visually and describe what is shown (error screenshot, UI mockup, diagram, log output, etc.). Note where the image came from: the comment id if `source` is `comment_inline_image`, or the field it is embedded in if `source` starts with `field_inline:` (e.g. `field_inline:System.Description`).
 - **Other files** (`.pdf`, `.docx`, `.txt`, `.md`, `.csv`, etc.) — read the content and summarize the relevant information.
 
 If `download_ok` is `false` for an attachment, note it as unavailable in the digest.

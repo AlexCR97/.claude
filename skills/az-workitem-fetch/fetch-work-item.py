@@ -7,10 +7,15 @@ file plus downloaded attachment files under .claude/.az-workitems/{id}/raw/.
 Related work items (parent, children, siblings) are fetched recursively up to
 MAX_DEPTH levels deep. Already-visited IDs are tracked to prevent cycles.
 
+Attachment naming:
+  - Files are named after their ADO attachment GUID plus the original
+    extension, because ADO names every pasted screenshot "image.png".
+
 Re-fetch behavior:
   - raw.json is always re-downloaded.
-  - Attachment files already present on disk are kept and NOT re-downloaded.
-  - New attachments (URLs not previously seen) are downloaded normally.
+  - Naming is deterministic, so a file already on disk is the same attachment
+    and is kept, NOT re-downloaded.
+  - New attachments are downloaded normally.
 """
 
 import argparse
@@ -62,8 +67,63 @@ def download_file(url: str, pat: str, dest: Path) -> bool:
 
 
 def extract_attachment_urls_from_html(html: str) -> list[str]:
-    """Pull /_apis/wit/attachments/... URLs from inline <img> src attributes."""
-    return re.findall(r'src="([^"]*/_apis/wit/attachments/[^"]*)"', html)
+    """
+    Pull /_apis/wit/attachments/... URLs out of inline HTML.
+
+    Covers both <img src="…"> (pasted images) and <a href="…"> (file links),
+    the two ways ADO embeds an attachment inside description or comment HTML.
+    """
+    return re.findall(r'(?:src|href)="([^"]*/_apis/wit/attachments/[^"]*)"', html)
+
+
+def attachment_guid_from_url(url: str) -> str:
+    """Extract the attachment GUID — the last path segment of an ADO attachment URL."""
+    return urllib.parse.urlparse(url).path.rstrip("/").rsplit("/", 1)[-1]
+
+
+def original_name_from_url(url: str) -> str:
+    """
+    Read the original filename ADO carries in the fileName query parameter.
+
+    Inline attachment URLs always carry it; it is absent from the plain
+    relation URL form, where the name comes from the relation attributes.
+    """
+    query = urllib.parse.urlparse(url).query
+    return urllib.parse.parse_qs(query).get("fileName", [""])[0]
+
+
+def local_filename_for(url: str, display_name: str) -> str:
+    """
+    Build the on-disk filename for an attachment: its GUID plus the original
+    extension.
+
+    ADO names every pasted screenshot "image.png", so original names collide
+    constantly. Keying the file on the attachment GUID makes it unique by
+    construction and stable across runs — the same attachment always lands on
+    the same filename, so a digest written earlier keeps pointing at the right
+    file even if images are later added or reordered. The extension is kept so
+    file-type detection still works, and the original name stays in the
+    attachment's "name" field for display.
+    """
+    guid = safe_filename(attachment_guid_from_url(url))
+    if not guid:
+        return safe_filename(display_name) or "attachment"
+    return f"{guid}{safe_filename(Path(display_name).suffix)}"
+
+
+def extract_inline_attachments(
+    html: str, source: str, comment_id: int | None
+) -> list[dict]:
+    """Build attachment records for every attachment URL embedded in HTML."""
+    return [
+        {
+            "source": source,
+            "name": original_name_from_url(url) or attachment_guid_from_url(url),
+            "url": url,
+            "comment_id": comment_id,
+        }
+        for url in extract_attachment_urls_from_html(html)
+    ]
 
 
 def safe_filename(name: str) -> str:
@@ -159,19 +219,24 @@ def fetch_work_item_recursive(
                     "comment_id": None,
                 }
             )
-    for comment in comments_data.get("comments") or []:
-        comment_html = comment.get("text") or ""
-        for img_url in extract_attachment_urls_from_html(comment_html):
-            guid_match = re.search(r"attachments/([^?/]+)", img_url)
-            fname = guid_match.group(1) + ".png" if guid_match else "inline-image.png"
-            attachments.append(
-                {
-                    "source": "comment_inline_image",
-                    "name": fname,
-                    "url": img_url,
-                    "comment_id": comment.get("id"),
-                }
+    # An image pasted into a description or acceptance criteria is embedded as
+    # inline HTML and is NOT exposed as an AttachedFile relation, so every HTML
+    # field has to be scanned directly or those attachments are missed.
+    for field_name, value in (work_item.get("fields") or {}).items():
+        if isinstance(value, str):
+            attachments.extend(
+                extract_inline_attachments(
+                    value, f"field_inline:{field_name}", comment_id=None
+                )
             )
+    for comment in comments_data.get("comments") or []:
+        attachments.extend(
+            extract_inline_attachments(
+                comment.get("text") or "",
+                "comment_inline_image",
+                comment_id=comment.get("id"),
+            )
+        )
 
     # Resolve related work items recursively
     related: list[dict] = []
@@ -247,30 +312,6 @@ def collect_all_attachments(node: dict) -> list[dict]:
     return attachments
 
 
-def load_existing_url_map(out_dir: Path) -> dict[str, str]:
-    """
-    Read the existing raw.json (if present) and return a mapping of
-    attachment URL → local_filename for files that were already downloaded.
-    """
-    raw_json = out_dir / "raw.json"
-    try:
-        data = json.loads(raw_json.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError):
-        return {}
-
-    url_map: dict[str, str] = {}
-
-    def walk(node: dict) -> None:
-        for att in node.get("attachments") or []:
-            if att.get("download_ok") and att.get("local_filename"):
-                url_map[att["url"]] = att["local_filename"]
-        for child in node.get("related") or []:
-            walk(child)
-
-    walk(data.get("tree") or {})
-    return url_map
-
-
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Fetch an Azure DevOps work item and dump raw data to disk."
@@ -296,9 +337,6 @@ def main() -> None:
     wi_dir = claude_dir / ".az-workitems" / str(work_item_id)
     out_dir = wi_dir / "raw"
     out_dir.mkdir(parents=True, exist_ok=True)
-
-    # Remember which attachments were already downloaded before this run
-    existing_url_map = load_existing_url_map(out_dir)
 
     # Determine traversal policy from the root work item type
     try:
@@ -335,48 +373,42 @@ def main() -> None:
 
     # Download attachments — skip files already present on disk
     all_attachments = collect_all_attachments(tree)
-    new_count = sum(1 for a in all_attachments if a["url"] not in existing_url_map)
-    kept_count = len(all_attachments) - new_count
+
+    # One attachment can surface from several sources: an AttachedFile relation
+    # and an inline reference in a field carry different URLs for the same
+    # file, so dedupe on the attachment GUID rather than on the URL.
+    unique: dict[str, dict] = {}
+    for att in all_attachments:
+        unique.setdefault(attachment_guid_from_url(att["url"]), att)
+
+    targets = {
+        guid: out_dir / local_filename_for(att["url"], att["name"])
+        for guid, att in unique.items()
+    }
+    kept_count = sum(1 for dest in targets.values() if dest.exists())
     print(
-        f"\nAttachments: {kept_count} kept from previous fetch, {new_count} new to download…"
+        f"\nAttachments: {kept_count} kept from previous fetch, "
+        f"{len(unique) - kept_count} new to download…"
     )
 
-    downloaded: dict[str, dict] = {}  # url → download result, deduped by URL
+    downloaded: dict[str, dict] = {}  # guid → download result
+    for guid, att in unique.items():
+        dest = targets[guid]
 
-    for att in all_attachments:
-        url = att["url"]
-        if url in downloaded:
+        # Naming is deterministic, so an existing file is this same attachment.
+        if dest.exists():
+            downloaded[guid] = {"local_filename": dest.name, "download_ok": True}
             continue
 
-        # Reuse existing file if already downloaded
-        if url in existing_url_map:
-            existing_fname = existing_url_map[url]
-            existing_path = out_dir / existing_fname
-            if existing_path.exists():
-                downloaded[url] = {
-                    "local_filename": existing_fname,
-                    "download_ok": True,
-                }
-                continue
-            # File was recorded but missing from disk — re-download it
-
-        raw_name = att["name"] or "attachment"
-        base = Path(safe_filename(raw_name))
-        dest = out_dir / base.name
-        counter = 1
-        while dest.exists():
-            dest = out_dir / f"{base.stem}_{counter}{base.suffix}"
-            counter += 1
-
         print(f"  Downloading {dest.name}…")
-        ok = download_file(url, pat, dest)
+        ok = download_file(att["url"], pat, dest)
         if ok and zipfile.is_zipfile(dest):
             extract_dir = dest.parent / dest.stem
             extract_dir.mkdir(exist_ok=True)
             with zipfile.ZipFile(dest) as zf:
                 zf.extractall(extract_dir)
             print(f"    Extracted to {extract_dir.name}/")
-        downloaded[url] = {
+        downloaded[guid] = {
             "local_filename": dest.name if ok else None,
             "download_ok": ok,
         }
@@ -384,8 +416,7 @@ def main() -> None:
     # Annotate every attachment node in the tree with its download result
     def annotate(node: dict) -> None:
         for att in node.get("attachments") or []:
-            result = downloaded.get(att["url"], {})
-            att.update(result)
+            att.update(downloaded.get(attachment_guid_from_url(att["url"]), {}))
         for child in node.get("related") or []:
             annotate(child)
 
