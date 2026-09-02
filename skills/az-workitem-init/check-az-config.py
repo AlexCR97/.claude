@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Checks whether .claude/.az-workitems/config.json exists in the current workspace.
+Checks whether ~/.az-workitems/config.json exists for the current user.
 Prints config contents with PAT masked, or "not_found" if the file is absent.
 Exit code: 0 if found, 1 if not found.
 """
@@ -17,7 +17,8 @@ def mask_pat(pat: str) -> str:
 
 
 def main() -> int:
-    config_path = Path.cwd() / ".claude" / ".az-workitems" / "config.json"
+    # Path.home() resolves to %USERPROFILE% on Windows and $HOME on Linux/macOS.
+    config_path = Path.home() / ".az-workitems" / "config.json"
 
     try:
         config = json.loads(config_path.read_text(encoding="utf-8"))

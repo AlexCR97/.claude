@@ -59,7 +59,8 @@ def main() -> None:
     parser.add_argument(
         "--comment-file",
         required=True,
-        help="Path to a file containing the comment text (HTML or plain text)",
+        help="Path to a file containing the comment text (HTML or plain text); "
+        "a leading ~ is expanded to the user's home directory",
     )
     parser.add_argument(
         "--delete-after-post",
@@ -68,7 +69,9 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    comment_path = Path(args.comment_file)
+    # expanduser() so callers can pass ~/.az-workitems/... — neither Python nor
+    # a quoted PowerShell argument expands the tilde on its own.
+    comment_path = Path(args.comment_file).expanduser()
     if not comment_path.exists():
         print(f"ERROR: comment file not found: {comment_path}", file=sys.stderr)
         sys.exit(1)

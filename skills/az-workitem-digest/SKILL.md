@@ -9,6 +9,21 @@ The user must supply a **work item ID**. It may be passed as an argument to the 
 
 ---
 
+## Paths
+
+All `az-workitem-*` data lives under the current user's home directory, so the
+paths below are the same no matter which workspace the session runs in:
+
+```
+~/.az-workitems/
+```
+
+`~` is written for brevity. Neither the file tools nor a quoted shell argument
+expand it, so **resolve it to an absolute path before use** — `C:\Users\{user}`
+on Windows, `/home/{user}` on Linux, `/Users/{user}` on macOS.
+
+---
+
 ## Execution Steps
 
 Run the following steps **in order**. Do not skip any step.
@@ -18,19 +33,19 @@ Run the following steps **in order**. Do not skip any step.
 Read credentials from:
 
 ```
-.claude/.az-workitems/config.json
+~/.az-workitems/config.json
 ```
 
 If the file does not exist, stop and tell the user:
 
-> No config found. Run `/az-workitem-init` first to set up your workspace.
+> No config found. Run `/az-workitem-init` first to set up your Azure DevOps connection.
 
 ### 2. Check for raw data
 
 Check that the fetch output exists:
 
 ```
-.claude/.az-workitems/{id}/raw/raw.json
+~/.az-workitems/{id}/raw/raw.json
 ```
 
 If it does not exist, stop and tell the user:
@@ -39,7 +54,7 @@ If it does not exist, stop and tell the user:
 
 ### 3. Analyze the raw data and assets
 
-Read `.claude/.az-workitems/{id}/raw/raw.json`. The structure is:
+Read `~/.az-workitems/{id}/raw/raw.json`. The structure is:
 
 ```
 {
@@ -106,7 +121,7 @@ From `tree.discussion.comments`, sort by `createdDate` ascending. For each comme
 For each entry in `tree.attachments` where `download_ok` is `true`, the file is available at:
 
 ```
-.claude/.az-workitems/{id}/raw/{local_filename}
+~/.az-workitems/{id}/raw/{local_filename}
 ```
 
 Attachment files on disk are named after their ADO attachment GUID (plus the
@@ -132,12 +147,12 @@ Nodes with a `skipped_reason` of `already_visited` or `max_depth_reached` should
 Write the digest to:
 
 ```
-.claude/.az-workitems/{id}/digest.md
+~/.az-workitems/{id}/digest.md
 ```
 
 Do not print the full digest body in chat. Once the file is written, confirm with a single line:
 
-> Digest written to `.claude/.az-workitems/{id}/digest.md`
+> Digest written to `~/.az-workitems/{id}/digest.md`
 
 #### Link patterns
 
@@ -149,7 +164,7 @@ Use these URL patterns wherever references appear in the digest:
 | Comment        | `https://dev.azure.com/{org}/{project}/_workitems/edit/{work-item-id}#{comment-id}` |
 | Attachment     | the local file when downloaded; otherwise the original `url` from `raw.json`        |
 
-For attachments, **always prefer the local downloaded file over the remote URL**. When an attachment has `download_ok: true`, link to the local copy using a path relative to the digest (`digest.md` lives in `.claude/.az-workitems/{id}/`, so the file is at `raw/{local_filename}`). Only fall back to the original remote `url` when `download_ok` is `false` (i.e. no local file is present).
+For attachments, **always prefer the local downloaded file over the remote URL**. When an attachment has `download_ok: true`, link to the local copy using a path relative to the digest (`digest.md` lives in `~/.az-workitems/{id}/`, so the file is at `raw/{local_filename}`). Only fall back to the original remote `url` when `download_ok` is `false` (i.e. no local file is present).
 
 #### Digest template
 
