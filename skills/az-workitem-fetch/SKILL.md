@@ -1,6 +1,6 @@
 ---
 name: az-workitem-fetch
-description: Fetches raw Azure DevOps work item data (fields, comments, attachments, related items) and writes it to .claude/.az-workitems/{id}/raw/. Always re-fetches raw.json; keeps existing attachment files and only downloads new ones. Required before running az-workitem-refine or az-workitem-digest.
+description: Fetches raw Azure DevOps work item data (fields, comments, attachments, related items) and writes it to ~/.az-workitems/{id}/raw/. Always re-fetches raw.json; keeps existing attachment files and only downloads new ones. Required before running az-workitem-refine or az-workitem-digest.
 ---
 
 ## Purpose
@@ -12,6 +12,21 @@ Downloads everything the ADO API knows about a work item and stores it locally s
 ```
 az-workitem-init → az-workitem-fetch → az-workitem-refine → [fetch → refine → …] → az-workitem-digest → az-workitem-plan → az-workitem-implement
 ```
+
+---
+
+## Paths
+
+All `az-workitem-*` data lives under the current user's home directory, so the
+paths below are the same no matter which workspace the session runs in:
+
+```
+~/.az-workitems/
+```
+
+`~` is written for brevity. Neither the file tools nor a quoted shell argument
+expand it, so **resolve it to an absolute path before use** — `C:\Users\{user}`
+on Windows, `/home/{user}` on Linux, `/Users/{user}` on macOS.
 
 ---
 
@@ -40,12 +55,12 @@ If Python is not installed, inform the user and stop.
 Read credentials from:
 
 ```
-.claude/.az-workitems/config.json
+~/.az-workitems/config.json
 ```
 
 If the file does not exist, stop and tell the user:
 
-> No config found. Run `/az-workitem-init` first to set up your workspace.
+> No config found. Run `/az-workitem-init` first to set up your Azure DevOps connection.
 
 ### 3. Run the fetch script
 
@@ -55,7 +70,7 @@ Locate the script relative to this skill file:
 skills/az-workitem-fetch/fetch-work-item.py
 ```
 
-Run it from the **current working directory of the session**:
+The script resolves its own output location under the user's home directory, so it can be run from anywhere:
 
 ```bash
 python "{path-to-skill}/fetch-work-item.py" --id {work-item-id} --org {org} --project "{project}" --pat {PAT}
@@ -69,8 +84,8 @@ The script will:
 - Write everything to:
 
 ```
-.claude/.az-workitems/{id}/raw/raw.json     ← all API data (always refreshed)
-.claude/.az-workitems/{id}/raw/{filename}   ← attachment files
+~/.az-workitems/{id}/raw/raw.json     ← all API data (always refreshed)
+~/.az-workitems/{id}/raw/{filename}   ← attachment files
 ```
 
 Wait for the script to complete. If it exits with an error, report the stderr output to the user and stop.
@@ -79,7 +94,7 @@ Wait for the script to complete. If it exits with an error, report the stderr ou
 
 Report the result with a single line:
 
-> Fetched work item #{id} — raw data written to `.claude/.az-workitems/{id}/raw/`.
+> Fetched work item #{id} — raw data written to `~/.az-workitems/{id}/raw/`.
 
 ---
 
