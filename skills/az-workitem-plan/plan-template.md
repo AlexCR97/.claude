@@ -1,7 +1,7 @@
 # Implementation Plan — [#{id}: {title}](ado-work-item-url)
 
 > Generated on {YYYY-MM-DD} at {HH:MM} UTC
-> Based on [digest.md](.claude/.az-workitems/{id}/digest.md)
+> Based on [digest.md](digest.md)
 
 ## Progress
 

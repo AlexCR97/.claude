@@ -17,6 +17,21 @@ You may run `az-workitem-fetch` followed by `az-workitem-refine` multiple times 
 
 ---
 
+## Paths
+
+All `az-workitem-*` data lives under the current user's home directory, so the
+paths below are the same no matter which workspace the session runs in:
+
+```
+~/.az-workitems/
+```
+
+`~` is written for brevity. Neither the file tools nor a quoted shell argument
+expand it, so **resolve it to an absolute path before use** — `C:\Users\{user}`
+on Windows, `/home/{user}` on Linux, `/Users/{user}` on macOS.
+
+---
+
 ## Input
 
 The user must supply a **work item ID**. It may be passed as an argument (e.g. `/az-workitem-refine 12345`) or stated in the message. If no ID is provided, ask for one before proceeding.
@@ -42,19 +57,19 @@ If Python is not installed, inform the user and stop.
 Read credentials from:
 
 ```
-.claude/.az-workitems/config.json
+~/.az-workitems/config.json
 ```
 
 If the file does not exist, stop and tell the user:
 
-> No config found. Run `/az-workitem-init` first to set up your workspace.
+> No config found. Run `/az-workitem-init` first to set up your Azure DevOps connection.
 
 ### 3. Check for raw data
 
 Check that the fetch output exists:
 
 ```
-.claude/.az-workitems/{id}/raw/raw.json
+~/.az-workitems/{id}/raw/raw.json
 ```
 
 If it does not exist, stop and tell the user:
@@ -63,7 +78,7 @@ If it does not exist, stop and tell the user:
 
 ### 4. Load the work item context
 
-Read `.claude/.az-workitems/{id}/raw/raw.json` and extract the following from `tree.work_item.fields`:
+Read `~/.az-workitems/{id}/raw/raw.json` and extract the following from `tree.work_item.fields`:
 
 - **Title** (`System.Title`)
 - **Type** (`System.WorkItemType`)
@@ -162,7 +177,7 @@ Wait for the user's response. If they request changes, update the summary and sh
 Write the confirmed summary to a temporary file:
 
 ```
-.claude/.az-workitems/{id}/refinement-comment.html
+~/.az-workitems/{id}/refinement-comment.html
 ```
 
 ### 9. Post the comment to ADO
@@ -176,7 +191,7 @@ skills/az-workitem-refine/post-refinement-comment.py
 Run it:
 
 ```bash
-python "{path-to-skill}/post-refinement-comment.py" --id {work-item-id} --org {org} --project "{project}" --pat {PAT} --comment-file ".claude/.az-workitems/{id}/refinement-comment.html" --delete-after-post
+python "{path-to-skill}/post-refinement-comment.py" --id {work-item-id} --org {org} --project "{project}" --pat {PAT} --comment-file "~/.az-workitems/{id}/refinement-comment.html" --delete-after-post
 ```
 
 Wait for the script to complete. If it exits with an error, report the stderr output and stop — do not retry automatically.

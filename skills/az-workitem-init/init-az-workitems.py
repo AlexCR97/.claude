@@ -1,29 +1,70 @@
 #!/usr/bin/env python3
 """
-Initializes the .claude/.az-workitems directory and config.json for Azure DevOps work item skills.
+Initializes the ~/.az-workitems directory and config.json for Azure DevOps work item skills.
 """
 
 import argparse
 import base64
 import json
+import shutil
+import subprocess
 import sys
-import urllib.request
 import urllib.error
+import urllib.request
 from pathlib import Path
 
+DEFAULT_ORG = "edwire"
+DEFAULT_PROJECT = "EW.Educate"
 
-def find_claude_dir(start: Path) -> Path:
-    """Return the .claude directory rooted at start, creating it if necessary."""
-    claude_dir = start / ".claude"
-    claude_dir.mkdir(parents=True, exist_ok=True)
-    return claude_dir
+# Well-known Azure DevOps resource ID — an access token issued for it is accepted
+# by the ADO REST API as the password in basic auth, exactly like a PAT.
+AZURE_DEVOPS_RESOURCE_ID = "499b84ac-1321-427f-aa17-267ca6975798"
 
 
-def mask_pat(pat: str) -> str:
-    """Return the first 3 characters followed by asterisks."""
-    if len(pat) <= 3:
-        return "*" * len(pat)
-    return pat[:3] + "*" * (len(pat) - 3)
+def fetch_default_token() -> tuple[str, str]:
+    """
+    Acquire an Azure DevOps access token via the Azure CLI.
+    Returns (token, error_message); token is empty when acquisition failed.
+    """
+    # Resolve the executable explicitly: on Windows 'az' is a .cmd shim, which
+    # CreateProcess will not find from the bare name the way PATHEXT does.
+    executable = shutil.which("az")
+    if not executable:
+        return "", "Azure CLI ('az') not found on PATH."
+
+    command = [
+        executable,
+        "account",
+        "get-access-token",
+        "--resource",
+        AZURE_DEVOPS_RESOURCE_ID,
+        "--query",
+        "accessToken",
+        "--output",
+        "tsv",
+    ]
+
+    try:
+        result = subprocess.run(
+            command,
+            capture_output=True,
+            text=True,
+            timeout=60,
+            shell=False,
+            check=False,
+        )
+    except subprocess.TimeoutExpired:
+        return "", "Azure CLI timed out while acquiring an access token."
+
+    if result.returncode != 0:
+        detail = result.stderr.strip() or f"exit code {result.returncode}"
+        return "", f"Azure CLI failed to acquire an access token — {detail}"
+
+    token = result.stdout.strip()
+    if not token:
+        return "", "Azure CLI returned an empty access token."
+
+    return token, ""
 
 
 def validate_credentials(org: str, project: str, pat: str) -> tuple[bool, str]:
@@ -53,91 +94,40 @@ def validate_credentials(org: str, project: str, pat: str) -> tuple[bool, str]:
         return False, f"Network error: {e.reason}"
 
 
-def prompt_value(name: str, current: str | None = None) -> str:
-    """Prompt the user for a value, showing the current one if present."""
-    if current:
-        prompt = f"{name} [{current}]: "
-    else:
-        prompt = f"{name}: "
-
-    while True:
-        value = input(prompt).strip()
-        if value:
-            return value
-        if current:
-            return current
-        print(f"  {name} is required.")
-
-
-def prompt_pat(current_masked: str | None = None) -> str:
-    """Prompt the user for a PAT, hiding the current masked value as hint."""
-    if current_masked:
-        prompt = f"PAT [{current_masked}] (leave blank to keep existing): "
-    else:
-        prompt = "PAT: "
-
-    while True:
-        value = input(prompt).strip()
-        if value:
-            return value
-        if current_masked:
-            # User wants to keep the existing PAT — signal this with empty string;
-            # caller must substitute the real stored value.
-            return ""
-        print("  PAT is required.")
-
-
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Initialize .claude/.az-workitems/config.json"
+        description="Initialize ~/.az-workitems/config.json"
     )
-    parser.add_argument("--org", help="Azure DevOps organization name")
-    parser.add_argument("--project", help="Azure DevOps project name")
-    parser.add_argument("--pat", help="Personal Access Token")
+    parser.add_argument(
+        "--org",
+        default=DEFAULT_ORG,
+        help=f"Azure DevOps organization name (default: {DEFAULT_ORG})",
+    )
+    parser.add_argument(
+        "--project",
+        default=DEFAULT_PROJECT,
+        help=f"Azure DevOps project name (default: {DEFAULT_PROJECT})",
+    )
+    parser.add_argument(
+        "--pat",
+        help="Personal Access Token (default: an Azure CLI access token for Azure DevOps)",
+    )
     args = parser.parse_args()
 
-    cwd = Path.cwd()
-    claude_dir = find_claude_dir(cwd)
-    workitems_dir = claude_dir / ".az-workitems"
-    config_path = workitems_dir / "config.json"
-
-    try:
-        existing: dict = json.loads(config_path.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError):
-        existing = {}
-
-    # Resolve values: CLI args → existing config → interactive prompt
-    org = args.org or existing.get("organization") or None
-    project = args.project or existing.get("project") or None
-    pat_from_args = args.pat
-
-    interactive = not (args.org and args.project and pat_from_args)
-
-    if interactive:
-        print("Enter values (press Enter to keep the current value where shown):")
-        print()
-
-    if args.org:
-        org = args.org
-    else:
-        org = prompt_value("Organization", org)
-
-    if args.project:
-        project = args.project
-    else:
-        project = prompt_value("Project", project)
-
-    if pat_from_args:
-        pat = pat_from_args
-    else:
-        current_masked = mask_pat(existing["pat"]) if existing.get("pat") else None
-        raw = prompt_pat(current_masked)
-        # Empty string means "keep existing"
-        pat = raw if raw else existing.get("pat", "")
+    org: str = args.org
+    project: str = args.project
+    pat: str = args.pat or ""
 
     if not pat:
-        print("ERROR: PAT is required.", file=sys.stderr)
-        return 1
+        print("Acquiring an Azure DevOps access token via the Azure CLI...")
+        pat, error = fetch_default_token()
+        if not pat:
+            print(f"ERROR: {error}", file=sys.stderr)
+            print(
+                "Run 'az login' or pass --pat with a Personal Access Token.",
+                file=sys.stderr,
+            )
+            return 1
 
     print()
     print("Validating credentials against Azure DevOps...")
@@ -149,11 +139,16 @@ def main() -> int:
     print("Credentials validated successfully.")
     print()
 
+    # Config is machine-wide, not per-workspace: Path.home() resolves to
+    # %USERPROFILE% on Windows and $HOME on Linux/macOS.
+    workitems_dir = Path.home() / ".az-workitems"
     workitems_dir.mkdir(parents=True, exist_ok=True)
     config = {"organization": org, "project": project, "pat": pat}
-    config_path.write_text(json.dumps(config, indent=2), encoding="utf-8")
+    (workitems_dir / "config.json").write_text(
+        json.dumps(config, indent=2), encoding="utf-8"
+    )
 
-    print(f"Config written to {config_path.relative_to(cwd)}")
+    print(f"Config written to {workitems_dir / 'config.json'}")
     return 0
 
 

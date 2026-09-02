@@ -9,10 +9,25 @@ This skill is a **planning-only** tool. It reads, analyzes, and writes documenta
 
 The `digest.md` is the **single source of truth** for all ADO work item context during planning. Planning reasoning must be derived exclusively from:
 - `digest.md`
-- the downloaded attachments it references (under `.claude/.az-workitems/{id}/raw/`)
+- the downloaded attachments it references (under `~/.az-workitems/{id}/raw/`)
 - the codebase being planned against
 
 **Never read `raw.json`.** If `digest.md` is missing information needed to plan, ask the user or run `/az-workitem-refine {id}` followed by `/az-workitem-digest {id}` — do not fall back to the raw data.
+
+---
+
+## Paths
+
+All `az-workitem-*` data lives under the current user's home directory, so the
+paths below are the same no matter which workspace the session runs in:
+
+```
+~/.az-workitems/
+```
+
+`~` is written for brevity. Neither the file tools nor a quoted shell argument
+expand it, so **resolve it to an absolute path before use** — `C:\Users\{user}`
+on Windows, `/home/{user}` on Linux, `/Users/{user}` on macOS.
 
 ---
 
@@ -28,16 +43,15 @@ Run the following steps **in order**. Do not skip any step.
 
 ### 1. Locate the digest
 
-Resolve the config and digest paths from the **current working directory of the session** (same `.claude` resolution logic as `az-workitem-digest`):
+Resolve the following against the user's home directory (see [Paths](#paths)):
 
-- If `.claude/` exists in the CWD, use it; otherwise the plan cannot proceed.
-- Config path: `.claude/.az-workitems/config.json`
-- Digest path: `.claude/.az-workitems/{id}/digest.md`
-- Plan path: `.claude/.az-workitems/{id}/plan.md`
+- Config path: `~/.az-workitems/config.json`
+- Digest path: `~/.az-workitems/{id}/digest.md`
+- Plan path: `~/.az-workitems/{id}/plan.md`
 
 If `config.json` does not exist, stop and tell the user:
 
-> No config found. Run `/az-workitem-init` first to set up your workspace.
+> No config found. Run `/az-workitem-init` first to set up your Azure DevOps connection.
 
 If `digest.md` does not exist, stop and tell the user:
 
@@ -59,7 +73,7 @@ Parse `digest.md` and extract:
 - **Description** — the TL;DR of the problem or goal; this is the primary input for planning
 - **Acceptance Criteria** — the conditions that must be met; use these to derive concrete, actionable steps
 - **Related Work Items** — note any child or related IDs that may map to separate services
-- **Attachments** — for each attachment listed, if its description suggests it carries information relevant to planning (a mockup, a log file, a spec document, a diagram), open the downloaded file at `.claude/.az-workitems/{id}/raw/{filename}` and factor its content into the plan. Rely on the digest's existing description first; only open the file itself when more detail is needed than the digest provides.
+- **Attachments** — for each attachment listed, if its description suggests it carries information relevant to planning (a mockup, a log file, a spec document, a diagram), open the downloaded file at `~/.az-workitems/{id}/raw/{filename}` and factor its content into the plan. Rely on the digest's existing description first; only open the file itself when more detail is needed than the digest provides.
 
 ### 4. Discover services in the codebase
 
@@ -174,12 +188,12 @@ If a phase's work spans more than one activity, assign the activity that represe
 Compose the plan using the template below and write it to:
 
 ```
-.claude/.az-workitems/{id}/plan.md
+~/.az-workitems/{id}/plan.md
 ```
 
 Confirm in chat with a **single line** once written:
 
-> Plan written to `.claude/.az-workitems/{id}/plan.md`
+> Plan written to `~/.az-workitems/{id}/plan.md`
 
 Do not print the plan body in chat.
 
@@ -210,7 +224,7 @@ Rules for the template:
 - Every step is its own markdown sub-section under `## Phase {N}`, headed `### Step {N}.{M}` (the phase number, a dot, and the step number within that phase, starting at 1), followed by a `**Status:**` line set to `Pending` or `Done` and a `**Target:**` line naming the file/class
 - The Progress table sits at the top, immediately after the header, so it is the first thing visible when opening the file; it is updated alongside the phase step statuses on subsequent runs
 - Each phase's `**Activity:**` line must use exactly one value from the Activity Type set defined in step 8; the Progress table's Activity column for that phase must match
-- The ADO work item URL follows the pattern: `https://dev.azure.com/{org}/{project}/_workitems/edit/{id}` (read `org` and `project` from `.claude/.az-workitems/config.json`)
+- The ADO work item URL follows the pattern: `https://dev.azure.com/{org}/{project}/_workitems/edit/{id}` (read `org` and `project` from `~/.az-workitems/config.json`)
 - Omit the Prerequisites section if it has no content
 
 ---
@@ -261,7 +275,7 @@ Based on the user's answer:
 
 Confirm with a single line:
 
-> Updated `.claude/.az-workitems/{id}/plan.md`
+> Updated `~/.az-workitems/{id}/plan.md`
 
 ---
 

@@ -2,7 +2,7 @@
 """
 Fetches a complete Azure DevOps work item by ID and dumps all raw data
 (work item fields, comments, relations, attachments) into a structured JSON
-file plus downloaded attachment files under .claude/.az-workitems/{id}/raw/.
+file plus downloaded attachment files under ~/.az-workitems/{id}/raw/.
 
 Related work items (parent, children, siblings) are fetched recursively up to
 MAX_DEPTH levels deep. Already-visited IDs are tracked to prevent cycles.
@@ -129,27 +129,6 @@ def extract_inline_attachments(
 def safe_filename(name: str) -> str:
     """Strip characters that are illegal in Windows/Linux filenames."""
     return re.sub(r'[\\/:*?"<>|]', "_", name)
-
-
-def find_claude_dir(start: Path) -> Path:
-    """
-    Walk upward looking for an existing .claude directory.
-    Falls back to creating one in start.
-    """
-    current = start.resolve()
-    while True:
-        candidate = current / ".claude"
-        if candidate.is_dir():
-            return candidate
-        for sibling in current.parent.iterdir():
-            if sibling.is_dir() and sibling.name == ".claude" and sibling != current:
-                return sibling
-        parent = current.parent
-        if parent == current:
-            local = start / ".claude"
-            local.mkdir(parents=True, exist_ok=True)
-            return local
-        current = parent
 
 
 def wi_id_from_url(url: str) -> int | None:
@@ -332,9 +311,9 @@ def main() -> None:
     project: str = args.project
     project_encoded: str = urllib.parse.quote(project, safe="")
 
-    cwd = Path.cwd()
-    claude_dir = find_claude_dir(cwd)
-    wi_dir = claude_dir / ".az-workitems" / str(work_item_id)
+    # Work item data is machine-wide, not per-workspace: Path.home() resolves
+    # to %USERPROFILE% on Windows and $HOME on Linux/macOS.
+    wi_dir = Path.home() / ".az-workitems" / str(work_item_id)
     out_dir = wi_dir / "raw"
     out_dir.mkdir(parents=True, exist_ok=True)
 

@@ -32,11 +32,11 @@ flowchart TD
     INIT_CHECK -->|No| INIT
     INIT_CHECK -->|"Yes — skip"| FETCH
 
-    INIT["/az-workitem-init\n────────────────\nCollect ADO org, project & PAT\nValidate against ADO API\nWrite config.json\n\nRun once per workspace"]
+    INIT["/az-workitem-init\n────────────────\nDefaults: org edwire, project EW.Educate,\naz CLI access token\nValidate against ADO API\nWrite config.json\n\nRun once per workspace"]
 
     INIT --> FETCH
 
-    FETCH["/az-workitem-fetch {id}\n────────────────\nDownload raw.json from ADO\nFetch attachments & inline images\nWrites to .claude/.az-workitems/{id}/raw/"]
+    FETCH["/az-workitem-fetch {id}\n────────────────\nDownload raw.json from ADO\nFetch attachments & inline images\nWrites to ~/.az-workitems/{id}/raw/"]
 
     FETCH --> REFINE_OPT{"Refine\nrequirements?"}
 

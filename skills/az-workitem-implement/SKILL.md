@@ -19,17 +19,31 @@ If `{id}` is not provided, ask for it before proceeding.
 
 ---
 
+## Paths
+
+All `az-workitem-*` data lives under the current user's home directory, so the
+paths below are the same no matter which workspace the session runs in:
+
+```
+~/.az-workitems/
+```
+
+`~` is written for brevity. Neither the file tools nor a quoted shell argument
+expand it, so **resolve it to an absolute path before use** — `C:\Users\{user}`
+on Windows, `/home/{user}` on Linux, `/Users/{user}` on macOS.
+
+---
+
 ## Execution Steps
 
 Run the following steps **in order**. Do not skip any step.
 
 ### 1. Locate the plan
 
-Resolve paths from the **current working directory of the session**:
+Resolve the following against the user's home directory (see [Paths](#paths)):
 
-- If `.claude/` exists in the CWD, use it; otherwise stop and inform the user.
-- Plan path: `.claude/.az-workitems/{id}/plan.md`
-- Digest path: `.claude/.az-workitems/{id}/digest.md`
+- Plan path: `~/.az-workitems/{id}/plan.md`
+- Digest path: `~/.az-workitems/{id}/digest.md`
 
 If `plan.md` does not exist, stop and tell the user:
 
