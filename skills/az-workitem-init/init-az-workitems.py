@@ -4,79 +4,33 @@ Initializes the ~/.az-workitems directory and config.json for Azure DevOps work 
 """
 
 import argparse
-import base64
-import json
-import shutil
-import subprocess
 import sys
 import urllib.error
 import urllib.request
 from pathlib import Path
 
+# 'az-workitem-common' is not an importable package name, so add it to sys.path.
+sys.path.append(str(Path(__file__).resolve().parent.parent / "az-workitem-common"))
+
+from ado_auth import (
+    AZ_LOGIN_HINT,
+    CONFIG_PATH,
+    fetch_cli_token,
+    local_expiry_text,
+    make_auth_header,
+    save_config,
+)
+
 DEFAULT_ORG = "edwire"
 DEFAULT_PROJECT = "EW.Educate"
 
-# Well-known Azure DevOps resource ID — an access token issued for it is accepted
-# by the ADO REST API as the password in basic auth, exactly like a PAT.
-AZURE_DEVOPS_RESOURCE_ID = "499b84ac-1321-427f-aa17-267ca6975798"
 
-
-def fetch_default_token() -> tuple[str, str]:
-    """
-    Acquire an Azure DevOps access token via the Azure CLI.
-    Returns (token, error_message); token is empty when acquisition failed.
-    """
-    # Resolve the executable explicitly: on Windows 'az' is a .cmd shim, which
-    # CreateProcess will not find from the bare name the way PATHEXT does.
-    executable = shutil.which("az")
-    if not executable:
-        return "", "Azure CLI ('az') not found on PATH."
-
-    command = [
-        executable,
-        "account",
-        "get-access-token",
-        "--resource",
-        AZURE_DEVOPS_RESOURCE_ID,
-        "--query",
-        "accessToken",
-        "--output",
-        "tsv",
-    ]
-
-    try:
-        result = subprocess.run(
-            command,
-            capture_output=True,
-            text=True,
-            timeout=60,
-            shell=False,
-            check=False,
-        )
-    except subprocess.TimeoutExpired:
-        return "", "Azure CLI timed out while acquiring an access token."
-
-    if result.returncode != 0:
-        detail = result.stderr.strip() or f"exit code {result.returncode}"
-        return "", f"Azure CLI failed to acquire an access token — {detail}"
-
-    token = result.stdout.strip()
-    if not token:
-        return "", "Azure CLI returned an empty access token."
-
-    return token, ""
-
-
-def validate_credentials(org: str, project: str, pat: str) -> tuple[bool, str]:
-    """
-    Validate org, project, and PAT against the ADO projects API.
-    Returns (success, error_message).
-    """
-    encoded = base64.b64encode(f":{pat}".encode()).decode()
+def validate_token(org: str, project: str, token: dict) -> tuple[bool, str]:
+    """Returns (success, error_message)."""
     url = f"https://dev.azure.com/{org}/_apis/projects/{project}?api-version=7.1"
 
     req = urllib.request.Request(url)
-    req.add_header("Authorization", f"Basic {encoded}")
+    req.add_header("Authorization", make_auth_header(token))
     req.add_header("Content-Type", "application/json")
 
     try:
@@ -86,7 +40,9 @@ def validate_credentials(org: str, project: str, pat: str) -> tuple[bool, str]:
             return False, f"Unexpected status {resp.status}"
     except urllib.error.HTTPError as e:
         if e.code == 401:
-            return False, "Authentication failed — PAT is invalid or expired."
+            return False, "Authentication failed — ADO rejected the token."
+        if e.code == 403:
+            return False, f"Access denied to project '{project}' in '{org}'."
         if e.code == 404:
             return False, f"Project '{project}' not found in organization '{org}'."
         return False, f"HTTP {e.code}: {e.reason}"
@@ -108,47 +64,37 @@ def main() -> int:
         default=DEFAULT_PROJECT,
         help=f"Azure DevOps project name (default: {DEFAULT_PROJECT})",
     )
-    parser.add_argument(
-        "--pat",
-        help="Personal Access Token (default: an Azure CLI access token for Azure DevOps)",
-    )
     args = parser.parse_args()
 
     org: str = args.org
     project: str = args.project
-    pat: str = args.pat or ""
 
-    if not pat:
-        print("Acquiring an Azure DevOps access token via the Azure CLI...")
-        pat, error = fetch_default_token()
-        if not pat:
-            print(f"ERROR: {error}", file=sys.stderr)
-            print(
-                "Run 'az login' or pass --pat with a Personal Access Token.",
-                file=sys.stderr,
-            )
-            return 1
+    print("Acquiring an Azure DevOps access token via the Azure CLI...")
+    token, error = fetch_cli_token()
+    if error:
+        print(f"ERROR: {error}", file=sys.stderr)
+        print(AZ_LOGIN_HINT, file=sys.stderr)
+        return 1
 
-    print()
-    print("Validating credentials against Azure DevOps...")
-    ok, error = validate_credentials(org, project, pat)
+    print("Validating the token against Azure DevOps...")
+    ok, error = validate_token(org, project, token)
     if not ok:
         print(f"ERROR: Validation failed — {error}", file=sys.stderr)
         return 1
 
-    print("Credentials validated successfully.")
+    print("Token validated successfully.")
     print()
 
-    # Config is machine-wide, not per-workspace: Path.home() resolves to
-    # %USERPROFILE% on Windows and $HOME on Linux/macOS.
-    workitems_dir = Path.home() / ".az-workitems"
-    workitems_dir.mkdir(parents=True, exist_ok=True)
-    config = {"organization": org, "project": project, "pat": pat}
-    (workitems_dir / "config.json").write_text(
-        json.dumps(config, indent=2), encoding="utf-8"
-    )
+    save_config({"organization": org, "project": project, "token": token})
 
-    print(f"Config written to {workitems_dir / 'config.json'}")
+    print(f"Config written to {CONFIG_PATH}")
+    print(f"Organization: {org}")
+    print(f"Project: {project}")
+
+    expiry_text = local_expiry_text(token)
+    if expiry_text:
+        print(f"Token expires: {expiry_text}")
+    print("Later runs refresh the token automatically as it nears expiry.")
     return 0
 
 

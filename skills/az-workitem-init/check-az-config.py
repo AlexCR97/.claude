@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
 Checks whether ~/.az-workitems/config.json exists for the current user.
-Prints config contents with PAT masked, or "not_found" if the file is absent.
+Prints the config with the access token replaced by its status, or
+"not_found" if the file is absent.
 Exit code: 0 if found, 1 if not found.
 """
 
@@ -9,19 +10,28 @@ import json
 import sys
 from pathlib import Path
 
+# 'az-workitem-common' is not an importable package name, so add it to sys.path.
+sys.path.append(str(Path(__file__).resolve().parent.parent / "az-workitem-common"))
 
-def mask_pat(pat: str) -> str:
-    if len(pat) <= 3:
-        return "*" * len(pat)
-    return pat[:3] + "*" * (len(pat) - 3)
+from ado_auth import CONFIG_PATH, is_usable, local_expiry_text
+
+
+def describe_token(token: dict) -> str:
+    """Summarize the cached token without ever revealing it."""
+    if not isinstance(token, dict) or not token.get("accessToken"):
+        return "absent — a token is acquired on the next ADO call"
+
+    expiry_text = local_expiry_text(token)
+    if not expiry_text:
+        return "expiry unknown — the token is refreshed on the next ADO call"
+
+    state = "valid" if is_usable(token) else "expired, refreshed on next ADO call"
+    return f"{state} (expires {expiry_text})"
 
 
 def main() -> int:
-    # Path.home() resolves to %USERPROFILE% on Windows and $HOME on Linux/macOS.
-    config_path = Path.home() / ".az-workitems" / "config.json"
-
     try:
-        config = json.loads(config_path.read_text(encoding="utf-8"))
+        config = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
     except FileNotFoundError:
         print("not_found")
         return 1
@@ -29,11 +39,10 @@ def main() -> int:
         print(f"not_found (unreadable: {exc})")
         return 1
 
-    masked = dict(config)
-    if "pat" in masked:
-        masked["pat"] = mask_pat(masked["pat"])
+    summary = dict(config)
+    summary["token"] = describe_token(config.get("token"))
 
-    print(json.dumps(masked, indent=2))
+    print(json.dumps(summary, indent=2))
     return 0
 
 
