@@ -54,7 +54,7 @@ If Python is not installed, inform the user and stop.
 
 ### 2. Read the config
 
-Read credentials from:
+Read the organization and project from:
 
 ```
 ~/.az-workitems/config.json
@@ -191,8 +191,10 @@ skills/az-workitem-refine/post-refinement-comment.py
 Run it:
 
 ```bash
-python "{path-to-skill}/post-refinement-comment.py" --id {work-item-id} --org {org} --project "{project}" --pat {PAT} --comment-file "~/.az-workitems/{id}/refinement-comment.html" --delete-after-post
+python "{path-to-skill}/post-refinement-comment.py" --id {work-item-id} --org {org} --project "{project}" --comment-file "~/.az-workitems/{id}/refinement-comment.html" --delete-after-post
 ```
+
+There is no credential flag — never pass one, and never read the token out of `config.json` yourself. The script uses the cached token and refreshes it through the Azure CLI when it is close to expiring.
 
 Wait for the script to complete. If it exits with an error, report the stderr output and stop — do not retry automatically.
 
@@ -223,5 +225,5 @@ Once it completes, tell the user:
 - Never run git operations
 - Never read, search, or explore the codebase — base all questions and recommendations solely on the work item data (raw.json, discussion, attachments, related items). Codebase exploration is exclusive to `az-workitem-plan`
 - Never post the comment without the user's explicit confirmation in step 7
-- Never print the raw PAT value in chat
+- Never print the `accessToken` value from `config.json` in chat, and never pass it to a command
 - Do not delete `refinement-comment.md` manually — the script deletes it automatically via `--delete-after-post` once the comment is confirmed posted

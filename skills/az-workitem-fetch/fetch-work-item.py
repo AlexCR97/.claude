@@ -19,7 +19,6 @@ Re-fetch behavior:
 """
 
 import argparse
-import base64
 import json
 import re
 import sys
@@ -29,11 +28,23 @@ import urllib.request
 import zipfile
 from pathlib import Path
 
+# 'az-workitem-common' is not an importable package name, so add it to sys.path.
+sys.path.append(str(Path(__file__).resolve().parent.parent / "az-workitem-common"))
+
+from ado_auth import make_auth_header, require_token
+
 MAX_DEPTH = 3
 
-# Failures raised while fetching/downloading over the network or decoding a
-# response. Caught so a single bad relation doesn't abort the whole tree.
+# Caught so a single bad relation doesn't abort the whole tree.
 NETWORK_ERRORS = (urllib.error.URLError, json.JSONDecodeError, OSError)
+
+
+class CredentialExpiredError(Exception):
+    """
+    A CLI token can expire mid-fetch. Aborting beats continuing: every later
+    call fails the same way and leaves a partial raw/ that reads as complete.
+    """
+
 
 RELATION_TYPES = {
     "System.LinkTypes.Hierarchy-Reverse": "parent",
@@ -42,25 +53,39 @@ RELATION_TYPES = {
 }
 
 
-def make_auth_header(pat: str) -> str:
-    token = base64.b64encode(f":{pat}".encode()).decode()
-    return f"Basic {token}"
+def abort_if_unauthorized(exc: urllib.error.HTTPError) -> None:
+    if exc.code == 401:
+        raise CredentialExpiredError(
+            "Azure DevOps rejected the credential (HTTP 401). If it came from "
+            "the Azure CLI it has expired — re-run 'az login' and try again."
+        ) from exc
 
 
-def get(url: str, pat: str) -> dict:
-    req = urllib.request.Request(url, headers={"Authorization": make_auth_header(pat)})
-    with urllib.request.urlopen(req) as resp:
-        return json.loads(resp.read().decode())
+def get(url: str, token: dict) -> dict:
+    req = urllib.request.Request(
+        url, headers={"Authorization": make_auth_header(token)}
+    )
+    try:
+        with urllib.request.urlopen(req) as resp:
+            return json.loads(resp.read().decode())
+    except urllib.error.HTTPError as exc:
+        # HTTPError is a URLError: without this, NETWORK_ERRORS swallows the 401.
+        abort_if_unauthorized(exc)
+        raise
 
 
-def download_file(url: str, pat: str, dest: Path) -> bool:
+def download_file(url: str, token: dict, dest: Path) -> bool:
     try:
         req = urllib.request.Request(
-            url, headers={"Authorization": make_auth_header(pat)}
+            url, headers={"Authorization": make_auth_header(token)}
         )
         with urllib.request.urlopen(req) as resp:
             dest.write_bytes(resp.read())
         return True
+    except urllib.error.HTTPError as exc:
+        abort_if_unauthorized(exc)
+        print(f"  Warning: could not download {url} → {exc}", file=sys.stderr)
+        return False
     except (urllib.error.URLError, OSError) as exc:
         print(f"  Warning: could not download {url} → {exc}", file=sys.stderr)
         return False
@@ -139,7 +164,7 @@ def wi_id_from_url(url: str) -> int | None:
 
 def fetch_work_item_recursive(
     wi_id: int,
-    pat: str,
+    token: dict,
     org: str,
     project_encoded: str,
     visited: set[int],
@@ -164,7 +189,7 @@ def fetch_work_item_recursive(
             f"https://dev.azure.com/{org}/_apis/wit/workItems/{wi_id}"
             f"?$expand=all&api-version=7.1"
         )
-        work_item = get(wi_url, pat)
+        work_item = get(wi_url, token)
     except NETWORK_ERRORS as exc:
         print(
             f"{indent}  Warning: could not fetch work item {wi_id} → {exc}",
@@ -178,7 +203,7 @@ def fetch_work_item_recursive(
         f"/{wi_id}/comments?api-version=7.1-preview.4"
     )
     try:
-        comments_data: dict = get(comments_url, pat)
+        comments_data: dict = get(comments_url, token)
     except NETWORK_ERRORS as exc:
         print(
             f"{indent}  Warning: could not fetch comments for {wi_id} → {exc}",
@@ -270,7 +295,13 @@ def fetch_work_item_recursive(
             continue
 
         node = fetch_work_item_recursive(
-            related_id, pat, org, project_encoded, visited, depth + 1, allowed_relations
+            related_id,
+            token,
+            org,
+            project_encoded,
+            visited,
+            depth + 1,
+            allowed_relations,
         )
         related.append({"relation_type": relation_label, **node})
 
@@ -297,22 +328,19 @@ def main() -> None:
     )
     parser.add_argument("--id", required=True, type=int, help="Work item ID")
     parser.add_argument(
-        "--pat", required=True, help="Azure DevOps Personal Access Token"
-    )
-    parser.add_argument(
         "--org", required=True, help="ADO organization name (e.g. mycompany)"
     )
     parser.add_argument("--project", required=True, help="ADO project name")
     args = parser.parse_args()
 
     work_item_id: int = args.id
-    pat: str = args.pat
     org: str = args.org
     project: str = args.project
     project_encoded: str = urllib.parse.quote(project, safe="")
 
-    # Work item data is machine-wide, not per-workspace: Path.home() resolves
-    # to %USERPROFILE% on Windows and $HOME on Linux/macOS.
+    token = require_token()
+
+    # Work item data is machine-wide, not per-workspace.
     wi_dir = Path.home() / ".az-workitems" / str(work_item_id)
     out_dir = wi_dir / "raw"
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -322,7 +350,7 @@ def main() -> None:
         root_wi = get(
             f"https://dev.azure.com/{org}/_apis/wit/workItems/{work_item_id}"
             f"?fields=System.WorkItemType&api-version=7.1",
-            pat,
+            token,
         )
         root_type = (root_wi.get("fields") or {}).get("System.WorkItemType", "").lower()
     except NETWORK_ERRORS as exc:
@@ -342,7 +370,7 @@ def main() -> None:
     visited: set[int] = set()
     tree = fetch_work_item_recursive(
         work_item_id,
-        pat,
+        token,
         org,
         project_encoded,
         visited,
@@ -380,7 +408,7 @@ def main() -> None:
             continue
 
         print(f"  Downloading {dest.name}…")
-        ok = download_file(att["url"], pat, dest)
+        ok = download_file(att["url"], token, dest)
         if ok and zipfile.is_zipfile(dest):
             extract_dir = dest.parent / dest.stem
             extract_dir.mkdir(exist_ok=True)
@@ -422,4 +450,8 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except CredentialExpiredError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        sys.exit(1)

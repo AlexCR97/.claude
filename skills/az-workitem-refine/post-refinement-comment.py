@@ -6,21 +6,20 @@ The file must contain HTML, as ADO discussion renders HTML only.
 """
 
 import argparse
-import base64
 import json
 import sys
+import urllib.error
 import urllib.parse
 import urllib.request
-import urllib.error
 from pathlib import Path
 
+# 'az-workitem-common' is not an importable package name, so add it to sys.path.
+sys.path.append(str(Path(__file__).resolve().parent.parent / "az-workitem-common"))
 
-def make_auth_header(pat: str) -> str:
-    token = base64.b64encode(f":{pat}".encode()).decode()
-    return f"Basic {token}"
+from ado_auth import make_auth_header, require_token
 
 
-def post_comment(org: str, project: str, wi_id: int, pat: str, text: str) -> dict:
+def post_comment(org: str, project: str, wi_id: int, token: dict, text: str) -> dict:
     project_encoded = urllib.parse.quote(project, safe="")
     url = (
         f"https://dev.azure.com/{org}/{project_encoded}/_apis/wit/workItems"
@@ -32,7 +31,7 @@ def post_comment(org: str, project: str, wi_id: int, pat: str, text: str) -> dic
         data=payload,
         method="POST",
         headers={
-            "Authorization": make_auth_header(pat),
+            "Authorization": make_auth_header(token),
             "Content-Type": "application/json",
         },
     )
@@ -55,7 +54,6 @@ def main() -> None:
     parser.add_argument("--id", required=True, type=int, help="Work item ID")
     parser.add_argument("--org", required=True, help="ADO organization name")
     parser.add_argument("--project", required=True, help="ADO project name")
-    parser.add_argument("--pat", required=True, help="Personal Access Token")
     parser.add_argument(
         "--comment-file",
         required=True,
@@ -81,7 +79,9 @@ def main() -> None:
         print("ERROR: comment file is empty.", file=sys.stderr)
         sys.exit(1)
 
-    result = post_comment(args.org, args.project, args.id, args.pat, text)
+    token = require_token()
+
+    result = post_comment(args.org, args.project, args.id, token, text)
     comment_id = result.get("id")
     print(f"Comment posted successfully (id={comment_id}).")
 

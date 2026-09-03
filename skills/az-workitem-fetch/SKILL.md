@@ -52,7 +52,7 @@ If Python is not installed, inform the user and stop.
 
 ### 2. Read the config
 
-Read credentials from:
+Read the organization and project from:
 
 ```
 ~/.az-workitems/config.json
@@ -73,12 +73,15 @@ skills/az-workitem-fetch/fetch-work-item.py
 The script resolves its own output location under the user's home directory, so it can be run from anywhere:
 
 ```bash
-python "{path-to-skill}/fetch-work-item.py" --id {work-item-id} --org {org} --project "{project}" --pat {PAT}
+python "{path-to-skill}/fetch-work-item.py" --id {work-item-id} --org {org} --project "{project}"
 ```
+
+There is no credential flag — never pass one, and never read the token out of `config.json` yourself. The script uses the cached token and refreshes it through the Azure CLI when it is close to expiring.
 
 The script will:
 
 - Always re-download `raw.json` with fresh data from ADO
+- Abort with a non-zero exit code if ADO returns 401 mid-fetch, rather than writing a partially downloaded `raw/`
 - Keep attachment files already present on disk from a previous fetch
 - Download only attachments that are new or missing
 - Write everything to:
