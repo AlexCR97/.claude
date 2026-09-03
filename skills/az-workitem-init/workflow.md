@@ -32,7 +32,7 @@ flowchart TD
     INIT_CHECK -->|No| INIT
     INIT_CHECK -->|"Yes — skip"| FETCH
 
-    INIT["/az-workitem-init\n────────────────\nDefaults: org edwire, project EW.Educate,\naz CLI access token\nValidate against ADO API\nWrite config.json\n\nRun once per workspace"]
+    INIT["/az-workitem-init\n────────────────\nDefaults: org edwire, project EW.Educate\nAcquire an az CLI token & validate it\nWrite config.json incl. the token\nLater runs refresh it near expiry\n\nRun once per machine"]
 
     INIT --> FETCH
 
