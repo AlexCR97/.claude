@@ -1,6 +1,6 @@
 ---
 name: az-workitem-init
-description: Initializes the ~/.az-workitems directory and config.json in the user's home directory. Run this once per machine before using az-workitem-fetch, az-workitem-refine, az-workitem-digest, az-workitem-plan, or az-workitem-implement.
+description: Initializes the ~/.az-workitems directory and config.json in the user's home directory. Run this once per machine before using any other az-workitem-* skill — fetch, refine, digest, plan, implement, checkpoint, or resume.
 ---
 
 ## Purpose

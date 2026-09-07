@@ -1,6 +1,6 @@
 ---
 name: az-workitem-implement
-description: Follow-up to az-workitem-plan. Reads plan.md for a work item and implements one, several, or all phases by making real code changes. Marks phases complete in plan.md as it goes. On completion, reports which projects were touched.
+description: Follow-up to az-workitem-plan. Reads plan.md for a work item and implements one, several, or all phases by making real code changes. Tracks step status (Pending, In Progress, Blocked, Done) in plan.md as it goes. On completion, reports which projects were touched and what was inferred.
 ---
 
 ## Input
@@ -34,6 +34,7 @@ All `az-workitem-*` data lives under the current user's home directory, so the p
 ```
 ~/.az-workitems/{id}/
 ├── digest.md              ← az-workitem-digest
+├── journal.md             ← az-workitem-checkpoint (not this skill's — see below)
 ├── plan.md                ← az-workitem-plan
 ├── raw/                   ← az-workitem-fetch (raw.json + attachments)
 └── artifacts/             ← files generated while planning or implementing
@@ -42,7 +43,9 @@ All `az-workitem-*` data lives under the current user's home directory, so the p
     └── step-{N}.{M}/      ← everything one plan step produced
 ```
 
-`artifacts/` and its subdirectories are created lazily — only when a run actually produces a file. The work item root holds nothing but the four entries above: **never write a generated file directly into `~/.az-workitems/{id}/`.**
+`artifacts/` and its subdirectories are created lazily — only when a run actually produces a file. The work item root holds nothing but the five entries above: **never write a generated file directly into `~/.az-workitems/{id}/`.**
+
+`journal.md` is the per-session work log, and it is **out of scope for this skill: never read it, never write to it.** It belongs to `az-workitem-checkpoint`, which writes it when attention leaves the work item, and to `az-workitem-resume`, which reads it back at the start of the next session. By the time this skill runs, `az-workitem-resume` has already loaded that history into the session, so reading it again would only spend context on what is already here. What this skill records instead is `plan.md` — the step statuses in [Step Status](#step-status) — and the chat report in [step 9](#9-report-touched-projects).
 
 **Placement rules**
 
@@ -69,6 +72,41 @@ Nothing here belongs in the repository being worked on. A artifact is a record o
 
 ---
 
+## Step Status
+
+A step's `**Status:**` line takes exactly one of four values, optionally followed by ` — ` and a one-line note:
+
+| Status        | Means                 | Note                                                                    |
+| ------------- | --------------------- | ----------------------------------------------------------------------- |
+| `Pending`     | Not started           | None                                                                    |
+| `In Progress` | Started, not finished | **Required** — what is done and what remains                            |
+| `Blocked`     | Cannot proceed        | **Required** — what is blocking, and what would clear it                |
+| `Done`        | Finished              | Optional — only where the outcome differed from what the step asked for |
+
+e.g.:
+
+```
+**Status:** In Progress — harness runs for the Analytics job; the Identity case throws at startup
+**Status:** Blocked — waiting on the Identity team to confirm the claim name
+```
+
+`In Progress` and `Blocked` exist so that stopping mid-phase is recordable. A session that ends between steps must leave the plan saying so: a step that is 80% finished marked `Pending` loses the 80%, and marked `Done` loses far more than that. The note is what makes the state actionable later — `In Progress` alone says only that a step was touched.
+
+The phase's row in the Progress table is **derived** from its steps, never set independently:
+
+| Condition                        | Phase status      |
+| -------------------------------- | ----------------- |
+| Any step `Blocked`               | `[!] Blocked`     |
+| Every step `Done`                | `[x] Done`        |
+| Any step `Done` or `In Progress` | `[~] In Progress` |
+| Otherwise                        | `[ ] Pending`     |
+
+A phase row may carry a short parenthetical where the count alone misleads — `[x] Done (4 skipped)`, `[~] In Progress (2.7 left to run)`.
+
+The note is the whole of what this skill records about *why* a step is where it is, so make it carry its weight in one line. The fuller account of a session — decisions, rationale, the next action — is `az-workitem-checkpoint`'s to write, from this session's conversation, when attention leaves the work item.
+
+---
+
 ## Execution Steps
 
 Run the following steps **in order**. Do not skip any step.
@@ -89,11 +127,13 @@ If `plan.md` does not exist, stop and tell the user:
 
 Parse `plan.md` and extract:
 
-- The **Progress table** — phase names, estimates, and current status (`[ ] Pending`, `[~] In Progress`, `[x] Done`)
-- Each **Phase section** — its scope, services touched, and step sub-sections (`### Step {N}.{M}`, each with a `**Status:**`, `**Target:**`, and `**Artifacts:**` line)
+- The **Progress table** — phase names, estimates, and current status (`[ ] Pending`, `[~] In Progress`, `[!] Blocked`, `[x] Done`)
+- Each **Phase section** — its scope, services touched, and step sub-sections (`### Step {N}.{M}`, each with a `**Status:**`, `**Target:**`, and `**Artifacts:**` line). A `**Status:**` line may carry a note after an em dash; see [Step status](#step-status)
 - The **Discovered Services table** — maps service names to relative paths and technology stack; used in step 9 to report touched projects
 
 Then list `~/.az-workitems/{id}/artifacts/`. Every `**Artifacts:**` line that names a directory should have one on disk, and every directory on disk should be named by some step's `**Artifacts:**` line. Where they disagree, trust the disk and correct `plan.md`.
+
+A step marked `In Progress` or `Blocked` was left mid-flight by an earlier session. Its `**Status:**` note is what this skill goes on, together with anything about that session already in this conversation — `az-workitem-resume` puts it there when it briefs the session. Do not open `journal.md` to look for more.
 
 ### 3. Resolve which phases to implement
 
@@ -102,6 +142,14 @@ If `{phases}` was provided as `all`, collect every phase whose status is not `[x
 If `{phases}` was provided as a comma-separated list, collect those phase numbers — but **skip any that are already `[x] Done`** and warn the user for each skipped one:
 
 > Phase {N} ({name}) is already marked done — skipping.
+
+A phase whose status is `[!] Blocked` is **not** skipped automatically, but it is not run silently either. Report the blocking step and its note, and ask before proceeding:
+
+> Phase {N} ({name}) is blocked at Step {N}.{M} — {note}. Has that been resolved? I can implement the phase's other steps, or wait.
+
+Wait for the answer. Implementing straight through a blocker usually produces work that has to be redone once the real answer arrives.
+
+A phase holding an `In Progress` step resumes at that step rather than restarting the phase — its `**Status:**` note says what is already done.
 
 If `{phases}` was not provided, print the current progress table and ask:
 
@@ -122,6 +170,8 @@ For each resolved phase, **in ascending order**, run the following sub-steps.
 ### 4. Read the phase steps
 
 Re-read the phase section from `plan.md`. Extract each step sub-section (`### Step {N}.{M}`), its `**Status:**`, `**Target:**`, and `**Artifacts:**`.
+
+Skip any step already marked `Done`. Resume — do not restart — any step marked `In Progress`: read its `**Status:**` note first and take what it says was already done as done. Re-doing a completed half of a step is how a resumed session quietly reverts a decision the previous one made.
 
 For every step whose `**Artifacts:**` line is not `—`, **read that step's artifacts directory before implementing anything**. A previous run left those files there because they carry something the plan alone does not: a measurement, a query result, an extract, a correction. Treat what they establish as fact, and never re-run a probe whose output is already on disk. Also read `artifacts/shared/` and `artifacts/planning/` if they exist — a findings document in either may carry the premise the step was built on, or a later correction to it.
 
@@ -177,6 +227,21 @@ The approval in point 2 is required every time, for every script artifact. A pla
 
 If what an artifact establishes contradicts the plan, do not quietly implement the plan anyway. Record the contradiction in the artifact, tell the user, and ask whether to revise the plan before continuing.
 
+#### Keeping the step's status current
+
+Set the step's `**Status:**` to `In Progress` **before making its first edit**, with a note saying the work has just begun, and keep that note current as the step's state materially changes. A session can end at any moment — an interrupt, a context switch, a closed terminal — and only what is already on disk survives it. A status written after the fact is a status that is sometimes never written at all.
+
+Where a step cannot be completed, do not leave it reading `In Progress`:
+
+- **Blocked on an answer** — something outside the codebase must be decided or confirmed. Set `Blocked` with a note naming what is blocking and what would clear it, tell the user, and move to the next step in the phase if one is independent of it.
+- **Blocked on a contradiction** — an artifact or the codebase contradicts what the step assumes. Follow the rule under [Producing an artifact](#producing-an-artifact): record it, tell the user, and ask whether to revise the plan. Do not implement the step as written.
+
+#### Noting decisions as they are made
+
+Every choice made in dialogue during a phase — an approach chosen over another, a detail inferred because the plan was silent — needs to be **stated in chat with its rationale, as it happens**, and carried into the report in [step 9](#9-report-touched-projects).
+
+Saying it out loud is what preserves it. This skill does not write the session's history down; `az-workitem-checkpoint` does, and it builds its entry from this conversation. A decision that was made silently is one the checkpoint cannot record and the next session will re-litigate.
+
 #### General rules
 
 - Do not add features, abstractions, or refactors beyond what the step requires.
@@ -214,14 +279,16 @@ Run the build command from the project root directory (the folder containing the
 
    Do not mark the phase complete or continue to the next phase until the build passes.
 
-### 8. Mark the phase complete in plan.md
+### 8. Update the phase's status in plan.md
 
 After the build passes for all affected projects:
 
-1. Set `**Status:** Done` on every step sub-section in the phase section
+1. Set `**Status:** Done` on every step sub-section that was actually completed. Leave a step that could not be completed as `Blocked` or `In Progress` with its note intact — see [Step Status](#step-status)
 2. Set the `**Artifacts:**` line of every step that produced files to the paths under `artifacts/`, relative to `plan.md`; leave it `—` for steps that produced none
-3. Update the phase row in the Progress table: status → `[x] Done`
+3. Derive the phase row in the Progress table from its steps, using the table in [Step Status](#step-status). Add a short parenthetical where the status alone misleads — `[~] In Progress (2.7 blocked on the claim name)`
 4. If all phases in the table are now `[x] Done`, update the overall summary line if present.
+
+A phase whose steps are not all `Done` is not marked `[x] Done`, however much of it ran. The point of the derivation is that the table cannot claim more than the steps support.
 
 Then **automatically continue** to the next selected phase (back to step 4).
 
@@ -246,12 +313,25 @@ Done. Projects touched:
   • {Service name} — {relative path to project root}
 ```
 
-If any steps were implemented using inferred details (because the plan was underspecified), append a note:
+Then append what this run decided and assumed, each naming the step it affects. Omit either list when it is empty:
 
 ```
+Decisions:
+  • {Step N.M} — {what was chosen, over what, and why}
+
 Inferences made:
-  • {step description} — {what was inferred and why}
+  • {Step N.M} — {what was inferred and why}
 ```
+
+This report is the only place either list is written down, so state it even when it feels obvious — `az-workitem-checkpoint` builds the session's journal entry from this conversation, and what was never said cannot be recorded.
+
+Close by naming where the work stands and how to keep it:
+
+```
+Left in flight: {Step N.M} — {status and its note} | Nothing in flight.
+```
+
+> Run `/az-workitem-checkpoint {id}` before switching away from this work item, and `/az-workitem-resume {id}` when you come back to it.
 
 ---
 
@@ -261,6 +341,11 @@ Inferences made:
 - Only run read-only or build commands (`dotnet build`, `pnpm build`, etc.) — never run commands that modify the environment, install global tools, or alter state outside the project being built
 - Never implement beyond the scope of the selected phases
 - Never re-implement a phase already marked `[x] Done` — warn and skip instead
+- Never re-implement a step already marked `Done`, and resume rather than restart one marked `In Progress`
+- **Never read or write `journal.md`** — it belongs to `az-workitem-checkpoint` and `az-workitem-resume`. Resume has already brought its contents into the session; reading it again only spends context on what is already here
+- Never write a bare `In Progress` or `Blocked` status: both require a one-line note. Mark a step `In Progress` before its first edit, so an interrupted session still leaves an accurate plan
+- State every decision and inference in chat with its rationale as it is made — the report is the only record of them this skill produces
+- Never mark a phase `[x] Done` while any of its steps is not `Done` — the phase row is always derived from its steps
 - Consult `digest.md` only when `plan.md` is unclear — do not use it to expand scope beyond the plan
 - Apply both local codebase conventions and the global rules in `~/.claude/rules/`; local patterns win on style, global rules win on correctness
 - New file placement follows `plan.md` first, project structure second — never ask the user unless both signals are absent
