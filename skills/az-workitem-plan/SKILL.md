@@ -1,15 +1,19 @@
 ---
 name: az-workitem-plan
-description: Follow-up to az-workitem-digest. Reads the digest.md for a work item, analyzes the current codebase to discover related services and projects, and produces a phased, file-level implementation plan written to plan.md. On subsequent runs, shows progress and updates step status. Makes NO code changes.
+description: Follow-up to az-workitem-digest. Reads the digest.md for a work item, analyzes the current codebase to discover related services and projects, and produces a phased, file-level implementation plan written to plan.md. Researches unknowns that would change the plan, storing scripts and findings under artifacts/planning/ and asking first before running any script. On subsequent runs, shows progress and updates step status. Makes NO code changes.
 ---
 
 ## Scope
 
 This skill is a **planning-only** tool. It reads, analyzes, and writes documentation. It must **never** create, edit, or delete source code files, run migrations, install packages, or make any change to the codebase being analyzed.
 
+"Planning-only" constrains what this skill may change, not what it may learn. Producing research artifacts — a probe script, its captured output, an inventory, a findings note — is part of planning and belongs under `artifacts/planning/` (see [Paths](#paths) and [step 7](#7-research-unknowns-that-would-change-the-plan)). A plan built on an unverified assumption is worth less than the hour spent verifying it.
+
 The `digest.md` is the **single source of truth** for all ADO work item context during planning. Planning reasoning must be derived exclusively from:
+
 - `digest.md`
 - the downloaded attachments it references (under `~/.az-workitems/{id}/raw/`)
+- any artifacts a previous run left under `~/.az-workitems/{id}/artifacts/`
 - the codebase being planned against
 
 **Never read `raw.json`.** If `digest.md` is missing information needed to plan, ask the user or run `/az-workitem-refine {id}` followed by `/az-workitem-digest {id}` — do not fall back to the raw data.
@@ -18,16 +22,49 @@ The `digest.md` is the **single source of truth** for all ADO work item context 
 
 ## Paths
 
-All `az-workitem-*` data lives under the current user's home directory, so the
-paths below are the same no matter which workspace the session runs in:
+All `az-workitem-*` data lives under the current user's home directory, so the paths below are the same no matter which workspace the session runs in:
 
 ```
 ~/.az-workitems/
 ```
 
-`~` is written for brevity. Neither the file tools nor a quoted shell argument
-expand it, so **resolve it to an absolute path before use** — `C:\Users\{user}`
-on Windows, `/home/{user}` on Linux, `/Users/{user}` on macOS.
+`~` is written for brevity. Neither the file tools nor a quoted shell argument expand it, so **resolve it to an absolute path before use** — `C:\Users\{user}` on Windows, `/home/{user}` on Linux, `/Users/{user}` on macOS.
+
+### Work item directory layout
+
+```
+~/.az-workitems/{id}/
+├── digest.md              ← az-workitem-digest
+├── plan.md                ← az-workitem-plan
+├── raw/                   ← az-workitem-fetch (raw.json + attachments)
+└── artifacts/             ← files generated while planning or implementing
+    ├── planning/          ← research done to build the plan itself
+    ├── shared/            ← artifacts spanning more than one step
+    └── step-{N}.{M}/      ← everything one plan step produced
+```
+
+`artifacts/` and its subdirectories are created lazily — only when a run actually produces a file. The work item root holds nothing but the four entries above: **never write a generated file directly into `~/.az-workitems/{id}/`.**
+
+**Placement rules**
+
+- A file belongs to the step that produced it: `artifacts/step-{N}.{M}/`, where `{N}.{M}` matches the `### Step {N}.{M}` heading in `plan.md` exactly.
+- A file produced while researching the plan itself — before the steps it informs exist — goes in `artifacts/planning/`.
+- A file that more than one step reads, or that applies to the plan as a whole (a findings document, a data extract several steps consult), goes in `artifacts/shared/`.
+- The captured output of running a script is written beside it as `{name}.output.{ext}`, where `{ext}` is the format the output actually is — `.json` for a JSON document, `.csv`, `.tsv`, `.jsonl`, `.md`, `.sql`, `.xml`, and so on. **Default to `.txt`**, and reach for a structured extension only when the whole file parses as that format: console output that mixes a table, a log line and a summary is `.txt`, however much JSON it happens to contain. Naming a capture for what it holds is what lets a later run parse it instead of re-running the script to get the data in a usable shape.
+- When a structured capture would be spoiled by diagnostics, keep stdout in the structured file and put stderr beside it as `{name}.stderr.txt`. Where output is plain text anyway, one combined `{name}.output.txt` is simpler and preferred.
+- Any of these directories may hold a `README.md` recording what was done and what it found. Write one whenever the artifacts alone would not tell a later reader why they exist.
+
+**Renumbering**
+
+Plans change shape: research reorders phases, one step splits into two, a phase turns out to belong earlier. **Renumber whenever the plan reads better for it.** A step number is also a directory name, though, so renumbering is a rename — and it is finished only when nothing still points at the old number:
+
+1. Rename each affected `artifacts/step-{old}/` to `artifacts/step-{new}/`.
+2. Update the `## Phase {N}` and `### Step {N}.{M}` headings in `plan.md`.
+3. Update every `**Artifacts:**` line that named a renamed directory.
+4. Search `plan.md` and every file under `artifacts/` — `planning/`, `shared/`, and each step's `README.md` included — for the old identifiers (`step-1.1`, `Step 1.1`, `Phase 3`) and update each occurrence.
+5. Tell the user what moved and why.
+
+Do all five in one pass. A half-renumbered plan, where an `**Artifacts:**` line points at a directory that no longer exists, is worse than one that was never renumbered at all.
 
 ---
 
@@ -48,6 +85,7 @@ Resolve the following against the user's home directory (see [Paths](#paths)):
 - Config path: `~/.az-workitems/config.json`
 - Digest path: `~/.az-workitems/{id}/digest.md`
 - Plan path: `~/.az-workitems/{id}/plan.md`
+- Artifacts directory: `~/.az-workitems/{id}/artifacts/` — may not exist yet; absent on a first run
 
 If `config.json` does not exist, stop and tell the user:
 
@@ -65,7 +103,7 @@ If `plan.md` already exists for this work item, **do not regenerate it**. Instea
 
 ## First-run Flow
 
-### 3. Read the digest
+### 3. Read the digest and survey existing work
 
 Parse `digest.md` and extract:
 
@@ -74,6 +112,10 @@ Parse `digest.md` and extract:
 - **Acceptance Criteria** — the conditions that must be met; use these to derive concrete, actionable steps
 - **Related Work Items** — note any child or related IDs that may map to separate services
 - **Attachments** — for each attachment listed, if its description suggests it carries information relevant to planning (a mockup, a log file, a spec document, a diagram), open the downloaded file at `~/.az-workitems/{id}/raw/{filename}` and factor its content into the plan. Rely on the digest's existing description first; only open the file itself when more detail is needed than the digest provides.
+
+Then list `~/.az-workitems/{id}/artifacts/` (see [Paths](#paths)). If it exists, a previous run already investigated something. For `planning/`, for each `step-{N}.{M}/`, and for `shared/`, read the `README.md` if present, otherwise skim the artifacts themselves.
+
+Anything measured or established there is **evidence, and outranks assumption**. Do not plan a step that re-derives a fact an existing artifact already settles — reference the artifact instead. If an artifact contradicts `digest.md`, say so to the user and plan around the measured value, not the stated one.
 
 ### 4. Discover services in the codebase
 
@@ -141,10 +183,27 @@ For each confirmed service that is relevant to the description and acceptance cr
 
 The goal is to be able to name specific files and classes in the plan. Read only what is necessary — do not read entire codebases.
 
-### 7. Derive hour estimates
+### 7. Research unknowns that would change the plan
 
-Estimate effort per phase using these heuristics. Estimates are rough guides, not
-commitments.
+A plan built on a false assumption is wrong in its *shape*, not just its estimates: phases get sequenced around a bottleneck that is not there, and the effort lands on the wrong candidate. Research is how the plan earns its structure.
+
+Before estimating, name the facts the plan's shape rests on that neither `digest.md` nor the codebase settles — a production row count, whether an index exists, which of two code paths actually runs, the true size of a data set, how long something currently takes. For each, ask: **if this turned out to be wrong by an order of magnitude, would the plan change?** If not, record it as a stated assumption in the plan and move on. If it would, research it now rather than discovering it during implementation.
+
+Reading files needs no permission — the codebase, a local export, an attachment. Writing a script does not need permission either. **Running one always does.**
+
+A script artifact is never executed until the user has approved that specific script. Write it first, then show what it does, what it reads, and where its output will land, and ask:
+
+> To size Phase 2 I need the real number of `UserAuthorization` documents in production — the work item states ~21,000 but nothing has confirmed it. I have written a read-only query at `artifacts/planning/count-authorizations.js`; it runs one `countDocuments` against `analytics-svc-userauthorizations` and writes nothing. May I run it against production?
+
+Wait for the answer, and ask again for each subsequent run — approval covers the run in front of the user, not the script forever. Never write to an external system under any circumstance.
+
+Store everything the research produced under `artifacts/planning/`: the script, its captured output named for the format it holds (see [Paths](#paths)), and a `README.md` recording what was asked, what was measured, and what it settled. Then plan against the measured value, and name the artifact on the `**Artifacts:**` line of every step that rests on it.
+
+If research contradicts `digest.md`, plan around the measured value and tell the user which stated fact it displaced — do not quietly plan against a number the work item still asserts.
+
+### 8. Derive hour estimates
+
+Estimate effort per phase using these heuristics. Estimates are rough guides, not commitments.
 
 | Signal                                              | Baseline |
 | --------------------------------------------------- | -------- |
@@ -168,7 +227,7 @@ Adjust down for:
 
 - Highly repetitive changes following an obvious existing pattern (−25%)
 
-### 8. Assign an Activity Type to each phase
+### 9. Assign an Activity Type to each phase
 
 Every phase must declare exactly one **Activity** from the following fixed set:
 
@@ -183,7 +242,7 @@ Every phase must declare exactly one **Activity** from the following fixed set:
 
 If a phase's work spans more than one activity, assign the activity that represents the majority of the effort. If the split is significant, divide the work into separate phases instead.
 
-### 9. Write plan.md
+### 10. Write plan.md
 
 Compose the plan using the template below and write it to:
 
@@ -221,9 +280,10 @@ Read the template from `skills/az-workitem-plan/plan-template.md` and use it as 
 
 Rules for the template:
 
-- Every step is its own markdown sub-section under `## Phase {N}`, headed `### Step {N}.{M}` (the phase number, a dot, and the step number within that phase, starting at 1), followed by a `**Status:**` line set to `Pending` or `Done` and a `**Target:**` line naming the file/class
+- Every step is its own markdown sub-section under `## Phase {N}`, headed `### Step {N}.{M}` (the phase number, a dot, and the step number within that phase, starting at 1), followed by a `**Status:**` line set to `Pending` or `Done`, a `**Target:**` line naming the file/class, and an `**Artifacts:**` line
+- The `**Artifacts:**` line names every file a step **produced or rests on**, as paths relative to `plan.md` — e.g. `**Artifacts:** [artifacts/planning/count-authorizations.output.json](artifacts/planning/count-authorizations.output.json)`. It reads `—` only when a step neither produced anything nor depends on prior research. Planning fills it in with the artifacts from step 7 and with any existing directory for that step; `az-workitem-implement` appends what it produces
 - The Progress table sits at the top, immediately after the header, so it is the first thing visible when opening the file; it is updated alongside the phase step statuses on subsequent runs
-- Each phase's `**Activity:**` line must use exactly one value from the Activity Type set defined in step 8; the Progress table's Activity column for that phase must match
+- Each phase's `**Activity:**` line must use exactly one value from the Activity Type set defined in step 9; the Progress table's Activity column for that phase must match
 - The ADO work item URL follows the pattern: `https://dev.azure.com/{org}/{project}/_workitems/edit/{id}` (read `org` and `project` from `~/.az-workitems/config.json`)
 - Omit the Prerequisites section if it has no content
 
@@ -235,7 +295,7 @@ When `plan.md` already exists:
 
 ### 3. Read and summarize current progress
 
-Read `plan.md` and compute the status of each phase by counting how many of its `**Status:**` lines (one per step sub-section) read `Done` vs. `Pending`:
+Read `plan.md` and list `~/.az-workitems/{id}/artifacts/`. Reconcile the two: if a step has an artifacts directory but its `**Artifacts:**` line still reads `—`, fill the line in. Then compute the status of each phase by counting how many of its `**Status:**` lines (one per step sub-section) read `Done` vs. `Pending`:
 
 - All steps `Done` → [x] Done
 - Some steps `Done` → [~] In Progress
@@ -259,17 +319,17 @@ Implementation Plan — #{id}: {title}
 
 Ask the user:
 
-> Which phase would you like to mark as complete? You can also name a specific step
-> (e.g. "Step 2.1"), or say "none" to exit.
+> Which phase would you like to mark as complete? You can also name a specific step (e.g. "Step 2.1"), ask me to research an open question, or say "none" to exit.
 
 Wait for the response.
 
-### 5. Update step status in plan.md
+### 5. Update plan.md
 
 Based on the user's answer:
 
 - If they name a **phase**: set `**Status:** Done` on every step sub-section within that phase section and update the Progress table row to [x] Done
 - If they name a **specific step**: set `**Status:** Done` on only that step's sub-section; if all steps in the phase are now `Done`, also update the Progress table to [x] Done
+- If they ask to **research** something (e.g. "find out whether that index exists"): run [step 7](#7-research-unknowns-that-would-change-the-plan) for that question alone, store what it produces under `artifacts/planning/`, then revise only the steps the finding actually affects — their prose, their estimate, and their `**Artifacts:**` line. Leave every other step's content as it is. If the finding changes the plan's shape, renumber and complete the rename in one pass (see [Paths](#paths)). Report what changed and what it displaced
 - Update the Progress table's status column to reflect the new state
 - If they say "none" or similar, exit without changes
 
@@ -288,3 +348,9 @@ Confirm with a single line:
 - **Never read `raw.json`** — `digest.md` is the single source of truth for the work item's content during planning
 - Do not regenerate the plan if `plan.md` already exists unless the user explicitly asks (e.g. "regenerate the plan" or "refresh the plan")
 - Hour estimates are heuristic guides only — always qualify them with `~`
+- Read `artifacts/` before planning, and never plan work that an existing artifact has already settled
+- Never create, edit, or delete a file outside `artifacts/planning/` and `plan.md`. A renumbering pass is the one exception: it renames step directories and fixes references wherever they appear under `artifacts/`
+- Write research artifacts to `artifacts/planning/` only — never to `artifacts/step-{N}.{M}/` or `artifacts/shared/`, which belong to implementation
+- Never run a script artifact without prior authorization — write it, show it, ask, then run. Never run anything that writes to an external system
+- Cite a research artifact on the `**Artifacts:**` line of every step whose estimate or approach depends on it — research nothing cites was not worth doing
+- Renumber phases and steps whenever the plan's shape calls for it, and finish the rename in one pass (see [Paths](#paths)) so nothing points at an old number
