@@ -35,6 +35,7 @@ All `az-workitem-*` data lives under the current user's home directory, so the p
 ```
 ~/.az-workitems/{id}/
 ├── digest.md              ← az-workitem-digest
+├── journal.md             ← az-workitem-checkpoint (not this skill's — see below)
 ├── plan.md                ← az-workitem-plan
 ├── raw/                   ← az-workitem-fetch (raw.json + attachments)
 └── artifacts/             ← files generated while planning or implementing
@@ -43,7 +44,9 @@ All `az-workitem-*` data lives under the current user's home directory, so the p
     └── step-{N}.{M}/      ← everything one plan step produced
 ```
 
-`artifacts/` and its subdirectories are created lazily — only when a run actually produces a file. The work item root holds nothing but the four entries above: **never write a generated file directly into `~/.az-workitems/{id}/`.**
+`artifacts/` and its subdirectories are created lazily — only when a run actually produces a file. The work item root holds nothing but the five entries above: **never write a generated file directly into `~/.az-workitems/{id}/`.**
+
+`journal.md` is the per-session work log, and it is **out of scope for this skill: never read it, never write to it.** It belongs to `az-workitem-checkpoint`, which writes it, and to `az-workitem-resume`, which reads it back at the start of a session and brings what matters into the conversation. What a step's state is, this skill reads from `plan.md`; why it is in that state comes from the session, not from the file.
 
 **Placement rules**
 
@@ -280,12 +283,43 @@ Read the template from `skills/az-workitem-plan/plan-template.md` and use it as 
 
 Rules for the template:
 
-- Every step is its own markdown sub-section under `## Phase {N}`, headed `### Step {N}.{M}` (the phase number, a dot, and the step number within that phase, starting at 1), followed by a `**Status:**` line set to `Pending` or `Done`, a `**Target:**` line naming the file/class, and an `**Artifacts:**` line
+- Every step is its own markdown sub-section under `## Phase {N}`, headed `### Step {N}.{M}` (the phase number, a dot, and the step number within that phase, starting at 1), followed by a `**Status:**` line (see [Step status](#step-status)), a `**Target:**` line naming the file/class, and an `**Artifacts:**` line
 - The `**Artifacts:**` line names every file a step **produced or rests on**, as paths relative to `plan.md` — e.g. `**Artifacts:** [artifacts/planning/count-authorizations.output.json](artifacts/planning/count-authorizations.output.json)`. It reads `—` only when a step neither produced anything nor depends on prior research. Planning fills it in with the artifacts from step 7 and with any existing directory for that step; `az-workitem-implement` appends what it produces
 - The Progress table sits at the top, immediately after the header, so it is the first thing visible when opening the file; it is updated alongside the phase step statuses on subsequent runs
 - Each phase's `**Activity:**` line must use exactly one value from the Activity Type set defined in step 9; the Progress table's Activity column for that phase must match
 - The ADO work item URL follows the pattern: `https://dev.azure.com/{org}/{project}/_workitems/edit/{id}` (read `org` and `project` from `~/.az-workitems/config.json`)
 - Omit the Prerequisites section if it has no content
+
+#### Step status
+
+A `**Status:**` line takes exactly one of four values, optionally followed by ` — ` and a one-line note:
+
+| Status        | Means                          | Note                                                                    |
+| ------------- | ------------------------------ | ----------------------------------------------------------------------- |
+| `Pending`     | Not started                    | None                                                                    |
+| `In Progress` | Started, not finished          | **Required** — what is done and what remains                            |
+| `Blocked`     | Cannot proceed                 | **Required** — what is blocking, and what would clear it                |
+| `Done`        | Finished                       | Optional — only where the outcome differed from what the step asked for |
+
+```
+**Status:** In Progress — harness runs for the Analytics job; the Identity case throws at startup
+**Status:** Blocked — waiting on the Identity team to confirm the claim name
+```
+
+`Pending` and `Done` are the only two statuses a freshly generated plan may use — nothing has been started yet, so nothing can be in progress or blocked. The other two are set by `az-workitem-implement`, by `az-workitem-checkpoint`, or on a subsequent run of this skill.
+
+A note is what makes the state actionable in a later session: `In Progress` on its own says a step was touched, which is nearly as unhelpful as `Pending`. Keep it to one line — the fuller account of a session belongs in `journal.md`, which `az-workitem-checkpoint` writes.
+
+The phase's row in the Progress table is **derived** from its steps, never set independently:
+
+| Condition                              | Phase status       |
+| -------------------------------------- | ------------------ |
+| Any step `Blocked`                     | `[!] Blocked`      |
+| Every step `Done`                      | `[x] Done`         |
+| Any step `Done` or `In Progress`       | `[~] In Progress`  |
+| Otherwise                              | `[ ] Pending`      |
+
+A phase row may carry a short parenthetical where the count alone misleads — `[x] Done (4 skipped)`, `[~] In Progress (2.7 left to run)`.
 
 ---
 
@@ -295,11 +329,7 @@ When `plan.md` already exists:
 
 ### 3. Read and summarize current progress
 
-Read `plan.md` and list `~/.az-workitems/{id}/artifacts/`. Reconcile the two: if a step has an artifacts directory but its `**Artifacts:**` line still reads `—`, fill the line in. Then compute the status of each phase by counting how many of its `**Status:**` lines (one per step sub-section) read `Done` vs. `Pending`:
-
-- All steps `Done` → [x] Done
-- Some steps `Done` → [~] In Progress
-- No steps `Done` → [ ] Pending
+Read `plan.md` and list `~/.az-workitems/{id}/artifacts/`. Reconcile the two: if a step has an artifacts directory but its `**Artifacts:**` line still reads `—`, fill the line in. Then recompute each phase's Progress table row from its steps' `**Status:**` lines, using the derivation table in [Step status](#step-status).
 
 Print a compact summary table in chat:
 
@@ -311,15 +341,18 @@ Implementation Plan — #{id}: {title}
 | Prerequisites               | —           | —            | [x] Done          |
 | Phase 1: Database migration | Development | ~0.5 hrs     | [x] Done          |
 | Phase 2: Repository layer   | Development | ~1.5 hrs     | [~] In Progress   |
-| Phase 3: API endpoint       | Development | ~1.5 hrs     | [ ] Pending       |
-| **Total**                   |             | **~3.5 hrs** | 2 / 4 phases done |
+| Phase 3: API endpoint       | Development | ~1.5 hrs     | [!] Blocked       |
+| Phase 4: Tests              | Testing     | ~1.5 hrs     | [ ] Pending       |
+| **Total**                   |             | **~5 hrs**   | 2 / 5 phases done |
 ```
+
+Under the table, list every `In Progress` and `Blocked` step with its note, so the reason a phase is not moving is visible without opening the file.
 
 ### 4. Ask which phase to update
 
 Ask the user:
 
-> Which phase would you like to mark as complete? You can also name a specific step (e.g. "Step 2.1"), ask me to research an open question, or say "none" to exit.
+> Which phase or step would you like to update? Name a phase or step (e.g. "Step 2.1") and its new status — done, in progress, or blocked — or ask me to research an open question, or say "none" to exit.
 
 Wait for the response.
 
@@ -327,8 +360,11 @@ Wait for the response.
 
 Based on the user's answer:
 
-- If they name a **phase**: set `**Status:** Done` on every step sub-section within that phase section and update the Progress table row to [x] Done
-- If they name a **specific step**: set `**Status:** Done` on only that step's sub-section; if all steps in the phase are now `Done`, also update the Progress table to [x] Done
+- If they name a **phase** with no status, or say it is complete: set `**Status:** Done` on every step sub-section within that phase section and update the Progress table row to [x] Done
+- If they name a **specific step**: set its `**Status:**` to the status they gave, defaulting to `Done` when they gave none, then recompute the phase's Progress table row from the derivation table in [Step status](#step-status)
+- If the new status is `In Progress` or `Blocked`, a note is required. Take it from what the user said; where they gave none, ask for one line rather than writing a bare status:
+
+  > What should Step {N}.{M}'s status note say — {for In Progress: what is done and what remains | for Blocked: what is blocking, and what would clear it}?
 - If they ask to **research** something (e.g. "find out whether that index exists"): run [step 7](#7-research-unknowns-that-would-change-the-plan) for that question alone, store what it produces under `artifacts/planning/`, then revise only the steps the finding actually affects — their prose, their estimate, and their `**Artifacts:**` line. Leave every other step's content as it is. If the finding changes the plan's shape, renumber and complete the rename in one pass (see [Paths](#paths)). Report what changed and what it displaced
 - Update the Progress table's status column to reflect the new state
 - If they say "none" or similar, exit without changes
@@ -350,6 +386,8 @@ Confirm with a single line:
 - Hour estimates are heuristic guides only — always qualify them with `~`
 - Read `artifacts/` before planning, and never plan work that an existing artifact has already settled
 - Never create, edit, or delete a file outside `artifacts/planning/` and `plan.md`. A renumbering pass is the one exception: it renames step directories and fixes references wherever they appear under `artifacts/`
+- **Never read or write `journal.md`** — it belongs to `az-workitem-checkpoint` and `az-workitem-resume`
+- Never write a bare `In Progress` or `Blocked` status: both require a one-line note (see [Step status](#step-status)), and a phase's Progress row is always derived from its steps rather than set independently
 - Write research artifacts to `artifacts/planning/` only — never to `artifacts/step-{N}.{M}/` or `artifacts/shared/`, which belong to implementation
 - Never run a script artifact without prior authorization — write it, show it, ask, then run. Never run anything that writes to an external system
 - Cite a research artifact on the `**Artifacts:**` line of every step whose estimate or approach depends on it — research nothing cites was not worth doing
