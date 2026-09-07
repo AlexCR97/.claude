@@ -234,7 +234,7 @@ Adjust down for:
 
 Every phase must declare exactly one **Activity** from the following fixed set:
 
-| Activity      | Use when the phase is primarily...                                             |
+| Activity      | Use when the phase is primarily...                                               |
 | ------------- | -------------------------------------------------------------------------------- |
 | Development   | writing or modifying source code (backend, frontend, scripts)                    |
 | Testing       | authoring or updating unit, integration, or E2E tests                            |
@@ -286,6 +286,7 @@ Rules for the template:
 - Every step is its own markdown sub-section under `## Phase {N}`, headed `### Step {N}.{M}` (the phase number, a dot, and the step number within that phase, starting at 1), followed by a `**Status:**` line (see [Step status](#step-status)), a `**Target:**` line naming the file/class, and an `**Artifacts:**` line
 - The `**Artifacts:**` line names every file a step **produced or rests on**, as paths relative to `plan.md` — e.g. `**Artifacts:** [artifacts/planning/count-authorizations.output.json](artifacts/planning/count-authorizations.output.json)`. It reads `—` only when a step neither produced anything nor depends on prior research. Planning fills it in with the artifacts from step 7 and with any existing directory for that step; `az-workitem-implement` appends what it produces
 - The Progress table sits at the top, immediately after the header, so it is the first thing visible when opening the file; it is updated alongside the phase step statuses on subsequent runs
+- Every row's Phase cell links to that phase's own section — `[Phase 1: Database migration](#phase-1-database-migration-05-hrs)`, and `[Prerequisites](#prerequisites)` for the prerequisites row. The anchor is the GitHub slug of the full `##` heading, estimate included: lowercase it, drop every character that is not a letter, digit, space or hyphen, then turn spaces into hyphens — `## Phase 1: Database migration (~0.5 hrs)` → `#phase-1-database-migration-05-hrs`. A phase renamed, renumbered, or re-estimated has its heading and its link changed together; drop the Prerequisites link where that section is omitted
 - Each phase's `**Activity:**` line must use exactly one value from the Activity Type set defined in step 9; the Progress table's Activity column for that phase must match
 - The ADO work item URL follows the pattern: `https://dev.azure.com/{org}/{project}/_workitems/edit/{id}` (read `org` and `project` from `~/.az-workitems/config.json`)
 - Omit the Prerequisites section if it has no content
@@ -294,12 +295,12 @@ Rules for the template:
 
 A `**Status:**` line takes exactly one of four values, optionally followed by ` — ` and a one-line note:
 
-| Status        | Means                          | Note                                                                    |
-| ------------- | ------------------------------ | ----------------------------------------------------------------------- |
-| `Pending`     | Not started                    | None                                                                    |
-| `In Progress` | Started, not finished          | **Required** — what is done and what remains                            |
-| `Blocked`     | Cannot proceed                 | **Required** — what is blocking, and what would clear it                |
-| `Done`        | Finished                       | Optional — only where the outcome differed from what the step asked for |
+| Status        | Means                 | Note                                                                    |
+| ------------- | --------------------- | ----------------------------------------------------------------------- |
+| `Pending`     | Not started           | None                                                                    |
+| `In Progress` | Started, not finished | **Required** — what is done and what remains                            |
+| `Blocked`     | Cannot proceed        | **Required** — what is blocking, and what would clear it                |
+| `Done`        | Finished              | Optional — only where the outcome differed from what the step asked for |
 
 ```
 **Status:** In Progress — harness runs for the Analytics job; the Identity case throws at startup
@@ -312,12 +313,12 @@ A note is what makes the state actionable in a later session: `In Progress` on i
 
 The phase's row in the Progress table is **derived** from its steps, never set independently:
 
-| Condition                              | Phase status       |
-| -------------------------------------- | ------------------ |
-| Any step `Blocked`                     | `[!] Blocked`      |
-| Every step `Done`                      | `[x] Done`         |
-| Any step `Done` or `In Progress`       | `[~] In Progress`  |
-| Otherwise                              | `[ ] Pending`      |
+| Condition                        | Phase status      |
+| -------------------------------- | ----------------- |
+| Any step `Blocked`               | `[!] Blocked`     |
+| Every step `Done`                | `[x] Done`        |
+| Any step `Done` or `In Progress` | `[~] In Progress` |
+| Otherwise                        | `[ ] Pending`     |
 
 A phase row may carry a short parenthetical where the count alone misleads — `[x] Done (4 skipped)`, `[~] In Progress (2.7 left to run)`.
 
@@ -329,21 +330,21 @@ When `plan.md` already exists:
 
 ### 3. Read and summarize current progress
 
-Read `plan.md` and list `~/.az-workitems/{id}/artifacts/`. Reconcile the two: if a step has an artifacts directory but its `**Artifacts:**` line still reads `—`, fill the line in. Then recompute each phase's Progress table row from its steps' `**Status:**` lines, using the derivation table in [Step status](#step-status).
+Read `plan.md` and list `~/.az-workitems/{id}/artifacts/`. Reconcile the two: if a step has an artifacts directory but its `**Artifacts:**` line still reads `—`, fill the line in. Then recompute each phase's Progress table row from its steps' `**Status:**` lines, using the derivation table in [Step status](#step-status), and repair any Phase cell whose link is missing or no longer matches its heading.
 
 Print a compact summary table in chat:
 
 ```
 Implementation Plan — #{id}: {title}
 
-| Phase                       | Activity    | Estimate     | Status            |
-| --------------------------- | ----------- | ------------ | ----------------- |
-| Prerequisites               | —           | —            | [x] Done          |
-| Phase 1: Database migration | Development | ~0.5 hrs     | [x] Done          |
-| Phase 2: Repository layer   | Development | ~1.5 hrs     | [~] In Progress   |
-| Phase 3: API endpoint       | Development | ~1.5 hrs     | [!] Blocked       |
-| Phase 4: Tests              | Testing     | ~1.5 hrs     | [ ] Pending       |
-| **Total**                   |             | **~5 hrs**   | 2 / 5 phases done |
+| Phase                       | Activity    | Estimate   | Status            |
+| --------------------------- | ----------- | ---------- | ----------------- |
+| Prerequisites               | —           | —          | [x] Done          |
+| Phase 1: Database migration | Development | ~0.5 hrs   | [x] Done          |
+| Phase 2: Repository layer   | Development | ~1.5 hrs   | [~] In Progress   |
+| Phase 3: API endpoint       | Development | ~1.5 hrs   | [!] Blocked       |
+| Phase 4: Tests              | Testing     | ~1.5 hrs   | [ ] Pending       |
+| **Total**                   |             | **~5 hrs** | 2 / 5 phases done |
 ```
 
 Under the table, list every `In Progress` and `Blocked` step with its note, so the reason a phase is not moving is visible without opening the file.
@@ -366,7 +367,7 @@ Based on the user's answer:
 
   > What should Step {N}.{M}'s status note say — {for In Progress: what is done and what remains | for Blocked: what is blocking, and what would clear it}?
 - If they ask to **research** something (e.g. "find out whether that index exists"): run [step 7](#7-research-unknowns-that-would-change-the-plan) for that question alone, store what it produces under `artifacts/planning/`, then revise only the steps the finding actually affects — their prose, their estimate, and their `**Artifacts:**` line. Leave every other step's content as it is. If the finding changes the plan's shape, renumber and complete the rename in one pass (see [Paths](#paths)). Report what changed and what it displaced
-- Update the Progress table's status column to reflect the new state
+- Update the Progress table to reflect the new state — the status column, plus the Phase cell's link wherever a heading was renamed, renumbered, or re-estimated
 - If they say "none" or similar, exit without changes
 
 Confirm with a single line:
