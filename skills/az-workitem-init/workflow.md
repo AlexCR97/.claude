@@ -10,20 +10,36 @@ flowchart LR
     FETCH --> DIGEST[az-workitem-digest]
     DIGEST --> PLAN[az-workitem-plan]
     PLAN --> IMPLEMENT[az-workitem-implement]
+    IMPLEMENT --> CHECKPOINT[az-workitem-checkpoint]
+    CHECKPOINT -.->|"days later,\nnew session"| RESUME[az-workitem-resume]
+    RESUME -.-> IMPLEMENT
 ```
 
 ## Skills
 
-| Skill                   | Runs                                             | Prerequisite |
-| ----------------------- | ------------------------------------------------ | ------------ |
-| `az-workitem-init`      | Once per workspace                               | None         |
-| `az-workitem-fetch`     | Once per work item; always re-run after `refine` | `init`       |
-| `az-workitem-refine`    | Optional; always followed by `fetch`             | `fetch`      |
-| `az-workitem-digest`    | Once per work item                               | `fetch`      |
-| `az-workitem-plan`      | Once to generate; re-run to view/update progress | `digest`     |
-| `az-workitem-implement` | Once or multiple times for specific phases       | `plan`       |
+| Skill                    | Runs                                             | Prerequisite |
+| ------------------------ | ------------------------------------------------ | ------------ |
+| `az-workitem-init`       | Once per workspace                               | None         |
+| `az-workitem-fetch`      | Once per work item; always re-run after `refine` | `init`       |
+| `az-workitem-refine`     | Optional; always followed by `fetch`             | `fetch`      |
+| `az-workitem-digest`     | Once per work item                               | `fetch`      |
+| `az-workitem-plan`       | Once to generate; re-run to view/update progress | `digest`     |
+| `az-workitem-implement`  | Once or multiple times for specific phases       | `plan`       |
+| `az-workitem-checkpoint` | Whenever attention leaves the work item          | `fetch`      |
+| `az-workitem-resume`     | First thing in a new session on an existing item | `fetch`      |
 
-`fetch` and `digest` each own one output. `plan` and `implement` additionally write any files their research or steps produce along the way. See [Data Layout](#data-layout).
+`fetch` and `digest` each own one output. `plan` and `implement` additionally write any files their research or steps produce along the way. `checkpoint` owns `journal.md` outright — it is the only skill that writes it, and `resume` the only one that reads it. `resume` writes nothing at all. See [Data Layout](#data-layout).
+
+## Picking Work Back Up
+
+Work gets put down. An interrupt arrives, the day ends, another work item takes priority — and the session that held all the context is gone. Two skills exist for that boundary:
+
+- **`az-workitem-checkpoint`** runs when attention leaves — end of day, an interrupt, a switch to something unrelated. It records the session in `journal.md`: where the code is, what was done, what was decided **and why**, what is blocking, and the single next action.
+- **`az-workitem-resume`** runs first in the new session. It reads `journal.md`, `plan.md`, `digest.md` and the prior artifacts, inspects the live git state, checks whether the ADO work item drifted since it was last fetched, and prints one briefing ending in the next action. It is read-only and starts nothing.
+
+What makes this work is that the two halves record different things. `plan.md` says what state the work is in — that is what the `In Progress` and `Blocked` statuses are for. `journal.md` says *why* it is in that state, which is the half that only exists in a live session and is otherwise lost the moment it ends.
+
+**`journal.md` belongs to these two skills alone.** `checkpoint` is the only writer, `resume` the only reader; `plan` and `implement` never open it. That boundary is deliberate: once `resume` has briefed a session, the journal's contents are already in the conversation, so a later skill re-reading the file would only spend its context on what it already has. The trade is that `checkpoint` has to actually run — it is what converts a session's reasoning into something the next one can read, and nothing else does it.
 
 ## Data Layout
 
@@ -32,6 +48,7 @@ Every skill reads and writes under one directory per work item:
 ```txt
 ~/.az-workitems/{id}/
 ├── digest.md              ← az-workitem-digest
+├── journal.md             ← az-workitem-checkpoint only (newest entry first)
 ├── plan.md                ← az-workitem-plan  (the index: each step names its artifacts)
 ├── raw/                   ← az-workitem-fetch (raw.json + attachments)
 └── artifacts/             ← az-workitem-plan and az-workitem-implement
@@ -40,6 +57,8 @@ Every skill reads and writes under one directory per work item:
     ├── step-1.1/          ← probe.js, probe.output.json, README.md
     └── step-1.3/
 ```
+
+`journal.md` is append-only in the strongest sense in here: an entry is one session's account of itself, and unlike a plan, a digest or a probe output, nothing can regenerate it. Entries are added above the newest one so the current state is the top of the file, and an existing entry is never edited or deleted — a correction is a new entry that says what it corrects.
 
 `artifacts/` is created lazily, the first time a run produces a file that is not a change to the codebase — a read-only probe, its captured output, a data extract, or a note recording what was found. A capture is named for the format it holds — `.json`, `.csv`, `.md`, and `.txt` by default — so a later run can parse it instead of re-running the script to get the data in a usable shape.
 
@@ -57,7 +76,18 @@ Three consequences worth knowing:
 
 ```mermaid
 flowchart TD
-    START([Start]) --> INIT_CHECK{"Workspace\ninitialized?"}
+    START([Start]) --> PICKUP{"Picking up a\nwork item already\nunderway?"}
+
+    PICKUP -->|Yes| RESUME
+    PICKUP -->|"No — new work item"| INIT_CHECK
+
+    RESUME["/az-workitem-resume {id}\n────────────────\nReads journal.md + plan.md + digest.md\nInspects live git state\nChecks ADO for drift since last fetch\nPrints a briefing ending in the next action\n\nRead-only; starts nothing"]
+
+    RESUME --> RESUME_STALE{"ADO changed\nwhile away?"}
+    RESUME_STALE -->|"Yes — fold it in"| FETCH
+    RESUME_STALE -->|No| IMPLEMENT
+
+    INIT_CHECK{"Workspace\ninitialized?"}
 
     INIT_CHECK -->|No| INIT
     INIT_CHECK -->|"Yes — skip"| FETCH
@@ -89,9 +119,16 @@ flowchart TD
 
     PLAN --> IMPLEMENT
 
-    IMPLEMENT["/az-workitem-implement {id} [phases|all]\n────────────────\nReads plan.md + digest.md + artifacts/\nImplements one, several, or all phases\nProbes, outputs & notes → artifacts/step-N.M/\nBuilds affected projects after each phase\nMarks phases complete in plan.md"]
+    IMPLEMENT["/az-workitem-implement {id} [phases|all]\n────────────────\nReads plan.md + digest.md + artifacts/\nImplements one, several, or all phases\nProbes, outputs & notes → artifacts/step-N.M/\nBuilds affected projects after each phase\nTracks step status in plan.md\nReports decisions & inferences in chat\n\nNever touches journal.md"]
 
     IMPLEMENT --> PHASES_DONE{"All phases\ncomplete?"}
-    PHASES_DONE -->|"No — run more phases"| IMPLEMENT
     PHASES_DONE -->|Yes| END([Done])
+    PHASES_DONE -->|No| SWITCHING{"Attention leaving\nthis work item?"}
+
+    SWITCHING -->|"No — keep going"| IMPLEMENT
+    SWITCHING -->|Yes| CHECKPOINT
+
+    CHECKPOINT["/az-workitem-checkpoint {id}\n────────────────\nRecords the session in journal.md:\n  · where the code is (repo, branch, tree)\n  · what was done\n  · what was decided, and why\n  · what is blocking\n  · the single next action\n\nMakes no code changes"]
+
+    CHECKPOINT -.->|"days later,\nnew session"| RESUME
 ```

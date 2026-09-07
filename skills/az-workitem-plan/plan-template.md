@@ -1,6 +1,7 @@
 # Implementation Plan — [#{id}: {title}](ado-work-item-url)
 
 > Generated on {YYYY-MM-DD} at {HH:MM} UTC Based on [digest.md](digest.md)
+> Session history: [journal.md](journal.md)
 
 ## Progress
 
@@ -11,6 +12,8 @@
 | Phase 2: {name} | {Activity} | ~{X} hrs     | [ ] Pending |
 | ...             |            |              |             |
 | **Total**       |            | **~{X} hrs** |             |
+
+**Status values** — `[ ] Pending`, `[~] In Progress`, `[!] Blocked`, `[x] Done`. A phase row may carry a short parenthetical (e.g. `[x] Done (4 skipped)`). A phase's status is derived from its steps: any step `Blocked` → `[!] Blocked`; every step `Done` → `[x] Done`; any step `Done` or `In Progress` → `[~] In Progress`; otherwise `[ ] Pending`.
 
 ---
 
@@ -40,7 +43,7 @@ Before any phase begins, ensure the following are in place:
 
 ### Step 1.1
 
-**Status:** Pending
+**Status:** Pending | In Progress — {what is done, what remains} | Blocked — {what is blocking, what would clear it} | Done
 
 **Target:** `{File/Class}`
 
