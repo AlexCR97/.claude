@@ -5,13 +5,13 @@
 
 ## Progress
 
-| Phase           | Activity   | Estimate     | Status      |
-| --------------- | ---------- | ------------ | ----------- |
-| Prerequisites   | —          | —            | [ ] Pending |
-| Phase 1: {name} | {Activity} | ~{X} hrs     | [ ] Pending |
-| Phase 2: {name} | {Activity} | ~{X} hrs     | [ ] Pending |
-| ...             |            |              |             |
-| **Total**       |            | **~{X} hrs** |             |
+| Phase                                  | Activity   | Estimate     | Status      |
+| -------------------------------------- | ---------- | ------------ | ----------- |
+| [Prerequisites](#prerequisites)        | —          | —            | [ ] Pending |
+| [Phase 1: {name}](#phase-1-name-x-hrs) | {Activity} | ~{X} hrs     | [ ] Pending |
+| [Phase 2: {name}](#phase-2-name-x-hrs) | {Activity} | ~{X} hrs     | [ ] Pending |
+| ...                                    |            |              |             |
+| **Total**                              |            | **~{X} hrs** |             |
 
 **Status values** — `[ ] Pending`, `[~] In Progress`, `[!] Blocked`, `[x] Done`. A phase row may carry a short parenthetical (e.g. `[x] Done (4 skipped)`). A phase's status is derived from its steps: any step `Blocked` → `[!] Blocked`; every step `Done` → `[x] Done`; any step `Done` or `In Progress` → `[~] In Progress`; otherwise `[ ] Pending`.
 
