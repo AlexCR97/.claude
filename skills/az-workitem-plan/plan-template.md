@@ -1,7 +1,6 @@
 # Implementation Plan — [#{id}: {title}](ado-work-item-url)
 
-> Generated on {YYYY-MM-DD} at {HH:MM} UTC
-> Based on [digest.md](digest.md)
+> Generated on {YYYY-MM-DD} at {HH:MM} UTC Based on [digest.md](digest.md)
 
 ## Progress
 
@@ -45,6 +44,8 @@ Before any phase begins, ensure the following are in place:
 
 **Target:** `{File/Class}`
 
+**Artifacts:** —
+
 {what to do and why, specific enough to act on}
 
 ### Step 1.2
@@ -52,6 +53,8 @@ Before any phase begins, ensure the following are in place:
 **Status:** Pending
 
 **Target:** `{File/Class}`
+
+**Artifacts:** —
 
 {what to do and why, specific enough to act on}
 

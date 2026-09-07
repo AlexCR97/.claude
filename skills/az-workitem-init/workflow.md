@@ -23,6 +23,36 @@ flowchart LR
 | `az-workitem-plan`      | Once to generate; re-run to view/update progress | `digest`     |
 | `az-workitem-implement` | Once or multiple times for specific phases       | `plan`       |
 
+`fetch` and `digest` each own one output. `plan` and `implement` additionally write any files their research or steps produce along the way. See [Data Layout](#data-layout).
+
+## Data Layout
+
+Every skill reads and writes under one directory per work item:
+
+```txt
+~/.az-workitems/{id}/
+├── digest.md              ← az-workitem-digest
+├── plan.md                ← az-workitem-plan  (the index: each step names its artifacts)
+├── raw/                   ← az-workitem-fetch (raw.json + attachments)
+└── artifacts/             ← az-workitem-plan and az-workitem-implement
+    ├── planning/          ← research the plan was built on
+    ├── shared/            ← artifacts spanning more than one step
+    ├── step-1.1/          ← probe.js, probe.output.json, README.md
+    └── step-1.3/
+```
+
+`artifacts/` is created lazily, the first time a run produces a file that is not a change to the codebase — a read-only probe, its captured output, a data extract, or a note recording what was found. A capture is named for the format it holds — `.json`, `.csv`, `.md`, and `.txt` by default — so a later run can parse it instead of re-running the script to get the data in a usable shape.
+
+Each of the two writers owns one part of it. `az-workitem-plan` writes only to `planning/`, where it stores the research that settles a fact the plan's shape depends on; it must ask before running any script it writes, since no approved step authorizes execution. `az-workitem-implement` writes only to `step-{N}.{M}/` and `shared/`, and reads `planning/` to see why a step is shaped the way it is.
+
+A step directory is named after the `### Step {N}.{M}` heading it belongs to, and the step's `**Artifacts:**` line in `plan.md` points back at it. That back-link is what makes the evidence findable in a later session: `plan.md` is already the first thing `az-workitem-plan` and `az-workitem-implement` read, so a step's prior measurements are read before it is re-planned or re-run, rather than being silently re-derived.
+
+Three consequences worth knowing:
+
+- **Renumbering is a rename.** Steps are renumbered whenever the plan's shape calls for it, but a step number is also a directory name, so the same pass renames the directories and updates every reference to the old numbers.
+- **Artifacts are append-only.** A measurement taken against a live system is the one thing in here that cannot be regenerated, so a later run writes a new file alongside an existing one rather than replacing it.
+- **Scripts need permission to run.** Both skills write script artifacts freely and execute none of them until the user approves that specific script.
+
 ## Typical Workflow
 
 ```mermaid
@@ -55,11 +85,11 @@ flowchart TD
 
     DIGEST --> PLAN
 
-    PLAN["/az-workitem-plan {id}\n────────────────\nReads digest.md\nDiscovers services in the codebase\nEstimates effort per phase\nWrites phased plan.md with checkboxes\n\nRe-running shows progress & updates"]
+    PLAN["/az-workitem-plan {id}\n────────────────\nReads digest.md + artifacts/\nDiscovers services in the codebase\nResearches unknowns → artifacts/planning/\nEstimates effort per phase\nWrites phased plan.md with checkboxes\n\nRe-running shows progress & updates"]
 
     PLAN --> IMPLEMENT
 
-    IMPLEMENT["/az-workitem-implement {id} [phases|all]\n────────────────\nReads plan.md + digest.md\nImplements one, several, or all phases\nBuilds affected projects after each phase\nMarks phases complete in plan.md"]
+    IMPLEMENT["/az-workitem-implement {id} [phases|all]\n────────────────\nReads plan.md + digest.md + artifacts/\nImplements one, several, or all phases\nProbes, outputs & notes → artifacts/step-N.M/\nBuilds affected projects after each phase\nMarks phases complete in plan.md"]
 
     IMPLEMENT --> PHASES_DONE{"All phases\ncomplete?"}
     PHASES_DONE -->|"No — run more phases"| IMPLEMENT
