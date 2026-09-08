@@ -1,6 +1,7 @@
 ---
 name: az-workitem-refine
 description: Runs an interactive refinement session between Claude and the user to challenge and sharpen a work item's requirements against its domain model and business context. Posts a structured Q&A summary as a comment on the ADO work item when complete.
+argument-hint: "<id>"
 ---
 
 ## Purpose

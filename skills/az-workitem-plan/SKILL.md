@@ -1,6 +1,7 @@
 ---
 name: az-workitem-plan
 description: Follow-up to az-workitem-digest. Reads the digest.md for a work item, analyzes the current codebase to discover related services and projects, and produces a phased, file-level implementation plan written to plan.md. Researches unknowns that would change the plan, storing scripts and findings under artifacts/planning/ and asking first before running any script. On subsequent runs, shows progress and updates step status. Makes NO code changes.
+argument-hint: "<id>"
 ---
 
 ## Scope
