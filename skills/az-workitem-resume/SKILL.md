@@ -1,6 +1,7 @@
 ---
 name: az-workitem-resume
 description: Rebuilds the context for a work item in a fresh session — reads journal.md, plan.md, digest.md and prior artifacts, inspects the live git state, and checks whether the ADO work item changed since it was last fetched. Outputs a briefing ending in the single next action. Read-only; makes NO changes.
+argument-hint: "[id]"
 ---
 
 ## Purpose

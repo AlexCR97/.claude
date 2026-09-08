@@ -1,6 +1,7 @@
 ---
 name: az-workitem-fetch
 description: Fetches raw Azure DevOps work item data (fields, comments, attachments, related items) and writes it to ~/.az-workitems/{id}/raw/. Always re-fetches raw.json; keeps existing attachment files and only downloads new ones. Required before running az-workitem-refine or az-workitem-digest.
+argument-hint: "<id>"
 ---
 
 ## Purpose

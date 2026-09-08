@@ -1,6 +1,7 @@
 ---
 name: az-workitem-checkpoint
 description: Records the current session's state on a work item as an entry in journal.md — where the code is, what was done, what was decided and why, what is blocking, and the single next action. Run it before switching away from a work item so a later /az-workitem-resume can pick the work up. Makes NO code changes.
+argument-hint: "[id] [note]"
 ---
 
 ## Purpose
