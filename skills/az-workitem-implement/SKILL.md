@@ -1,6 +1,7 @@
 ---
 name: az-workitem-implement
 description: Follow-up to az-workitem-plan. Reads plan.md for a work item and implements one, several, or all phases by making real code changes. Tracks step status (Pending, In Progress, Blocked, Done) in plan.md as it goes. On completion, reports which projects were touched and what was inferred.
+argument-hint: "<id> [phases]"
 ---
 
 ## Input

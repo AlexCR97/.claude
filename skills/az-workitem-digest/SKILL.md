@@ -1,6 +1,7 @@
 ---
 name: az-workitem-digest
 description: Reads an Azure DevOps work item by ID (user story, bug, or task), analyzes its description, acceptance criteria, attached files and images, and related work items, then outputs a structured digest.
+argument-hint: "<id>"
 ---
 
 ## Input
