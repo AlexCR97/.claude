@@ -1,0 +1,26 @@
+{
+  "source": "ado",
+  "kind": "remote",
+  "prefixes": ["ado", "azdo"],
+  "nouns": {
+    "singular": "work item",
+    "plural": "work items",
+    "reference": "#{id}"
+  },
+  "id": {
+    "pattern": "[1-9][0-9]*",
+    "shape": "a positive integer work item id"
+  },
+  "formats": {
+    "comment": "html",
+    "body": "html"
+  },
+  "capabilities": {
+    "fetch": true,
+    "new": false,
+    "publish": true,
+    "drift": true,
+    "related": true,
+    "attachments": true
+  }
+}

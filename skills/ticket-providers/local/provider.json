@@ -1,0 +1,26 @@
+{
+  "source": "local",
+  "kind": "local",
+  "prefixes": ["local", "l"],
+  "nouns": {
+    "singular": "ticket",
+    "plural": "tickets",
+    "reference": "{id}"
+  },
+  "id": {
+    "pattern": "[a-z0-9][a-z0-9-]*",
+    "shape": "a lowercase slug derived from the title"
+  },
+  "formats": {
+    "comment": "markdown",
+    "body": "markdown"
+  },
+  "capabilities": {
+    "fetch": false,
+    "new": true,
+    "publish": true,
+    "drift": true,
+    "related": false,
+    "attachments": true
+  }
+}
