@@ -1,0 +1,26 @@
+{
+  "source": "github",
+  "kind": "remote",
+  "prefixes": ["github", "gh"],
+  "nouns": {
+    "singular": "issue",
+    "plural": "issues",
+    "reference": "#{id}"
+  },
+  "id": {
+    "pattern": "[1-9][0-9]*",
+    "shape": "a positive integer issue number in the configured repository"
+  },
+  "formats": {
+    "comment": "markdown",
+    "body": "markdown"
+  },
+  "capabilities": {
+    "fetch": true,
+    "new": false,
+    "publish": true,
+    "drift": true,
+    "related": false,
+    "attachments": false
+  }
+}
