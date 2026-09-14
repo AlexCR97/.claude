@@ -15,6 +15,7 @@ A provider directory is trusted **code**, not configuration. `provider.py` is im
   "source": "ado",
   "kind": "remote",
   "prefixes": ["ado", "azdo"],
+  "url": { "patterns": ["https?://dev\\.azure\\.com/(?P<organization>[^/]+)/(?P<project>[^/]+)/_workitems/edit/(?P<id>[1-9][0-9]*)(?:[/?#]|$)"] },
   "nouns": { "singular": "work item", "plural": "work items" },
   "id": { "pattern": "\\d+", "shape": "numeric work item id" },
   "formats": { "comment": "html", "body": "html" },
@@ -25,13 +26,15 @@ A provider directory is trusted **code**, not configuration. `provider.py` is im
 }
 ```
 
+`url.patterns` is what lets a user paste a ticket's web address instead of typing `{source}:{id}`. Each pattern is a Python regex matched case-insensitively against the head of the address, and it **must** capture the id as a group named `id`. Capture the coordinates the id is only unique within as groups too — name each one after the config key it corresponds to, and the resolver refuses an address whose coordinates disagree with this source's config rather than fetching the wrong ticket. The key is optional: a source that declares none is simply never matched against an address.
+
 `ticket.py` gates every verb on `capabilities` **before** the module is loaded, so an absent capability is exit 3 and there is no code path for a driver to improvise past.
 
 **The role `.md` files are the expensive references.** A driver opens only the one role file for its own step, only for the resolved source, and **never another source's files**.
 
 | Role file                         | Answers                                                                                          | Read by                                             | Gates capability |
 | --------------------------------- | ------------------------------------------------------------------------------------------------ | --------------------------------------------------- | ---------------- |
-| `provider.json`                   | capabilities, prefixes, id shape, nouns, comment format                                          | all, via `resolve`                                  | —                |
+| `provider.json`                   | capabilities, prefixes, address patterns, id shape, nouns, comment format                        | all, via `resolve`                                  | —                |
 | `config.md`                       | what `{source}/config.json` holds, how credentials are acquired and validated                    | `ticket-init`                                       | —                |
 | `fetch.md`                        | how raw data lands in `raw/`, traversal policy, attachment rules, how `ticket.json` is refreshed | `ticket-fetch`                                      | `fetch`          |
 | `new.md`                          | how a ticket is created here                                                                     | `ticket-new`                                        | `new`            |
