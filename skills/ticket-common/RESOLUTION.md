@@ -28,11 +28,16 @@ Flags a verb does not recognise are passed through to the provider untouched, so
 
 ## How a reference resolves
 
-A reference is `[source:]id`. Resolution is implemented in `ticketlib/sources.py` and runs in this order:
+A reference is `[source:]id`, or the ticket's web address. Resolution is implemented in `ticketlib/sources.py` and runs in this order:
 
-1. **An explicit prefix** — `ado:12345`, `gh:42`, `local:auth-fix`. Every source's own name works as a prefix, plus any alias its `provider.json` declares.
-2. **A bare token** — scan every source for a ticket directory of that name. Exactly one hit wins. **Two or more exits 3** and lists them; the fix is to name the source, never to guess.
-3. **The root `config.json`'s `default_source`** — used only when the token is on disk nowhere.
+1. **A web address** — anything starting `http://` or `https://` is matched against the `url.patterns` every installed source declares in its `provider.json`. The first pattern that matches wins, and its `id` capture is the id.
+2. **An explicit prefix** — `ado:12345`, `gh:42`, `local:auth-fix`. Every source's own name works as a prefix, plus any alias its `provider.json` declares.
+3. **A bare token** — scan every source for a ticket directory of that name. Exactly one hit wins. **Two or more exits 3** and lists them; the fix is to name the source, never to guess.
+4. **The root `config.json`'s `default_source`** — used only when the token is on disk nowhere.
+
+An address that no pattern matches exits 1 and names the sources that accept one; it never falls through to the prefix or default branches, because a URL is an unambiguous statement of which ticket was meant.
+
+A pattern may capture more than the id. **Every other named group is a config key the address has to agree with** — the address carries the coordinates the id is only unique within, so a link into a different organization, project or repository exits 1 rather than resolving against the configured one and fetching whichever ticket happens to share the number. A coordinate the source's config does not hold is not checked.
 
 An id is validated against the source's `id.pattern` once the source is known, so `ado:not-a-number` fails at resolution rather than at the API.
 
