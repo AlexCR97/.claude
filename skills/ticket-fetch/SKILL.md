@@ -1,7 +1,7 @@
 ---
 name: ticket-fetch
 description: Fetches raw ticket data (fields, comments, attachments, related tickets) from a remote source and writes it to the ticket's raw/ directory. Always re-fetches the snapshot; keeps existing attachment files and only downloads new ones. Required before running ticket-refine or ticket-digest.
-argument-hint: "<[source:]id>"
+argument-hint: "<[source:]id | url>"
 ---
 
 This skill is a **driver**: it contains no field names, URLs, API versions, credential commands, markup dialects, or type-specific rules of its own. Everything specific lives alongside it in three directories, and every step below just says which file to read.
@@ -35,10 +35,10 @@ ticket-init → ticket-fetch → ticket-refine → [fetch → refine → …] �
 ## Input
 
 ```
-/ticket-fetch <[source:]id>
+/ticket-fetch <[source:]id | url>
 ```
 
-`{ref}` — the ticket, optionally prefixed with its source. If none is given, ask for one before proceeding.
+`{ref}` — the ticket, optionally prefixed with its source, **or the address of the ticket's page as the source displays it**, pasted verbatim. Step 1 turns either into the same source and id; nothing below is aware of which was typed, and no address is ever parsed here. If none is given, ask for one before proceeding.
 
 ---
 

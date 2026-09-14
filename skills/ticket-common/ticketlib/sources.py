@@ -4,13 +4,15 @@ Turning a reference the user typed into a source, an id and a set of paths.
 
 The resolution order is implemented here once and restated in prose nowhere:
 
-1. An explicit prefix — `ado:12345`, `gh:42`, `local:auth-fix`
-2. A bare token — scan every source for a ticket directory of that name;
+1. A web address — matched against the `url.patterns` each source declares
+2. An explicit prefix — `ado:12345`, `gh:42`, `local:auth-fix`
+3. A bare token — scan every source for a ticket directory of that name;
    exactly one hit wins, two or more is an error that lists them
-3. The root config's `default_source`
+4. The root config's `default_source`
 """
 
 import re
+import urllib.parse
 
 from . import config, paths, providers, tickets
 from .errors import (
@@ -64,6 +66,81 @@ def split_ref(ref: str) -> tuple[str | None, str]:
         EXIT_ERROR,
         "Known prefixes: " + (", ".join(sorted(known)) or "none") + ".",
     )
+
+
+def looks_like_url(ref: str) -> bool:
+    return ref.strip().lower().startswith(("http://", "https://"))
+
+
+def url_patterns(source: str) -> list[str]:
+    manifest_url = providers.load_manifest(source).get("url") or {}
+    return [str(pattern) for pattern in manifest_url.get("patterns") or []]
+
+
+def url_hint() -> str:
+    accepted = [source for source in providers.list_sources() if url_patterns(source)]
+    if not accepted:
+        return "No installed source recognises a web address. Pass `{source}:{id}`."
+    return (
+        "Sources that recognise an address: "
+        + ", ".join(accepted)
+        + ". Otherwise pass `{source}:{id}`."
+    )
+
+
+def match_url(ref: str) -> tuple[str, str]:
+    """
+    A pasted web address -> (source, id), by the patterns the manifests declare.
+
+    The patterns live in `provider.json` and not here for the same reason the
+    prefixes do: this module must stay ignorant of what any one ticket system's
+    addresses look like.
+    """
+    address = ref.strip()
+    for source in providers.list_sources():
+        for pattern in url_patterns(source):
+            match = re.match(pattern, address, re.IGNORECASE)
+            if not match:
+                continue
+            found = {
+                name: urllib.parse.unquote(value)
+                for name, value in match.groupdict().items()
+                if value is not None
+            }
+            ticket_id = found.pop("id", "")
+            if not ticket_id:
+                raise TicketError(
+                    f"{source}'s address pattern captured no id from '{ref}'",
+                    EXIT_ERROR,
+                    "Its `url.patterns` in provider.json needs an `id` group.",
+                )
+            check_coordinates(source, ref, found)
+            return source, ticket_id
+
+    raise TicketError(
+        f"no source recognises the address '{ref}'", EXIT_ERROR, url_hint()
+    )
+
+
+def check_coordinates(source: str, ref: str, coordinates: dict[str, str]) -> None:
+    """
+    A captured group other than `id` names a config key the address must match.
+
+    An address into another organization, project or repository would otherwise
+    resolve against the configured one and fetch whichever ticket happens to
+    share that number.
+    """
+    settings = config.load_source(source)
+    for key, value in coordinates.items():
+        configured = settings.get(key)
+        if configured is None or str(configured).casefold() == value.casefold():
+            continue
+        raise TicketError(
+            f"'{ref}' names {key} '{value}' "
+            f"but '{source}' is configured for '{configured}'",
+            EXIT_ERROR,
+            f"Run `/ticket-init {source}` to repoint it.",
+        )
 
 
 def directories_holding(token: str) -> list[str]:
@@ -149,7 +226,11 @@ def resolve_source(ref: str | None, explicit_source: str | None) -> tuple[str, s
         require_installed(source, "default_source is")
         return source, ""
 
-    prefix_source, token = split_ref(ref)
+    if looks_like_url(ref):
+        prefix_source, token = match_url(ref)
+    else:
+        prefix_source, token = split_ref(ref)
+
     if not token:
         raise TicketError(f"'{ref}' carries no ticket id", EXIT_ERROR)
 
