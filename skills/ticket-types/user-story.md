@@ -6,6 +6,8 @@ A user story asks for **new observable behaviour on behalf of someone**. What se
 
 The deliverable is working, shippable behaviour. The test for done is that someone can demonstrate it.
 
+A user story may optionally decompose into **one or more child tasks**, each tracked as its own ticket for work that is better scoped and estimated separately. This is optional: a story with no children is not incomplete for lacking them, and most stories are delivered as a single piece of work.
+
 ---
 
 ## What refine must establish
@@ -18,6 +20,7 @@ Fold these into the driver's rounds; they are the ones that cannot be skipped fo
 - **What can they do afterwards that they cannot do now?** Stated as an observable action, not an internal change.
 - **How would we demonstrate it?** The concrete walkthrough someone would perform to accept this. If the acceptance criteria cannot be demonstrated, they are not acceptance criteria yet.
 - **What is explicitly out of scope?** Stories grow during implementation; the boundary is worth agreeing before it is tested.
+- **Will this be delivered as one piece of work, or split into separate child tasks?** Optional, and not worth forcing — say so only when the answer is already clear, or when the user raises it.
 
 **Domain model and data**
 
@@ -35,7 +38,7 @@ Fold these into the driver's rounds; they are the ones that cannot be skipped fo
 
 - The **user and the outcome**, in the first two sentences of the description. A digest that opens with implementation detail has buried the story.
 - The **acceptance criteria**, as the demonstrable conditions they are — preferring the source's dedicated acceptance field over prose in the description when both exist.
-- Any **related tickets** that carry part of the same user-visible behaviour, since a story split across tickets is only demonstrable once all of them land.
+- Any **related tickets** that carry part of the same user-visible behaviour, since a story split across tickets is only demonstrable once all of them land. **Child tasks are the common case of this** — list every one under Related Tickets → Children with its own state, so a reader can see at a glance which part of the story is still open.
 
 ---
 
@@ -45,7 +48,7 @@ Fold these into the driver's rounds; they are the ones that cannot be skipped fo
 
 **Required:** each phase must end in something shippable. A phase that leaves the system in a state no one could demonstrate has been cut in the wrong place — prefer fewer, wider phases over a chain of phases that only mean something together.
 
-**Forbidden:** none specific to this type.
+**Forbidden:** none specific to this type. **Where a child task already exists as its own tracked ticket, this story's plan must not re-plan its work** — reference the child by id instead of duplicating its steps here; planning the same work twice is how the two drift apart.
 
 **Activity mix:** predominantly Development, with Testing phases wherever the acceptance criteria need evidence. A Design phase earns its place only when a contract or schema has to be settled before code can be written.
 
@@ -58,6 +61,8 @@ Fold these into the driver's rounds; they are the ones that cannot be skipped fo
 **The acceptance criteria are demonstrable.** Not "the code is written" and not "the tests pass" — someone can perform the walkthrough refine agreed on, and see the outcome.
 
 A criterion that cannot be demonstrated at the end is either unfinished work or a criterion that should never have been written. Say which.
+
+**Where the story has child tasks, done also means every child task is done.** A story is not demonstrable while a child carrying part of its behaviour is still open — check their state before reporting the story complete.
 
 ---
 

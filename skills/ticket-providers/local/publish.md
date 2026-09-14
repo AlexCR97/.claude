@@ -2,44 +2,40 @@
 
 Read by `ticket-refine`.
 
-## Where a refinement summary goes
+## Applied in place, not posted as a comment
 
-Appended under the `## Comments` section of `{ticket-dir}/raw/ticket.md`, as a block headed:
+There is no discussion thread here that means anything — `raw/ticket.md` *is* the ticket, not a copy of one — so a refinement's conclusions are written directly into the two sections `/ticket-new` left as `TODO` stubs for exactly this:
 
-```
-### {YYYY-MM-DD HH:MM} UTC — Refinement Session
-```
+| Template section                                                      | Lands in                                                                |
+| --------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| `Goal and Success Criteria`                                           | `## Acceptance Criteria` — replaces its content wholesale               |
+| `Domain Model and Data`, `Edge Cases and Failure Modes`, `Open Items` | `## Description` — folded together, each keeping its own `####` heading |
 
-The section is created if the file does not have one. Posted through:
+`## Comments` is never touched by this verb.
+
+**A section still holding its original stub is replaced outright.** A section a person has already written into is grown instead — the new content is appended after what is there, never overwriting hand-written prose. This is why a ticket refined more than once keeps every pass's conclusions rather than only the latest.
+
+**Every leftover `TODO — ...` marker in that section is stripped first**, whichever section it grows onto. `/ticket-new`'s type-seeded stubs routinely leave more than one — a bolded question per "what refine must establish" item, each ending in its own `TODO — run /ticket-refine to establish this.` — and a refinement pass answering one is exactly the moment its marker stops being true. Only the marker sentence goes; a bolded question or a "Provisionally: ..." guess sitting next to it survives as context. A line that was nothing but a marker (a bare paragraph, or a bullet with nothing else in it) is dropped entirely rather than left as a dangling `-`.
+
+Posted through:
 
 ```
 python "{skills}/ticket-common/ticket.py" publish {source}:{id} --file "{comment-file}" --delete-after-post
 ```
 
-## Markup: markdown, at a nested heading level
+The verb name and the staged filename (`refinement-comment.{ext}`) are the driver's generic vocabulary for "the confirmed summary" — inherited from the sources that really do post a comment. Nothing here is actually appended to a comment thread.
+
+## Markup: markdown, no nesting required
 
 The body is markdown, like the rest of the file. Write the staged file as `.md`.
 
-**The summary is a fragment, not a document.** It is appended *inside* a section of an existing file, so its headings have to nest below the ones already there:
-
-| Level | Used by |
-| --- | --- |
-| `#` | the ticket's own title |
-| `##` | the file's sections — `Description`, `Acceptance Criteria`, `Comments`, `Links` |
-| `###` | one comment |
-| `####` | **the summary's own sections** |
-
-A summary written with `##` headings would not sit *in* the comment — it would silently end the `## Comments` section and turn each of its parts into a new top-level section of the ticket. Nothing errors; the file just quietly stops meaning what it says. Do not add a title heading either: the `###` line the append generates is already the summary's heading.
+**The summary is not appended inside another section**, so it does not need to nest below anything: write it at the heading levels `refinement-template.md` already uses. Do not add a title heading — the template's `####` lines are already the summary's own headings.
 
 ## Template
 
 `{provider-dir}/refinement-template.md`, which is already written at the right level.
 
 Replace every `{placeholder}` with the value derived from the interview. Omit the Open Items heading and its content when everything was resolved.
-
-## Appending, never rewriting
-
-Only the new block is added; the rest of the file is left byte-for-byte as it was. Everything else in it was written by a person, and a publish must not reflow their prose or renumber their headings.
 
 ## After posting
 

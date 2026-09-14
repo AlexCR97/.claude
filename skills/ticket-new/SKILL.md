@@ -1,16 +1,16 @@
 ---
 name: ticket-new
 description: Creates a ticket in a store that supports it, seeded from its type so the body starts with the right questions, then chains into ticket-refine. For local tickets that have no upstream system to fetch from.
-argument-hint: "\"<title>\" [--source S] [--type T]"
+argument-hint: '"<title>" [--source S] [--type T] [--parent REF]'
 ---
 
 This skill is a **driver**: it contains no field names, URLs, API versions, credential commands, markup dialects, or type-specific rules of its own. Everything specific lives alongside it in three directories, and every step below just says which file to read.
 
-| Directory | Contains | Read |
-| --- | --- | --- |
-| `ticket-common/` | the resolver (`ticket.py`) and the shared contracts — `RESOLUTION.md`, `ARTIFACTS.md`, `STATUS.md` | as each step names |
-| `ticket-providers/{source}/` | everything specific to where the ticket came from | only the **resolved** source's directory, and only the role file a step names |
-| `ticket-types/{type}.md` | everything specific to what shape the work is | only the **resolved** type's file |
+| Directory                    | Contains                                                                                           | Read                                                                          |
+| ---------------------------- | -------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| `ticket-common/`             | the resolver (`ticket.py`) and the shared contracts — `RESOLUTION.md`, `ARTIFACTS.md`, `STATUS.md` | as each step names                                                            |
+| `ticket-providers/{source}/` | everything specific to where the ticket came from                                                  | only the **resolved** source's directory, and only the role file a step names |
+| `ticket-types/{type}.md`     | everything specific to what shape the work is                                                      | only the **resolved** type's file                                             |
 
 Never let a source-specific or type-specific fact creep back into this file — a field key, a URL, an API version, a script name, a credential command, an HTML-vs-markdown decision, or a rule that only holds for bugs or only for spikes. **If a step cannot be written without naming a particular ticket system, it belongs in `ticket-providers/{source}/`; if it cannot be written without naming a ticket type, it belongs in `ticket-types/{type}.md`. This file should only name the file to read.** A source directory may hold only some of the role files; treat each as present-or-absent independently, and never substitute another source's or another type's module for a missing one.
 
@@ -31,12 +31,13 @@ This skill creates one locally, seeds its body from its **type** so it starts wi
 ## Input
 
 ```
-/ticket-new "<title>" [--source {source}] [--type {type}]
+/ticket-new "<title>" [--source {source}] [--type {type}] [--parent {ref}]
 ```
 
 - `{title}` — required. If none was given, ask for one before proceeding.
 - `--source` — which store to create it in. When omitted, see step 2.
 - `--type` — the kind of work. When omitted, see step 3.
+- `--parent` — for a task, the `[source:]id` of the parent user story it belongs to. Optional, and only meaningful for a task; a source's `new.md` says whether it accepts this and how it is stored. When omitted for a task, leave it to the seeded stub from step 5 and to `/ticket-refine` to establish.
 
 ---
 
@@ -66,7 +67,7 @@ This is a **reported gap, not a fallback**. The absence of that source's `new.md
 
 Take the type the user supplied. If they supplied none, **offer the list from step 1 and ask** — one line each, from the first paragraph of each type file. Do not default silently: type decides the shape of everything downstream, and it is much cheaper to pick now than to discover the plan came out the wrong shape.
 
-Read `ticket-types/{type}.md` once the type is known. Its *"What this type is"* and *"What refine must establish"* sections are what step 5 seeds from.
+Read `ticket-types/{type}.md` once the type is known. Its _"What this type is"_ and _"What refine must establish"_ sections are what step 5 seeds from.
 
 ### 4. Derive the slug and create the ticket
 
@@ -84,10 +85,12 @@ Show the slug and let the user override it before creating anything — they hav
 Read `ticket-providers/{source}/new.md` for what that store creates and where, then:
 
 ```bash
-python "{skills}/ticket-common/ticket.py" new --source {source} --title "{title}" --id {slug} --type {type}
+python "{skills}/ticket-common/ticket.py" new --source {source} --title "{title}" --id {slug} --type {type} [--parent {ref}]
 ```
 
-If it exits non-zero, report the message and its hint verbatim and stop. A slug that already exists is the common case, and the fix is a different slug — never a merge into the existing directory.
+Include `--parent {ref}` only when the user supplied one; `new.md` says whether this source accepts it and what it validates.
+
+If it exits non-zero, report the message and its hint verbatim and stop. A slug that already exists is the common case, and the fix is a different slug — never a merge into the existing directory. A `--parent` that does not resolve, or resolves to the wrong type, is also reported verbatim — never silently dropped or substituted.
 
 ### 5. Seed the body from the type
 
@@ -95,8 +98,8 @@ The store created its own skeleton; `new.md` says what that skeleton is. **Now s
 
 From `ticket-types/{type}.md`:
 
-- Turn each thing *"What refine must establish"* names into a stub heading or a `TODO` line in the body, so the questions are visible in the file before the interview starts.
-- Where *"What done means"* states an invariant that holds for this kind of work whether or not anyone wrote it down, put it in the acceptance section as a stated condition.
+- Turn each thing _"What refine must establish"_ names into a stub heading or a `TODO` line in the body, so the questions are visible in the file before the interview starts.
+- Where _"What done means"_ states an invariant that holds for this kind of work whether or not anyone wrote it down, put it in the acceptance section as a stated condition.
 
 The point is that the ticket is **born with the right shape**: one kind of work starts with a question and a time-box already asked for, another starts with a stated "behaviour unchanged" condition, and the lightest kind starts with almost nothing — because that is what its type file says it needs.
 

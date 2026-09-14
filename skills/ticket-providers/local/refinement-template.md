@@ -2,8 +2,8 @@ Refined on {YYYY-MM-DD} by {user or "the development team"}.
 
 #### Goal and Success Criteria
 
-{Concise statement of the agreed primary outcome and what "done" looks like, incorporating the
-user's answers from Round 1. Note any acceptance criteria that were added, removed, or clarified.}
+{Concise statement of the agreed primary outcome and what "done" looks like. Note any acceptance
+criteria that were added, removed, or clarified during the interview.}
 
 #### Domain Model and Data
 
