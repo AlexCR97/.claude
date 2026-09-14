@@ -13,8 +13,6 @@
 | ...                                    |            |              |             |
 | **Total**                              |            | **~{X} hrs** |             |
 
-**Status values** — `[ ] Pending`, `[~] In Progress`, `[!] Blocked`, `[x] Done`. A phase row may carry a short parenthetical (e.g. `[x] Done (4 skipped)`). A phase's status is derived from its steps: any step `Blocked` → `[!] Blocked`; every step `Done` → `[x] Done`; any step `Done` or `In Progress` → `[~] In Progress`; otherwise `[ ] Pending`.
-
 ---
 
 ## Discovered Services
