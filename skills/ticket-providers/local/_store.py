@@ -117,28 +117,26 @@ def fingerprint(path: Path) -> str:
         return ""
 
 
-def append_comment(path: Path, block: str) -> None:
+def replace_section(path: Path, heading: str, content: str) -> bool:
     """
-    Add a block under `## Comments`, creating the section when it is absent.
-
-    Appending rather than rewriting is deliberate: everything else in the file
-    was written by a person, and a publish must not reflow their prose.
+    Overwrite one `##` section's content wholesale; every other section is left
+    byte-for-byte as it was. Returns whether `heading` was found at all — the
+    caller decides what a miss means, since this module never raises for it.
     """
     text = path.read_text(encoding="utf-8")
-    block = block.strip() + "\n"
+    content = content.strip() + "\n"
 
     matches = list(SECTION_PATTERN.finditer(text))
     for index, match in enumerate(matches):
-        if match.group(1).strip() != "Comments":
+        if match.group(1).strip() != heading:
             continue
+        start = match.end()
         end = matches[index + 1].start() if index + 1 < len(matches) else len(text)
-        head, tail = text[:end].rstrip("\n"), text[end:]
-        path.write_text(f"{head}\n\n{block}\n{tail}", encoding="utf-8")
-        return
+        head, tail = text[:start].rstrip("\n"), text[end:]
+        path.write_text(f"{head}\n\n{content}\n{tail}", encoding="utf-8")
+        return True
 
-    path.write_text(
-        f"{text.rstrip()}\n\n## Comments\n\n{block}", encoding="utf-8"
-    )
+    return False
 
 
 SKELETON = """{frontmatter}

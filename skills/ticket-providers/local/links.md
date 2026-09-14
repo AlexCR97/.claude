@@ -2,10 +2,10 @@
 
 Read by `ticket-digest`, `ticket-plan` and `ticket-checkpoint`.
 
-| Reference | Pattern |
-| --- | --- |
-| Ticket | **none** — this store has no web address |
-| Comment | **none** |
+| Reference  | Pattern                                          |
+| ---------- | ------------------------------------------------ |
+| Ticket     | **none** — this store has no web address         |
+| Comment    | **none**                                         |
 | Attachment | the local file, relative to the linking document |
 
 ## There is no ticket URL
@@ -25,3 +25,5 @@ Read by `ticket-digest`, `ticket-plan` and `ticket-checkpoint`.
 ## Cross-references between local tickets
 
 A sibling ticket's directory is `../{slug}/`, so its digest is `../{slug}/digest.md`. Use that only where the target actually exists — this store has no link table to validate against.
+
+**This depth applies only to a file in the ticket root** — `digest.md`, `plan.md`, `journal.md`. A link written *inside* `raw/ticket.md` itself is one level deeper and needs `../../{slug}/raw/ticket.md`, never `../{slug}/` and never `[[{slug}]]` wiki syntax — see `schema.md`'s *"Writing a link to another local ticket"*.

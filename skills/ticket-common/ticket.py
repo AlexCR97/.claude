@@ -16,7 +16,7 @@ Usage:
     python ticket.py migrate [--dry-run]
     python ticket.py init --source S [provider flags...]
     python ticket.py fetch <ref> [--source S]
-    python ticket.py new --source S --title "..." [--id SLUG] [--type T]
+    python ticket.py new --source S --title "..." [--id SLUG] [--type T] [provider flags...]
     python ticket.py publish <ref> --file F [--delete-after-post]
     python ticket.py drift <ref>
     python ticket.py auth-status [--source S]
