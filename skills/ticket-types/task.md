@@ -8,16 +8,19 @@ This is the lightest file in the directory on purpose. A task's whole risk is ce
 
 It is also the fallback. When a source's native type maps to nothing, the type is `task` — and the driver says so in one line rather than silently.
 
+A task may optionally belong to **one parent user story** — the story it helps deliver. Most tasks are standalone and carry no parent; recording one is worth doing only when this task is genuinely part of a larger story's delivery that is tracked as its own ticket. No parent is the normal case, not a gap.
+
 ---
 
 ## What refine must establish
 
-Two things, and usually nothing more:
+Two things almost always, and a third when this task is part of a larger story:
 
-- **The boundary.** What exactly is being changed, named concretely enough to recognise when it is done.
+- **The boundary.** What exactly is being changed, named concretely enough to recognize when it is done.
 - **What is explicitly *not* included.** This is the question that earns its keep for a task, because tasks are where scope grows without anyone noticing.
+- **Does this task belong to a parent user story?** Optional — most tasks are standalone, so do not force this. Ask only when the ticket doesn't already say. When it does, the parent must resolve to a real ticket whose type is `user-story`; record the reference, never invent one.
 
-Ask a third question only where an answer would actually change the work. If the ticket already answers both of the above, say so and skip the interview rather than manufacturing questions to fill the rounds.
+Ask a fourth question only where an answer would actually change the work. If the ticket already answers the first two, say so and skip the interview rather than manufacturing questions to fill the rounds.
 
 ---
 
@@ -26,6 +29,8 @@ Ask a third question only where an answer would actually change the work. If the
 The description and whatever passes for acceptance here — often a single sentence. Keep it short.
 
 Omit sections the ticket does not fill. A task's digest that runs to two pages has padded, and the padding will be read as content by the plan.
+
+Where `ticket.json` carries a `parent`, surface it under Related Tickets → Parent — the section every digest template already has, not a new one. Omit it entirely where no parent is set; a task's digest owes no one a "none".
 
 ---
 

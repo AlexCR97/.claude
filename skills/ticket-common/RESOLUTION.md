@@ -10,17 +10,17 @@ Read this only when the resolver's output is disputed — when a path is not whe
 python "{skills}/ticket-common/ticket.py" <verb> [<ref>] [--source S] [flags]
 ```
 
-| Verb | Does |
-| --- | --- |
-| `sources [--check]` | Lists every provider and its capability matrix. `--check` validates that each manifest's capabilities and its role files agree. |
-| `resolve <ref> [--type T] [--require a,b]` | The source, the id, the type, every absolute path, the capabilities, `ticket.json`, and what is on disk. |
-| `list` | Every ticket on disk across every source, newest first. |
-| `init --source S` | Per-source connection setup. |
-| `fetch <ref>` | Refreshes the local snapshot. Remote sources only. |
-| `new --source S --title "…" [--id SLUG] [--type T]` | Creates a ticket in a store that supports it. |
-| `publish <ref> --file F [--delete-after-post]` | Posts a summary back to the source. |
-| `drift <ref>` | Has the ticket moved since it was fetched? |
-| `auth-status [--source S]` | Each source's credential state, never the credential. |
+| Verb                                                | Does                                                                                                                            |
+| --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `sources [--check]`                                 | Lists every provider and its capability matrix. `--check` validates that each manifest's capabilities and its role files agree. |
+| `resolve <ref> [--type T] [--require a,b]`          | The source, the id, the type, every absolute path, the capabilities, `ticket.json`, and what is on disk.                        |
+| `list`                                              | Every ticket on disk across every source, newest first.                                                                         |
+| `init --source S`                                   | Per-source connection setup.                                                                                                    |
+| `fetch <ref>`                                       | Refreshes the local snapshot. Remote sources only.                                                                              |
+| `new --source S --title "…" [--id SLUG] [--type T]` | Creates a ticket in a store that supports it.                                                                                   |
+| `publish <ref> --file F [--delete-after-post]`      | Posts a summary back to the source.                                                                                             |
+| `drift <ref>`                                       | Has the ticket moved since it was fetched?                                                                                      |
+| `auth-status [--source S]`                          | Each source's credential state, never the credential.                                                                           |
 
 Flags a verb does not recognise are passed through to the provider untouched, so the front door never has to know what a given source needs in order to connect.
 
@@ -40,14 +40,14 @@ An id is validated against the source's `id.pattern` once the source is known, s
 
 ## Exit codes
 
-| Code | Meaning |
-| --- | --- |
-| 0 | ok — for `drift`, also "up to date" |
-| 1 | error / not initialized |
-| 2 | `--require` unmet, **or** `drift` found the ticket moved |
-| 3 | ambiguous bare id, or the source declares this capability absent |
-| 4 | the legacy `~/.az-workitems` layout was detected → tell the user to run `/ticket-init` to migrate |
-| 5 | ticket not found |
+| Code | Meaning                                                                                           |
+| ---- | ------------------------------------------------------------------------------------------------- |
+| 0    | ok — for `drift`, also "up to date"                                                               |
+| 1    | error / not initialized                                                                           |
+| 2    | `--require` unmet, **or** `drift` found the ticket moved                                          |
+| 3    | ambiguous bare id, or the source declares this capability absent                                  |
+| 4    | the legacy `~/.az-workitems` layout was detected → tell the user to run `/ticket-init` to migrate |
+| 5    | ticket not found                                                                                  |
 
 Exit 3 on an absent capability is structural, not advisory: the verb refuses before any provider code loads. Report it as a gap. Never substitute another source's behaviour for it, and never hand-roll the call the provider declined to make.
 
@@ -85,14 +85,15 @@ A ticket root holds **nothing but those six entries**. Never write a generated f
 
 The file that keeps source-specific URL patterns out of every driver and every template.
 
-| Key | Notes |
-| --- | --- |
-| `source`, `id` | The resolved identity. |
-| `title`, `state` | As the source last reported them. |
-| `type` | One of the canonical types in `ticket-types/`. |
-| `native_type` | The source's own word for it, kept untouched alongside. |
-| `url` | The ticket's web address, or **`null`** where the source has none. |
-| `last_fetched_at` | When the snapshot was taken, in UTC. |
+| Key               | Notes                                                                                                                                                                                                                             |
+| ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `source`, `id`    | The resolved identity.                                                                                                                                                                                                            |
+| `title`, `state`  | As the source last reported them.                                                                                                                                                                                                 |
+| `type`            | One of the canonical types in `ticket-types/`.                                                                                                                                                                                    |
+| `native_type`     | The source's own word for it, kept untouched alongside.                                                                                                                                                                           |
+| `url`             | The ticket's web address, or **`null`** where the source has none.                                                                                                                                                                |
+| `last_fetched_at` | When the snapshot was taken, in UTC.                                                                                                                                                                                              |
+| `parent`          | Optional `[source:]id` reference to a parent ticket. Present only where the relationship exists; absent — never a fabricated value — when it does not. `ticket-types/{type}.md` says which types may carry one and what it means. |
 
 **Read `url` and degrade to plain text when it is `null`.** A local store has no web address, and a digest that prints a broken link is worse than one that prints `#42: Cache the authorization lookup` as text.
 

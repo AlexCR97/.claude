@@ -10,11 +10,11 @@ Read-only. Nothing is rewritten.
 
 ## Exit contract
 
-| Exit | Means |
-| --- | --- |
-| 0 | the recorded fingerprint matches the file |
-| 1 | the comparison could not be made — no ticket body on disk |
-| 2 | the file changed since it was last recorded |
+| Exit | Means                                                     |
+| ---- | --------------------------------------------------------- |
+| 0    | the recorded fingerprint matches the file                 |
+| 1    | the comparison could not be made — no ticket body on disk |
+| 2    | the file changed since it was last recorded               |
 
 ## What is compared
 
@@ -22,7 +22,7 @@ Read-only. Nothing is rewritten.
 
 There is no upstream revision counter to compare against, so the file's own content is the only thing that can say whether it moved. It is a coarse signal — it cannot say *what* changed, only that something did — and that is enough for what a resume does with it: recommend a re-read before continuing.
 
-Alongside it, the frontmatter's `title`, `state` and `type` are compared against what `ticket.json` records, which is the one place this store can say *what* moved.
+Alongside it, the frontmatter's `id`, `title`, `state` and `type` are compared against what `ticket.json` records, which is the one place this store can say *what* moved.
 
 ## Why this is worth having at all
 

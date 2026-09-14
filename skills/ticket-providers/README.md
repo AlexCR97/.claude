@@ -29,18 +29,18 @@ A provider directory is trusted **code**, not configuration. `provider.py` is im
 
 **The role `.md` files are the expensive references.** A driver opens only the one role file for its own step, only for the resolved source, and **never another source's files**.
 
-| Role file | Answers | Read by | Gates capability |
-| --- | --- | --- | --- |
-| `provider.json` | capabilities, prefixes, id shape, nouns, comment format | all, via `resolve` | — |
-| `config.md` | what `{source}/config.json` holds, how credentials are acquired and validated | `ticket-init` | — |
-| `fetch.md` | how raw data lands in `raw/`, traversal policy, attachment rules, how `ticket.json` is refreshed | `ticket-fetch` | `fetch` |
-| `new.md` | how a ticket is created here | `ticket-new` | `new` |
-| `schema.md` | where the content is on disk and the logical→physical field map | `ticket-digest`, `ticket-refine` | — |
-| `types.md` | this source's native type and tag/label vocabulary → one canonical type | `ticket-fetch`, `ticket-new` | — |
-| `links.md` | ticket / comment / attachment URL patterns | `ticket-digest`, `ticket-plan`, `ticket-checkpoint` | — |
-| `publish.md` | where a refinement summary goes, in what markup, via what verb, which template | `ticket-refine` | `publish` |
-| `drift.md` | how to tell the local snapshot is stale, as exit 0/1/2 | `ticket-resume` | `drift` |
-| `provider.py` (+ private `_*.py`) | every network call and every credential | never read — invoked via `ticket.py` | — |
+| Role file                         | Answers                                                                                          | Read by                                             | Gates capability |
+| --------------------------------- | ------------------------------------------------------------------------------------------------ | --------------------------------------------------- | ---------------- |
+| `provider.json`                   | capabilities, prefixes, id shape, nouns, comment format                                          | all, via `resolve`                                  | —                |
+| `config.md`                       | what `{source}/config.json` holds, how credentials are acquired and validated                    | `ticket-init`                                       | —                |
+| `fetch.md`                        | how raw data lands in `raw/`, traversal policy, attachment rules, how `ticket.json` is refreshed | `ticket-fetch`                                      | `fetch`          |
+| `new.md`                          | how a ticket is created here                                                                     | `ticket-new`                                        | `new`            |
+| `schema.md`                       | where the content is on disk and the logical→physical field map                                  | `ticket-digest`, `ticket-refine`                    | —                |
+| `types.md`                        | this source's native type and tag/label vocabulary → one canonical type                          | `ticket-fetch`, `ticket-new`                        | —                |
+| `links.md`                        | ticket / comment / attachment URL patterns                                                       | `ticket-digest`, `ticket-plan`, `ticket-checkpoint` | —                |
+| `publish.md`                      | where a refinement summary goes, in what markup, via what verb, which template                   | `ticket-refine`                                     | `publish`        |
+| `drift.md`                        | how to tell the local snapshot is stale, as exit 0/1/2                                           | `ticket-resume`                                     | `drift`          |
+| `provider.py` (+ private `_*.py`) | every network call and every credential                                                          | never read — invoked via `ticket.py`                | —                |
 
 `config.md`, `schema.md`, `types.md` and `links.md` are **required of every source**. The other four are present exactly when the matching capability is `true`. `python ticket-common/ticket.py sources --check` validates that agreement, and a mismatch is an error.
 
@@ -84,14 +84,14 @@ Then write `types.md`, `links.md`, `config.md`, `provider.py`, and whichever of 
 
 `ticket.py` calls these and nothing else. Each is handed a `ctx` dict (source, id, manifest, config, absolute paths) and the list of unrecognised command-line flags, so a provider can take its own options without the front door knowing about them.
 
-| Function | Returns |
-| --- | --- |
-| `init(ctx, extra)` | a report dict; writes `{source}/config.json` |
-| `fetch(ctx, extra)` | a report dict; writes `raw/` and refreshes `ticket.json` |
-| `new(ctx, title, ticket_type, extra)` | a report dict; creates the ticket root and `ticket.json` |
-| `publish(ctx, text, extra)` | a report dict |
-| `drift(ctx, extra)` | a report dict carrying `is_stale`; `ticket.py` maps it to exit 0 or 2 |
-| `auth_status(ctx)` | a report dict; **never** a credential |
+| Function                              | Returns                                                               |
+| ------------------------------------- | --------------------------------------------------------------------- |
+| `init(ctx, extra)`                    | a report dict; writes `{source}/config.json`                          |
+| `fetch(ctx, extra)`                   | a report dict; writes `raw/` and refreshes `ticket.json`              |
+| `new(ctx, title, ticket_type, extra)` | a report dict; creates the ticket root and `ticket.json`              |
+| `publish(ctx, text, extra)`           | a report dict                                                         |
+| `drift(ctx, extra)`                   | a report dict carrying `is_stale`; `ticket.py` maps it to exit 0 or 2 |
+| `auth_status(ctx)`                    | a report dict; **never** a credential                                 |
 
 Only the functions whose capability is `true` need to exist.
 
