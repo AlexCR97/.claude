@@ -13,6 +13,7 @@
 /sessions
 /shell-snapshots
 # /skills
+/skills/synced
 /statsig
 /tasks
 /telemetry
@@ -23,6 +24,7 @@
 history.jsonl
 mcp-needs-auth-cache.json
 policy-limits.json
+policy-limits.json.stamp.json
 remote-settings.json
 settings.json
 settings.local.json
