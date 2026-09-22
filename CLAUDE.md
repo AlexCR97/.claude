@@ -6,7 +6,7 @@ In Windows prefer using PowerShell. If a command cannot be executed fallback to 
 
 ## Git
 
-When generating code do not stage the changes or commit them so I can review.
+When generating code do not stage the changes or commit them so I can review. If there are already staged changes it was very likely me, so do not unstage them, as I use this to review the diff of the new changes, i.e. the staged changes vs the unstaged changes.
 
 ## Code Comments
 
