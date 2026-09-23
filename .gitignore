@@ -14,6 +14,7 @@
 /shell-snapshots
 # /skills
 /skills/synced
+/state
 /statsig
 /tasks
 /telemetry
