@@ -53,7 +53,7 @@ TODO — run `/ticket-refine` to establish these.
 
 ## Where the body goes under `raw/`
 
-Not in the ticket root. Putting it under `raw/` means `--require raw` is satisfiable identically for every source, so the digest and refine drivers need no special case for a store with no fetch.
+Not in the ticket directory. Putting it under `raw/` means `--require raw` is satisfiable identically for every source, so the digest and refine drivers need no special case for a store with no fetch.
 
 ## Creating one
 

@@ -40,11 +40,11 @@ flowchart LR
 
 No `ticket-*/SKILL.md` contains a field name, a URL, an API version, a credential command, a markup dialect, or a rule that only holds for one kind of work. Each states the workflow and names which file to read. Everything specific lives in one of three places:
 
-| Directory                    | Holds                                                                                                              | Not a skill   |
-| ---------------------------- | ------------------------------------------------------------------------------------------------------------------ | ------------- |
-| `ticket-common/`             | the resolver `ticket.py`, the git collector, and the shared contracts `RESOLUTION.md`, `ARTIFACTS.md`, `STATUS.md` | no `SKILL.md` |
-| `ticket-providers/{source}/` | one directory per ticket source — its manifest, its role files, its code                                           | no `SKILL.md` |
-| `ticket-types/{type}.md`     | one file per kind of work                                                                                          | no `SKILL.md` |
+| Directory                    | Holds                                                                                                                             | Not a skill   |
+| ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------- | ------------- |
+| `ticket-common/`             | the resolver `ticket.py`, the git collector, and the shared contracts `RESOLUTION.md`, `ARTIFACTS.md`, `STATUS.md`, `GLOSSARY.md` | no `SKILL.md` |
+| `ticket-providers/{source}/` | one directory per ticket source — its manifest, its role files, its code                                                          | no `SKILL.md` |
+| `ticket-types/{type}.md`     | one file per kind of work                                                                                                         | no `SKILL.md` |
 
 Both sets are discovered by **glob**, never from a hardcoded list. Adding a source is adding a directory; adding a type is adding a file. Neither changes any `SKILL.md`.
 
@@ -107,7 +107,7 @@ Two levels: one directory per source, one per ticket.
 
 ```txt
 ~/.tickets/
-├── config.json                 {"default_source": "ado"} — the only key
+├── config.json                 {"default_source": "ado", "scan_roots": ["C:\\src"]} — machine-wide only
 └── {source}/
     ├── config.json             this source's coordinates and cached credential
     └── {id}/
@@ -129,7 +129,7 @@ A bare id resolves by scanning every source for a ticket directory of that name.
 
 `journal.md` is append-only in the strongest sense in here: an entry is one session's account of itself, and unlike a plan, a digest or a probe output, nothing can regenerate it. Entries are added above the newest one so the current state is the top of the file, and an existing entry is never edited or deleted — a correction is a new entry that says what it corrects.
 
-`artifacts/` is created lazily, the first time a run produces a file that is not a change to the codebase — a read-only probe, its captured output, a data extract, or a note recording what was found. A capture is named for the format it holds — `.json`, `.csv`, `.md`, and `.txt` by default — so a later run can parse it instead of re-running the script to get the data in a usable shape.
+`artifacts/` is created lazily, the first time a run produces a file that is not a change to the workspace — a read-only probe, its captured output, a data extract, or a note recording what was found. A capture is named for the format it holds — `.json`, `.csv`, `.md`, and `.txt` by default — so a later run can parse it instead of re-running the script to get the data in a usable shape.
 
 Each of the two writers owns one part of it. `ticket-plan` writes only to `planning/`, where it stores the research that settles a fact the plan's shape depends on; it must ask before running any script it writes, since no approved step authorizes execution. `ticket-implement` writes only to `step-{N}.{M}/` and `shared/`, and reads `planning/` to see why a step is shaped the way it is.
 
@@ -161,14 +161,14 @@ flowchart TD
     INIT_CHECK -->|No| INIT
     INIT_CHECK -->|"Yes — skip"| ORIGIN
 
-    INIT["/ticket-init [source]\n────────────────\nEnumerates the installed sources\nRuns that source's own connection setup\nMigrates any older layout it finds\n\nRun once per machine per source"]
+    INIT["/ticket-init [source]\n────────────────\nEnumerates the installed sources\nRuns that source's own connection setup\nMigrates any older layout it finds\nSaves the default scan roots\n\nRun once per machine per source"]
 
     INIT --> ORIGIN{"Does the ticket\nexist upstream?"}
 
     ORIGIN -->|"Yes — remote source"| FETCH
     ORIGIN -->|"No — my own work"| NEW
 
-    NEW["/ticket-new \"title\" --type {type}\n────────────────\nCreates raw/ticket.md + ticket.json\nSeeds the body from ticket-types/{type}.md\nChains straight into refine\n\nLocal stores only"]
+    NEW["/ticket-new #quot;title#quot; --type {type}\n────────────────\nCreates raw/ticket.md + ticket.json\nSeeds the body from ticket-types/{type}.md\nChains straight into refine\n\nLocal stores only"]
 
     FETCH["/ticket-fetch {ref}\n────────────────\nDownloads the snapshot to raw/\nKeeps attachments already on disk\nRefreshes ticket.json incl. the resolved type\n\nRemote sources only"]
 
@@ -192,7 +192,7 @@ flowchart TD
 
     DIGEST --> PLAN
 
-    PLAN["/ticket-plan {ref}\n────────────────\nReads digest.md + artifacts/ + the type file\nDiscovers services in the codebase\nResearches unknowns → artifacts/planning/\nApplies the type's phase shape & activity mix\nWrites phased plan.md\n\nRe-running shows progress & updates"]
+    PLAN["/ticket-plan {ref}\n────────────────\nReads digest.md + artifacts/ + the type file\nDiscovers the workspace from its scan roots:\nrepositories, worktrees & projects\nResearches unknowns → artifacts/planning/\nApplies the type's phase shape & activity mix\nWrites phased plan.md\n\nRe-running shows progress & updates"]
 
     PLAN --> IMPLEMENT
 
@@ -205,7 +205,7 @@ flowchart TD
     SWITCHING -->|"No — keep going"| IMPLEMENT
     SWITCHING -->|Yes| CHECKPOINT
 
-    CHECKPOINT["/ticket-checkpoint {ref}\n────────────────\nRecords the session in journal.md:\n  · where the code is (repo, branch, tree)\n  · what was done\n  · what was decided, and why\n  · what is blocking\n  · the single next action\n\nMakes no code changes"]
+    CHECKPOINT["/ticket-checkpoint {ref}\n────────────────\nRecords the session in journal.md:\n  · where the code is (repository, worktree, branch)\n  · what was done\n  · what was decided, and why\n  · what is blocking\n  · the single next action\n\nMakes no code changes"]
 
     CHECKPOINT -.->|"days later,\nnew session"| RESUME
 ```

@@ -1,16 +1,16 @@
 ---
 name: ticket-init
-description: Initializes the ~/.tickets directory and the connection for one ticket source. Run this once per machine per source before using any other ticket-* skill — new, fetch, refine, digest, plan, implement, checkpoint, or resume. Also migrates data from the older az-workitem layout.
+description: Initializes the ~/.tickets directory, the machine's default scan roots (the directories ticket-plan looks for code in), and the connection for one ticket source. Run this once per machine per source before using any other ticket-* skill — new, fetch, refine, digest, plan, implement, checkpoint, or resume. Also migrates data from the older az-workitem layout.
 argument-hint: "[source] [provider options]"
 ---
 
 This skill is a **driver**: it contains no field names, URLs, API versions, credential commands, markup dialects, or type-specific rules of its own. Everything specific lives alongside it in three directories, and every step below just says which file to read.
 
-| Directory                    | Contains                                                                                           | Read                                                                          |
-| ---------------------------- | -------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| `ticket-common/`             | the resolver (`ticket.py`) and the shared contracts — `RESOLUTION.md`, `ARTIFACTS.md`, `STATUS.md` | as each step names                                                            |
-| `ticket-providers/{source}/` | everything specific to where the ticket came from                                                  | only the **resolved** source's directory, and only the role file a step names |
-| `ticket-types/{type}.md`     | everything specific to what shape the work is                                                      | not read by this skill                                                        |
+| Directory                    | Contains                                                                                                          | Read                                                                          |
+| ---------------------------- | ----------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| `ticket-common/`             | the resolver (`ticket.py`) and the shared contracts — `RESOLUTION.md`, `ARTIFACTS.md`, `STATUS.md`, `GLOSSARY.md` | as each step names                                                            |
+| `ticket-providers/{source}/` | everything specific to where the ticket came from                                                                 | only the **resolved** source's directory, and only the role file a step names |
+| `ticket-types/{type}.md`     | everything specific to what shape the work is                                                                     | not read by this skill                                                        |
 
 Never let a source-specific or type-specific fact creep back into this file — a field key, a URL, an API version, a script name, a credential command, an HTML-vs-markdown decision, or a rule that only holds for bugs or only for spikes. **If a step cannot be written without naming a particular ticket system, it belongs in `ticket-providers/{source}/`; if it cannot be written without naming a ticket type, it belongs in `ticket-types/{type}.md`. This file should only name the file to read.** A source directory may hold only some of the role files; treat each as present-or-absent independently, and never substitute another source's or another type's module for a missing one.
 
@@ -20,9 +20,9 @@ No `allowed-tools` here: this skill writes config and runs a migration, so an al
 
 ## Purpose
 
-Sets up one ticket source for the current user: resolves which source, acquires and validates whatever credential it needs, and writes its config. Also records the machine's `default_source`, so a bare id resolves without a prefix.
+Sets up one ticket source for the current user: resolves which source, acquires and validates whatever credential it needs, and writes its config. Also records two machine-wide settings: `default_source`, so a bare id resolves without a prefix, and the default scan roots, so `ticket-plan` knows where to look for code. What a scan root is, and every other term for the code a ticket touches, is defined in `ticket-common/GLOSSARY.md`.
 
-The config lives in the user's home directory, so it is shared across every workspace. The other `ticket-*` skills read it automatically.
+The config lives in the user's home directory, so it is shared across every repository. The other `ticket-*` skills read it automatically.
 
 Run it once per machine per source. Running it again for a source that is already set up is a re-initialization, and it asks first.
 
@@ -68,7 +68,7 @@ Take the source the user supplied. If they supplied none:
 python "{skills}/ticket-common/ticket.py" resolve --source {source}
 ```
 
-The `config` it returns is the stored config with any credential replaced by its **status string** — never the credential itself. If `on_disk.config` is true, show those values and ask `Re-initialize? [y/N]`. If the user declines, stop here — do not proceed to step 4.
+The `config` it returns is the stored config with any credential replaced by its **status string** — never the credential itself. If `on_disk.config` is true, show those values and ask `Re-initialize? [y/N]`. If the user declines, skip to [step 6](#6-record-the-default-scan-roots): the source stays as it is, but the default scan roots belong to the machine and can still be updated.
 
 ### 4. Run the migration check
 
@@ -101,7 +101,33 @@ Never ask the user for a credential, and never run a credential command yourself
 
 Wait for the script to complete. If it exits with a non-zero code, report the error output verbatim and stop — do not write or modify any file yourself.
 
-### 6. Report the result
+### 6. Record the default scan roots
+
+The default scan roots are the directories `ticket-plan` starts every discovery from: worktrees of repositories, or directories holding several repositories. A ticket whose code is reachable from one needs no directory named at plan time. They belong to the machine rather than to the source, so every init asks about the same list.
+
+Read the current list:
+
+```bash
+python "{skills}/ticket-common/ticket.py" scan-roots
+```
+
+Then ask:
+
+> Which directories should ticket-plan look for code in? List each repository's worktree, or a directory holding several repositories. Say "none" to leave the list empty.
+
+Where a list is already saved, show it and offer to keep it:
+
+> Default scan roots: `C:\src\billing-api`, `C:\src\contracts`. Keep these, or give the full list to replace them?
+
+Wait for the answer. Save exactly the directories the user listed; never add one they did not name, such as the invocation directory:
+
+```bash
+python "{skills}/ticket-common/ticket.py" scan-roots --set ["{dir}" ...]
+```
+
+`--set` with no directory saves an empty list. Run it that way when the user named none, so the list is present and empty rather than missing. Skip the call only when the user kept an existing list. A non-zero exit names the directory that does not exist and saves nothing; show it and ask again.
+
+### 7. Report the result
 
 On success:
 
@@ -113,8 +139,11 @@ Also state:
 - **Which values were used, and which came from a default** — so a default is never applied silently. That list is in the init's own output.
 - **Whether `default_source` was set**, and to what. The front door sets it only when no default existed; an init for a second source **never silently repoints it**. Where a default already existed, say which source it is and that bare ids still resolve there.
 - Anything the source's `config.md` says is worth reporting — a credential's expiry, how it refreshes, what the user must keep doing to stay signed in.
+- **The default scan roots as saved**, or that the list is empty and `ticket-plan` will fall back to its invocation directory.
 
 Where the source offers `new` rather than `fetch`, point at `/ticket-new` instead; the capabilities in step 1's output say which.
+
+Where re-initialization was declined in step 3, report only the default scan roots.
 
 On failure, report the error output from the script verbatim and stop.
 
@@ -130,4 +159,5 @@ On failure, report the error output from the script verbatim and stop.
 - Never assume which sources exist; enumerate them
 - Never silently repoint `default_source` — report what it is, and change it only when there was none
 - Run the migration check on every invocation, and never run the migration for real without showing the dry run and asking
+- Ask for the default scan roots on every invocation, including one where re-initialization was declined. Save only the directories the user named, and an empty list when they named none
 - Do not proceed past a non-zero exit code

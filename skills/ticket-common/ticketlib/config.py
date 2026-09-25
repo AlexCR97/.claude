@@ -2,9 +2,12 @@
 """
 Reading and writing the two config levels.
 
-Root `config.json` holds exactly one key, `default_source`. Everything a source
-needs to connect — coordinates, a cached credential — lives in that source's
-own `config.json`, so one source's setup can never disturb another's.
+Root `config.json` holds what belongs to the machine rather than to any one
+source: `default_source`, and `scan_roots`, the default scan roots every plan
+starts from. Everything a source needs to connect — coordinates, a cached credential —
+lives in that source's own `config.json`, so one source's setup can never
+disturb another's. A provider rewrites its own file whole on every init, which
+is why nothing machine-wide can be kept there.
 """
 
 import json
@@ -49,6 +52,18 @@ def set_default_source(source: str) -> None:
 def default_source() -> str | None:
     value = load_root().get("default_source")
     return str(value) if value else None
+
+
+def scan_roots() -> list[str]:
+    value = load_root().get("scan_roots")
+    return [str(path) for path in value] if isinstance(value, list) else []
+
+
+def set_scan_roots(directories: list[str]) -> None:
+    """Replaces the list without clobbering any other key already there."""
+    config = load_root()
+    config["scan_roots"] = directories
+    save_root(config)
 
 
 def load_source(source: str) -> dict:

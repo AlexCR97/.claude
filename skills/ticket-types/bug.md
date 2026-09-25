@@ -15,7 +15,7 @@ These are the round-one questions for a bug, and none of them is optional:
 - **Repro steps.** The exact sequence that produces the wrong behaviour, including the starting state. "Sometimes it fails" is not a repro; establishing what makes it sometimes is part of refinement.
 - **Expected versus actual.** Both, stated separately. A report that only says what happened has not said what should have happened, and those are frequently not the same disagreement.
 - **Environment.** Where it reproduces and where it does not — which build, which configuration, which data. A bug that reproduces in one environment and not another has already told you half the cause.
-- **A root-cause hypothesis.** Not a commitment; a starting point, with what would confirm or kill it. Recording the hypothesis is what stops the first investigation phase from starting cold.
+- **A root-cause hypothesis.** Not a commitment; a first guess, with what would confirm or kill it. Recording the hypothesis is what stops the first investigation phase from starting cold.
 
 Then the usual rounds. In edge cases, ask specifically: **is the wrong behaviour also happening somewhere nobody has looked?** Bugs rarely have exactly one entry point.
 

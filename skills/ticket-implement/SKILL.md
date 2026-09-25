@@ -6,11 +6,11 @@ argument-hint: "<[source:]id> [phases]"
 
 This skill is a **driver**: it contains no field names, URLs, API versions, credential commands, markup dialects, or type-specific rules of its own. Everything specific lives alongside it in three directories, and every step below just says which file to read.
 
-| Directory | Contains | Read |
-| --- | --- | --- |
-| `ticket-common/` | the resolver (`ticket.py`) and the shared contracts — `RESOLUTION.md`, `ARTIFACTS.md`, `STATUS.md` | as each step names |
-| `ticket-providers/{source}/` | everything specific to where the ticket came from | **none.** See below |
-| `ticket-types/{type}.md` | everything specific to what shape the work is | only the **resolved** type's file |
+| Directory                    | Contains                                                                                                          | Read                              |
+| ---------------------------- | ----------------------------------------------------------------------------------------------------------------- | --------------------------------- |
+| `ticket-common/`             | the resolver (`ticket.py`) and the shared contracts — `RESOLUTION.md`, `ARTIFACTS.md`, `STATUS.md`, `GLOSSARY.md` | as each step names                |
+| `ticket-providers/{source}/` | everything specific to where the ticket came from                                                                 | **none.** See below               |
+| `ticket-types/{type}.md`     | everything specific to what shape the work is                                                                     | only the **resolved** type's file |
 
 **This skill is source-agnostic: it reads no provider file at all.** By the time it runs, everything the ticket said is in `digest.md` and everything the work is, is in `plan.md`. If this skill ever needs a provider file, the abstraction has leaked — treat that as a bug to report rather than a file to open.
 
@@ -47,7 +47,7 @@ Two things it says that this skill leans on hardest:
 
 ## Artifacts
 
-The layout, the placement rules, the capture-naming convention, the append-only rule, the renumbering pass and the run-approval rule are all in **`ticket-common/ARTIFACTS.md`**. Read it before producing any file that is not a change to the codebase.
+The layout, the placement rules, the capture-naming convention, the append-only rule, the renumbering pass and the run-approval rule are all in **`ticket-common/ARTIFACTS.md`**. Read it before producing any file that is not a change to the workspace.
 
 Two boundaries matter here: `artifacts/planning/` belongs to `ticket-plan` — **read it, never write to it**; this skill writes only `artifacts/step-{N}.{M}/` and `artifacts/shared/`.
 
@@ -76,8 +76,10 @@ Read **`ticket-types/{type}.md`**, specifically its *"What done means"* and *"Wh
 Then parse `plan.md` and extract:
 
 - The **Progress table** — phase names, estimates, and current status (`[ ] Pending`, `[~] In Progress`, `[!] Blocked`, `[x] Done`)
-- Each **Phase section** — its scope, services touched, and step sub-sections (`### Step {N}.{M}`, each with a `**Status:**`, `**Target:**`, and `**Artifacts:**` line)
-- The **Discovered Services table** — maps service names to relative paths and technology stack; used in step 9
+- Each **Phase section** — its scope, projects touched, and step sub-sections (`### Step {N}.{M}`, each with a `**Status:**`, `**Target:**`, and `**Artifacts:**` line)
+- The **Workspace section** — each worktree and plain directory, by absolute path, and the projects inside them; used in steps 6 and 9
+
+The terms in that section, and throughout this skill, mean exactly what **`ticket-common/GLOSSARY.md`** says. The workspace is where this run works: never read or change a worktree it does not list, even one of a repository it holds, and never rediscover it.
 
 Then list the ticket's `artifacts/`. Every `**Artifacts:**` line that names a directory should have one on disk, and every directory on disk should be named by some step's `**Artifacts:**` line. Where they disagree, trust the disk and correct `plan.md`.
 
@@ -126,7 +128,7 @@ For every step whose `**Artifacts:**` line is not `—`, **read that step's arti
 If any step references a file or class that does not exist yet, note it as a **new file** to be created. If any step is ambiguous or underspecified:
 
 1. First consult `digest.md` — the **Acceptance Criteria**, **Description**, and **Discussion** sections often resolve ambiguity.
-2. If still unclear, use best judgment based on the patterns already established in the relevant service. Record what was inferred — it will be included in the completion report.
+2. If still unclear, use best judgment based on the patterns already established in the relevant project. Record what was inferred — it will be included in the completion report.
 
 ### 5. Load coding standards
 
@@ -136,17 +138,19 @@ Before writing any code, internalize the following global rules (they apply to a
 - `~/.claude/rules/design-patterns.md` — creational, structural, and behavioral patterns
 - `~/.claude/rules/solid-principles.md` — SOLID principles
 
-For each service being modified, also read enough of the existing code to identify:
+For each project being modified, also read enough of the existing code to identify:
 
 - Naming conventions in use (file names, class names, method names)
-- Folder structure and where new files of each type belong
+- Directory structure and where new files of each type belong
 - Patterns already established (e.g. how repositories are structured, how DTOs are named)
 
-Local codebase patterns take precedence over global rules where they differ, **except** where the global rules explicitly prohibit a pattern (e.g. blocking async void, enforcing `private readonly` dependencies).
+The project's own patterns take precedence over global rules where they differ, **except** where the global rules explicitly prohibit a pattern (e.g. blocking async void, enforcing `private readonly` dependencies).
 
 ### 6. Implement the steps
 
 Work through each step in the phase sequentially. For every step:
+
+A `**Target:**` path is relative to its project's worktree or plain directory, named after the path where the workspace holds more than one. Resolve it against the absolute path the Workspace section records for that worktree or plain directory, never against the invocation directory.
 
 #### Modifying an existing file
 
@@ -157,12 +161,12 @@ Work through each step in the phase sequentially. For every step:
 #### Creating a new file
 
 1. Check `plan.md` for the specified path. Use it if given.
-2. If no path is specified, infer placement from the surrounding project structure (e.g. a new repository class goes where other repository classes live).
+2. If no path is specified, infer placement from the project's directory structure (e.g. a new repository class goes where other repository classes live).
 3. Write the file using the conventions established in step 5.
 
 #### Producing an artifact
 
-A step may need to produce something that is **not** a change to the codebase — a read-only probe script, its captured output, a data extract, or a note recording what was found. These are legitimate, and for some kinds of work they are the *entire* deliverable rather than a by-product: the type file read in step 2 says which.
+A step may need to produce something that is **not** a change to the workspace — a read-only probe script, its captured output, a data extract, or a note recording what was found. These are legitimate, and for some kinds of work they are the *entire* deliverable rather than a by-product: the type file read in step 2 says which.
 
 Follow `ticket-common/ARTIFACTS.md` for placement, naming and the run-approval rule. In outline:
 
@@ -181,8 +185,8 @@ Set the step's `**Status:**` to `In Progress` **before making its first edit**, 
 
 Where a step cannot be completed, do not leave it reading `In Progress`:
 
-- **Blocked on an answer** — something outside the codebase must be decided or confirmed. Set `Blocked` with a note naming what is blocking and what would clear it, tell the user, and move to the next step in the phase if one is independent of it.
-- **Blocked on a contradiction** — an artifact or the codebase contradicts what the step assumes. Follow the rule under [Producing an artifact](#producing-an-artifact): record it, tell the user, and ask whether to revise the plan. Do not implement the step as written.
+- **Blocked on an answer** — something outside the workspace must be decided or confirmed. Set `Blocked` with a note naming what is blocking and what would clear it, tell the user, and move to the next step in the phase if one is independent of it.
+- **Blocked on a contradiction** — an artifact or the workspace contradicts what the step assumes. Follow the rule under [Producing an artifact](#producing-an-artifact): record it, tell the user, and ask whether to revise the plan. Do not implement the step as written.
 - **Blocked on a violated invariant** — the type file names something this kind of work must not do, and doing the step as written would do it. That is a **stop-and-report**, not a note to leave behind. Step 8 will not mark the phase done.
 
 #### Noting decisions as they are made
@@ -195,7 +199,7 @@ Saying it out loud is what preserves it. This skill does not write the session's
 
 - Do not add features, abstractions, or refactors beyond what the step requires.
 - Do not add comments unless the WHY is non-obvious (a hidden constraint, subtle invariant, or workaround for a specific bug).
-- Do not install packages or run any shell command that modifies the codebase or environment. Read-only commands are permitted, and anything they produce is stored as an artifact — but never run a script artifact without the user's approval.
+- Do not install packages or run any shell command that modifies the workspace or environment. Read-only commands are permitted, and anything they produce is stored as an artifact — but never run a script artifact without the user's approval.
 
 ### 7. Build the affected projects
 
@@ -205,15 +209,15 @@ After all steps in a phase are implemented, build each project that was modified
 
 Detect the build tool from the project's files:
 
-| Signal | Build command |
-| --- | --- |
-| `*.sln` or `*.csproj` | `dotnet build` |
-| `package.json` with a `build` script | `pnpm build` |
+| Signal                                  | Build command                          |
+| --------------------------------------- | -------------------------------------- |
+| `*.sln` or `*.csproj`                   | `dotnet build`                         |
+| `package.json` with a `build` script    | `pnpm build`                           |
 | `package.json` without a `build` script | `pnpm install` (dependency check only) |
-| `*.tf` / `*.bicep` | skip — no compile step |
-| Other | skip and note in the report |
+| `*.tf` / `*.bicep`                      | skip — no compile step                 |
+| Other                                   | skip and note in the report            |
 
-Run the build command from the project root directory (the folder containing the solution/project file or `package.json`). If multiple projects were modified, build each one separately.
+Run the build command from the project's directory (the one holding its solution file, project file or `package.json`). If multiple projects were modified, build each one separately.
 
 **If the build succeeds:** proceed to step 8.
 
@@ -255,13 +259,13 @@ After all selected phases are complete, report what this run actually did.
 
 **Where the run changed source files**, identify which projects were modified, using two signals in order:
 
-1. **Discovered Services table in plan.md** — for each file created or edited, find the entry whose `Path` is a prefix of the modified file's path. Use the `Service` name and `Path` from that row.
-2. **`.git` directory scan** — for any modified file not matched by the table above, walk up its directory tree until a `.git` directory is found. The directory containing `.git` is the project root. Use the folder name as the project name.
+1. **The Workspace section's Projects table** — for each file created or edited, find the row whose directory holds it: the absolute path of the worktree or plain directory it lives in, joined with its `Path`. Use that row's project name.
+2. **The file's worktree** — for a modified file no project row holds, walk up from it to the directory holding a `.git` entry: a directory in a main worktree, a file in a linked one. That directory is the worktree; report it, referred to as the glossary says, in place of a project.
 
 ```
 Done. Projects touched:
 
-  • {Service name} — {relative path to project root}
+  • {project} — {path relative to its worktree or plain directory} in {worktree or plain directory}
 ```
 
 **Where the run changed no source file**, say what it produced instead — the artifact paths, and what they establish. **Do not report an empty project list, and do not imply something is missing**; for a type whose deliverable is a written finding, that is a complete run. Check the type file before writing this sentence, not after.
@@ -302,12 +306,12 @@ Left in flight: {Step N.M} — {status and its note} | Nothing in flight.
 - Never mark a phase `[x] Done` while any of its steps is not `Done`, or while the resolved type's completion rule is unsatisfied
 - **Never report a document-only run as incomplete** where the type's deliverable is a written finding, and **never report a violated type invariant as ordinary progress** — stop and report it
 - Consult `digest.md` only when `plan.md` is unclear — do not use it to expand scope beyond the plan
-- Apply both local codebase conventions and the global rules in `~/.claude/rules/`; local patterns win on style, global rules win on correctness
+- Apply both the project's own conventions and the global rules in `~/.claude/rules/`; local patterns win on style, global rules win on correctness
 - New file placement follows `plan.md` first, project structure second — never ask the user unless both signals are absent
 - Do not run tests except where the resolved type's file requires it as its completion test; otherwise leave testing to the user
 - Do not run any git operation (`commit`, `push`, `pull`, `rebase`, `merge`, `reset`, `stash`, etc.) — the developer is responsible for reviewing the diff and deciding when and how to commit
 - Read a step's existing artifacts before implementing it — never re-derive what a previous run already measured
-- Write every generated non-code file under `artifacts/step-{N}.{M}/` or `artifacts/shared/` — never into `artifacts/planning/`, never into the ticket root, and never into the repository being worked on
+- Write every generated non-code file under `artifacts/step-{N}.{M}/` or `artifacts/shared/` — never into `artifacts/planning/`, never into the ticket directory, and never into the workspace
 - Keep `**Artifacts:**` lines accurate: a step that produced files must name them, and a path it names must exist
 - Never delete or overwrite an existing artifact — write a new file alongside it instead
 - Never run a script artifact without prior authorization — write it, show it, ask, then run

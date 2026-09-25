@@ -15,11 +15,29 @@
 
 ---
 
-## Discovered Services
+## Workspace
 
-| Service | Path            | Technology |
-| ------- | --------------- | ---------- |
-| {name}  | {relative path} | {stack}    |
+### Scan roots
+
+- `{absolute path}` — {default scan root | given by the user | invocation directory | found by search}
+
+### Worktrees
+
+| Repository | Branch   | Kind             | Path              |
+| ---------- | -------- | ---------------- | ----------------- |
+| {name}     | {branch} | {main \| linked} | `{absolute path}` |
+
+### Plain directories
+
+| Plain directory | Path              |
+| --------------- | ----------------- |
+| {name}          | `{absolute path}` |
+
+### Projects
+
+| Project | Lives in                                             | Path                              | Technology |
+| ------- | ---------------------------------------------------- | --------------------------------- | ---------- |
+| {name}  | {repository \| repository@branch \| plain directory} | {path relative to where it lives} | {stack}    |
 
 ## Prerequisites
 
@@ -37,7 +55,7 @@ Before any phase begins, ensure the following are in place:
 
 **Activity:** {Development | Testing | Design | Deployment | Documentation | Human Review}
 
-**Services touched:** {comma-separated list}
+**Projects touched:** {comma-separated list}
 
 ### Step 1.1
 

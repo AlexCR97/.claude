@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Collects the read-only git state of a working directory as JSON.
+Collects the read-only git state of the worktree holding a directory, as JSON.
 
 Shared by ticket-checkpoint (which records the state in journal.md) and
 ticket-resume (which compares the live state against what was recorded). Both
@@ -9,7 +9,7 @@ than each running its own set of git commands.
 
 Every fact here is source-agnostic. `branch` is emitted as a plain string and
 is never interpreted: a ticket id is always supplied, never guessed from a
-branch name.
+branch name. The terms follow ticket-common/GLOSSARY.md.
 
 Every command is read-only. Nothing is written, fetched, checked out or staged.
 
@@ -17,17 +17,18 @@ Usage:
     python collect-git-state.py [--path DIR]
 
 Output: a single JSON object on stdout. Every field is optional — a directory
-that is not a repository yields {"is_repo": false}, and any individual fact
+outside every repository yields {"is_repository": false}, and any individual fact
 that git cannot answer is null or omitted rather than fatal, because a partial
 picture is still worth reporting.
 
 Exit codes:
-    0  state collected (check is_repo for whether it is a repository)
+    0  state collected (check is_repository for whether it is in one)
     1  git is unavailable, or the path is not a directory
 """
 
 import argparse
 import json
+import re
 import shutil
 import subprocess
 import sys
@@ -131,9 +132,38 @@ def resolve_base_branch(git: Git, branch: str | None) -> str | None:
     return None
 
 
+def resolve_repository_name(git: Git, path: Path, worktree: str) -> str:
+    """
+    Named from the remote's URL, falling back to the main worktree's directory.
+
+    A worktree's own directory is not used, because a linked worktree is often
+    named for its branch rather than its repository.
+    """
+    remote = git.value("remote", "get-url", "origin")
+    if not remote:
+        remotes = (git.value("remote") or "").split()
+        remote = git.value("remote", "get-url", remotes[0]) if remotes else None
+
+    if remote:
+        # Covers https://host/o/r.git, git@host:o/r.git and local paths alike.
+        name = re.split(r"[/\\:]", remote.rstrip("/\\"))[-1].removesuffix(".git")
+        if name:
+            return name
+
+    common_dir = git.value("rev-parse", "--git-common-dir")
+    if not common_dir:
+        return Path(worktree).name
+
+    common = Path(common_dir)
+    if not common.is_absolute():
+        common = (path / common).resolve()
+    main_worktree = common.parent if common.name == ".git" else common
+    return main_worktree.name.removesuffix(".git")
+
+
 def collect_dirty(git: Git) -> dict:
     """
-    Summarize the working tree from porcelain v1 status.
+    Summarize the worktree's uncommitted changes from porcelain v1 status.
 
     Counts are reported per state rather than as one total: "3 modified, 1
     untracked" says something a bare "4 changed" does not, and a tree holding
@@ -221,9 +251,9 @@ def collect_recent_commits(
 def collect(path: Path, executable: str) -> dict:
     git = Git(executable, path)
 
-    root = git.value("rev-parse", "--show-toplevel")
-    if not root:
-        return {"is_repo": False, "path": str(path)}
+    worktree = git.value("rev-parse", "--show-toplevel")
+    if not worktree:
+        return {"is_repository": False, "path": str(path)}
 
     branch = git.value("rev-parse", "--abbrev-ref", "HEAD")
     # A detached HEAD reports the literal string "HEAD" as its branch name.
@@ -234,9 +264,9 @@ def collect(path: Path, executable: str) -> dict:
     base_branch = resolve_base_branch(git, branch)
 
     state: dict = {
-        "is_repo": True,
-        "root": root,
-        "repo_name": Path(root).name,
+        "is_repository": True,
+        "worktree": worktree,
+        "repository": resolve_repository_name(git, path, worktree),
         "branch": branch,
         "is_detached_head": is_detached,
         "upstream": git.value(
@@ -271,7 +301,7 @@ def main() -> None:
             stream.reconfigure(encoding="utf-8", errors="replace")
 
     parser = argparse.ArgumentParser(
-        description="Collect read-only git state of a working directory as JSON."
+        description="Collect the read-only git state of the worktree holding a directory, as JSON."
     )
     parser.add_argument(
         "--path",

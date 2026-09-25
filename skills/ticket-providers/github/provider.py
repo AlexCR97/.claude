@@ -77,7 +77,7 @@ def init(ctx: dict, extra: list[str]) -> dict:
         raise TicketError(
             "no repository given and none could be detected",
             EXIT_ERROR,
-            "Pass --repo owner/name, or run this from inside a GitHub clone.",
+            "Pass --repo owner/name, or run this from inside a worktree of the GitHub repository.",
         )
     if not REPO_PATTERN.match(repo):
         raise TicketError(

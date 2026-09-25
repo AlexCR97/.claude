@@ -6,9 +6,9 @@
 
 ## {YYYY-MM-DD HH:MM} UTC — {Phase {N}, Step {N}.{M} | Planning | Refinement | Review}
 
-**Where:** `{repo}` @ `{branch}` — HEAD `{sha}` ({subject}), base `{base branch}` @ `{sha}`
+**Where:** `{repository}` @ `{branch}` in `{worktree}` — HEAD `{sha}` ({subject}), base `{base branch}` @ `{sha}`
 
-**Working tree:** {clean | {N} modified, {N} untracked — uncommitted}{, {N} stash(es)}
+**Worktree state:** {clean | {N} modified, {N} untracked — uncommitted}{, {N} stash(es)}
 
 **Stopped at:** {the step, and the honest state of it — what works, what does not}
 

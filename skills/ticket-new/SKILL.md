@@ -6,11 +6,11 @@ argument-hint: '"<title>" [--source S] [--type T] [--parent REF]'
 
 This skill is a **driver**: it contains no field names, URLs, API versions, credential commands, markup dialects, or type-specific rules of its own. Everything specific lives alongside it in three directories, and every step below just says which file to read.
 
-| Directory                    | Contains                                                                                           | Read                                                                          |
-| ---------------------------- | -------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| `ticket-common/`             | the resolver (`ticket.py`) and the shared contracts — `RESOLUTION.md`, `ARTIFACTS.md`, `STATUS.md` | as each step names                                                            |
-| `ticket-providers/{source}/` | everything specific to where the ticket came from                                                  | only the **resolved** source's directory, and only the role file a step names |
-| `ticket-types/{type}.md`     | everything specific to what shape the work is                                                      | only the **resolved** type's file                                             |
+| Directory                    | Contains                                                                                                          | Read                                                                          |
+| ---------------------------- | ----------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| `ticket-common/`             | the resolver (`ticket.py`) and the shared contracts — `RESOLUTION.md`, `ARTIFACTS.md`, `STATUS.md`, `GLOSSARY.md` | as each step names                                                            |
+| `ticket-providers/{source}/` | everything specific to where the ticket came from                                                                 | only the **resolved** source's directory, and only the role file a step names |
+| `ticket-types/{type}.md`     | everything specific to what shape the work is                                                                     | only the **resolved** type's file                                             |
 
 Never let a source-specific or type-specific fact creep back into this file — a field key, a URL, an API version, a script name, a credential command, an HTML-vs-markdown decision, or a rule that only holds for bugs or only for spikes. **If a step cannot be written without naming a particular ticket system, it belongs in `ticket-providers/{source}/`; if it cannot be written without naming a ticket type, it belongs in `ticket-types/{type}.md`. This file should only name the file to read.** A source directory may hold only some of the role files; treat each as present-or-absent independently, and never substitute another source's or another type's module for a missing one.
 
@@ -133,4 +133,4 @@ Chain by default: a ticket whose acceptance criteria are still a `TODO` stub is 
 - Never invent content for a seeded section — a stub is a prompt, not an answer
 - Never pick a type silently; ask, because it shapes every skill downstream
 - Never write into an existing ticket directory — a collision is a different slug, never a merge
-- Never write a file into the ticket root other than what the store's `new.md` describes
+- Never write a file into the ticket directory other than what the store's `new.md` describes

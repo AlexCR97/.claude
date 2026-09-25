@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-`ticket.json` — the sixth entry in a ticket root.
+`ticket.json` — the sixth entry in a ticket directory.
 
 It is what lets every later skill agree on a ticket's identity, type and URL
 without re-deriving them from source-shaped raw data. A driver reads
@@ -61,7 +61,7 @@ def now_iso() -> str:
 
 
 def on_disk(source: str, ticket_id: str) -> dict:
-    """What of the ticket root actually exists, so a driver can stop early."""
+    """What of the ticket directory actually exists, so a driver can stop early."""
     root = paths.ticket_dir(source, ticket_id)
     raw_dir = root / "raw"
     return {

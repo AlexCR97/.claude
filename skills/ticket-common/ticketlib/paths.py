@@ -9,11 +9,11 @@ quoted shell argument, neither of which expands `~`.
 import os
 from pathlib import Path
 
-# Overriding the root lets a test run against a scratch tree without touching
+# Overriding the tickets home lets a test run against a scratch tree without touching
 # the real one.
 HOME_ENV_VAR = "TICKETS_HOME"
 
-# The six entries a ticket root may hold; anything else is a stray.
+# The six entries a ticket directory may hold; anything else is a stray.
 TICKET_ENTRIES = ("ticket.json", "digest.md", "journal.md", "plan.md", "raw", "artifacts")
 
 

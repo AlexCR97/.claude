@@ -91,7 +91,7 @@ Then write `types.md`, `links.md`, `config.md`, `provider.py`, and whichever of 
 | ------------------------------------- | --------------------------------------------------------------------- |
 | `init(ctx, extra)`                    | a report dict; writes `{source}/config.json`                          |
 | `fetch(ctx, extra)`                   | a report dict; writes `raw/` and refreshes `ticket.json`              |
-| `new(ctx, title, ticket_type, extra)` | a report dict; creates the ticket root and `ticket.json`              |
+| `new(ctx, title, ticket_type, extra)` | a report dict; creates the ticket directory and `ticket.json`         |
 | `publish(ctx, text, extra)`           | a report dict                                                         |
 | `drift(ctx, extra)`                   | a report dict carrying `is_stale`; `ticket.py` maps it to exit 0 or 2 |
 | `auth_status(ctx)`                    | a report dict; **never** a credential                                 |
@@ -102,5 +102,5 @@ Only the functions whose capability is `true` need to exist.
 
 ## Known limitations, recorded rather than discovered
 
-- **Cross-repo GitHub references (`gh:owner/repo#42`) are out of scope.** The `github/{number}/` layout forecloses them: two repositories' issue #42 would collide in one directory. Supporting them means changing the layout, not patching the resolver.
+- **Cross-repository GitHub references (`gh:owner/repo#42`) are out of scope.** The `github/{number}/` layout forecloses them: two repositories' issue #42 would collide in one directory. Supporting them means changing the layout, not patching the resolver.
 - **Creating an upstream ticket is out of scope** for both remote sources. The door is left open — add a `new.md` and flip the capability.

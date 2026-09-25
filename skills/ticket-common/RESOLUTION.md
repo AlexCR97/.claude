@@ -21,6 +21,7 @@ python "{skills}/ticket-common/ticket.py" <verb> [<ref>] [--source S] [flags]
 | `publish <ref> --file F [--delete-after-post]`      | Posts a summary back to the source.                                                                                             |
 | `drift <ref>`                                       | Has the ticket moved since it was fetched?                                                                                      |
 | `auth-status [--source S]`                          | Each source's credential state, never the credential.                                                                           |
+| `scan-roots [--set [DIR ...]]`                      | The default scan roots. `--set` replaces them with the given directories, each checked to exist; with none it empties the list. |
 
 Flags a verb does not recognise are passed through to the provider untouched, so the front door never has to know what a given source needs in order to connect.
 
@@ -68,7 +69,7 @@ Exit 4 is why no driver and no deprecated alias contains the old path. The resol
 
 ```
 ~/.tickets/
-├── config.json                 {"default_source": "…"} — the only key
+├── config.json                 {"default_source": "…", "scan_roots": ["…"]} — machine-wide only
 └── {source}/
     ├── config.json             this source's coordinates and cached credential
     └── {id}/
@@ -80,9 +81,9 @@ Exit 4 is why no driver and no deprecated alias contains the old path. The resol
         └── artifacts/          ← ticket-plan and ticket-implement (see ARTIFACTS.md)
 ```
 
-A ticket root holds **nothing but those six entries**. Never write a generated file directly into it.
+A ticket directory holds **nothing but those six entries**. Never write a generated file directly into it.
 
-`TICKETS_HOME` overrides the root, which is how a test runs against a scratch tree without touching real data.
+`TICKETS_HOME` overrides the tickets home, which is how a test runs against a scratch tree without touching real data.
 
 ---
 

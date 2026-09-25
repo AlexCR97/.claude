@@ -12,7 +12,7 @@ The defining constraint is the one that makes this type hard to verify: **succes
 
 - **The current structure.** What is there now, concretely: the classes, the flow, the duplication, the coupling. Named, not characterised.
 - **The target structure.** What it should look like afterwards, in the same terms, so the difference is inspectable rather than a matter of taste.
-- **The blast radius.** Everything that calls into what is being restructured — including anything outside this codebase that depends on a signature, a contract, or a wire format. A refactor whose radius was underestimated is the most common way this type goes wrong.
+- **The blast radius.** Everything that calls into what is being restructured — including anything outside the workspace that depends on a signature, a contract, or a wire format. A refactor whose radius was underestimated is the most common way this type goes wrong.
 - **What proves behaviour is unchanged.** The single most important answer in the interview. Which tests, which characterization, which measurement. **Where the answer is "nothing covers this today", that is the first phase of the plan**, not a caveat.
 
 Ask also: what is explicitly *not* being changed? Tech debt tickets attract passengers, and every functional change bundled into one destroys the property that makes it verifiable.
@@ -40,7 +40,7 @@ Ask also: what is explicitly *not* being changed? Tech debt tickets attract pass
 
 **Activity mix:** Testing for the characterization phase, then Development for the restructuring, then Testing again where coverage needed to move with the code.
 
-**Estimate adjustment:** scale with the blast radius, not with the size of the thing being restructured. Ten call sites in three services costs more than a thousand lines in one file.
+**Estimate adjustment:** scale with the blast radius, not with the size of the thing being restructured. Ten call sites in three projects costs more than a thousand lines in one file.
 
 ---
 

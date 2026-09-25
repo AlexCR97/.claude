@@ -6,11 +6,11 @@ argument-hint: "<[source:]id> [--type T]"
 
 This skill is a **driver**: it contains no field names, URLs, API versions, credential commands, markup dialects, or type-specific rules of its own. Everything specific lives alongside it in three directories, and every step below just says which file to read.
 
-| Directory | Contains | Read |
-| --- | --- | --- |
-| `ticket-common/` | the resolver (`ticket.py`) and the shared contracts — `RESOLUTION.md`, `ARTIFACTS.md`, `STATUS.md` | as each step names |
-| `ticket-providers/{source}/` | everything specific to where the ticket came from | only the **resolved** source's directory, and only the role file a step names |
-| `ticket-types/{type}.md` | everything specific to what shape the work is | only the **resolved** type's file |
+| Directory                    | Contains                                                                                                          | Read                                                                          |
+| ---------------------------- | ----------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| `ticket-common/`             | the resolver (`ticket.py`) and the shared contracts — `RESOLUTION.md`, `ARTIFACTS.md`, `STATUS.md`, `GLOSSARY.md` | as each step names                                                            |
+| `ticket-providers/{source}/` | everything specific to where the ticket came from                                                                 | only the **resolved** source's directory, and only the role file a step names |
+| `ticket-types/{type}.md`     | everything specific to what shape the work is                                                                     | only the **resolved** type's file                                             |
 
 Never let a source-specific or type-specific fact creep back into this file — a field key, a URL, an API version, a script name, a credential command, an HTML-vs-markdown decision, or a rule that only holds for bugs or only for spikes. **If a step cannot be written without naming a particular ticket system, it belongs in `ticket-providers/{source}/`; if it cannot be written without naming a ticket type, it belongs in `ticket-types/{type}.md`. This file should only name the file to read.** A source directory may hold only some of the role files; treat each as present-or-absent independently, and never substitute another source's or another type's module for a missing one.
 
@@ -125,11 +125,11 @@ Cover:
 
 Cover:
 
-- Which services and projects are involved in or affected by this ticket? (e.g. files, folders, directories, backends, frontends, APIs, databases, shared libraries)
+- Which projects and repositories are involved in or affected by this ticket? (e.g. backends, frontends, APIs, databases, shared libraries, specific files or directories)
 - Which domain entities are created, updated, deleted or involved in any way?
 - Are there any new fields, relationships, or constraints being introduced to the data model?
 - What invariants must always hold after this change? (e.g. uniqueness, foreign key integrity, business rules)
-- Does this change affect any shared contracts (APIs, events, DTOs, database schemas) that other services depend on?
+- Does this change affect any shared contracts (APIs, events, DTOs, database schemas) that other projects depend on?
 
 #### Round 3 — Edge cases and failure modes
 
@@ -210,7 +210,7 @@ Where the source cannot fetch, skip this entirely — the summary was written st
 
 - Never modify source code files
 - Never run git operations
-- **Never read, search, or explore the codebase** — base all questions and recommendations solely on the ticket data: the snapshot, the discussion, the attachments, the related tickets. Codebase exploration is exclusive to `ticket-plan`
+- **Never read, search, or explore any repository or project** — base all questions and recommendations solely on the ticket data: the snapshot, the discussion, the attachments, the related tickets. Discovering the workspace is exclusive to `ticket-plan`
 - Never post without the user's explicit confirmation in step 6
 - Never print a credential in chat, and never pass one to a command
 - Never write the summary in a markup dialect other than the one the source declares

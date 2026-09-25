@@ -20,10 +20,10 @@ Read by `ticket-digest`, `ticket-plan` and `ticket-checkpoint`.
 
 ## Attachments link locally
 
-`digest.md`, `plan.md` and `journal.md` all sit in the ticket root, so a file the user dropped into `raw/` is linked as `raw/{filename}`. There is no remote fallback, because there is no remote.
+`digest.md`, `plan.md` and `journal.md` all sit in the ticket directory, so a file the user dropped into `raw/` is linked as `raw/{filename}`. There is no remote fallback, because there is no remote.
 
 ## Cross-references between local tickets
 
 A sibling ticket's directory is `../{slug}/`, so its digest is `../{slug}/digest.md`. Use that only where the target actually exists — this store has no link table to validate against.
 
-**This depth applies only to a file in the ticket root** — `digest.md`, `plan.md`, `journal.md`. A link written *inside* `raw/ticket.md` itself is one level deeper and needs `../../{slug}/raw/ticket.md`, never `../{slug}/` and never `[[{slug}]]` wiki syntax — see `schema.md`'s *"Writing a link to another local ticket"*.
+**This depth applies only to a file in the ticket directory** — `digest.md`, `plan.md`, `journal.md`. A link written *inside* `raw/ticket.md` itself is one level deeper and needs `../../{slug}/raw/ticket.md`, never `../{slug}/` and never `[[{slug}]]` wiki syntax — see `schema.md`'s *"Writing a link to another local ticket"*.

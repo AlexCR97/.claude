@@ -7,11 +7,11 @@ allowed-tools: Read Grep Glob Bash(python:*)
 
 This skill is a **driver**: it contains no field names, URLs, API versions, credential commands, markup dialects, or type-specific rules of its own. Everything specific lives alongside it in three directories, and every step below just says which file to read.
 
-| Directory | Contains | Read |
-| --- | --- | --- |
-| `ticket-common/` | the resolver (`ticket.py`) and the shared contracts — `RESOLUTION.md`, `ARTIFACTS.md`, `STATUS.md` | as each step names |
-| `ticket-providers/{source}/` | everything specific to where the ticket came from | only the **resolved** source's directory, and only the role file a step names |
-| `ticket-types/{type}.md` | everything specific to what shape the work is | only the **resolved** type's file |
+| Directory                    | Contains                                                                                                          | Read                                                                          |
+| ---------------------------- | ----------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| `ticket-common/`             | the resolver (`ticket.py`) and the shared contracts — `RESOLUTION.md`, `ARTIFACTS.md`, `STATUS.md`, `GLOSSARY.md` | as each step names                                                            |
+| `ticket-providers/{source}/` | everything specific to where the ticket came from                                                                 | only the **resolved** source's directory, and only the role file a step names |
+| `ticket-types/{type}.md`     | everything specific to what shape the work is                                                                     | only the **resolved** type's file                                             |
 
 Never let a source-specific or type-specific fact creep back into this file — a field key, a URL, an API version, a script name, a credential command, an HTML-vs-markdown decision, or a rule that only holds for bugs or only for spikes. **If a step cannot be written without naming a particular ticket system, it belongs in `ticket-providers/{source}/`; if it cannot be written without naming a ticket type, it belongs in `ticket-types/{type}.md`. This file should only name the file to read.** A source directory may hold only some of the role files; treat each as present-or-absent independently, and never substitute another source's or another type's module for a missing one.
 
@@ -21,7 +21,7 @@ Never let a source-specific or type-specific fact creep back into this file — 
 
 ## Purpose
 
-A ticket gets put down and picked up days later in a new session that knows nothing about it. Everything needed is already on disk — the digest, the plan, the artifacts, the journal — but reading it back into context by hand is slow and easy to do incompletely, and two things no file can hold have usually drifted in the meantime: the state of the working tree, and the ticket itself.
+A ticket gets put down and picked up days later in a new session that knows nothing about it. Everything needed is already on disk — the digest, the plan, the artifacts, the journal — but reading it back into context by hand is slow and easy to do incompletely, and two things no file can hold have usually drifted in the meantime: the state of the worktree, and the ticket itself.
 
 This skill assembles all of it into one briefing: what the work is, where it stopped, what the next action is, what the code looks like right now, and what changed at the source while attention was elsewhere.
 
@@ -63,7 +63,7 @@ Read, in this order, and stop reading any file as soon as you have what the brie
 
 **`journal.md`** — the newest entry in full, and enough of the two before it to see decisions and blockers that are still open. This is the primary source: it is the only file that records *why* things are the way they are. If it does not exist, note that and continue — step 3 reconstructs what it can, and the briefing says the reconstruction is partial.
 
-**`plan.md`** — the Progress table, the Discovered Services table, and every step whose `**Status:**` is `In Progress` or `Blocked`, in full including its note. Then the first `Pending` step after them, since that is where work resumes if nothing is in flight. Do not read every phase. The status vocabulary is in `ticket-common/STATUS.md` if a line needs interpreting.
+**`plan.md`** — the Progress table, the Workspace section, and every step whose `**Status:**` is `In Progress` or `Blocked`, in full including its note. Then the first `Pending` step after them, since that is where work resumes if nothing is in flight. Do not read every phase. The status vocabulary is in `ticket-common/STATUS.md` if a line needs interpreting.
 
 **`digest.md`** — the Description and Acceptance Criteria, for the two or three sentences of the briefing that say what the work actually is. Skip the metadata table, the attachments and the discussion.
 
@@ -77,13 +77,13 @@ When `journal.md` is absent or its newest entry predates later work, reconstruct
 
 - The in-flight step is the first step that is `In Progress` or `Blocked`; failing that, the first `Pending` step after the last `Done` one.
 - Modification times under `artifacts/` and the branch's recent commit subjects indicate what was most recently worked on.
-- Uncommitted changes in the working tree indicate what was in flight when the session ended.
+- Uncommitted changes in the worktree indicate what was in flight when the session ended.
 
 If no journal exists at all, say so plainly in the briefing and recommend `/ticket-checkpoint {ref}` at the end of this session, so the next resume does not have to guess again.
 
 ### 4. Read the live git state
 
-Run the shared collector from the repository the work is being done in. It writes nothing.
+Run the shared collector from the worktree the work is being done in. It writes nothing. Its terms are the ones in `ticket-common/GLOSSARY.md`.
 
 ```bash
 python "{skills}/ticket-common/collect-git-state.py"
@@ -91,13 +91,13 @@ python "{skills}/ticket-common/collect-git-state.py"
 
 Two comparisons matter more than the raw output:
 
-- **Is this even the right repository?** Compare `repo_name` and `branch` against the journal's `**Where:**` line. A mismatch is the most likely reason a resume goes wrong, because every path in `plan.md` is repo-relative and will silently resolve against the wrong tree. Say so at the top of the briefing rather than burying it:
+- **Is this even the right worktree?** Compare `repository`, `worktree` and `branch` against the journal's `**Where:**` line, and check that the worktree is one the Workspace section of `plan.md` lists. A mismatch is the most likely reason a resume goes wrong, because every `**Target:**` in `plan.md` is relative to a worktree the Workspace section names, and resolves silently against whichever one is current. Say so at the top of the briefing rather than burying it:
 
-  > You are in `{repo}` on `{branch}`, but {ref} was last worked on in `{recorded repo}` on `{recorded branch}`. Switch before continuing.
+  > You are in `{repository}` on `{branch}` at `{worktree}`, but {ref} was last worked on in `{recorded repository}` on `{recorded branch}` at `{recorded worktree}`. Switch before continuing.
 
-- **How far has the base moved?** `base_commits_not_merged` is how many commits the base branch gained while this branch sat idle. After days away it is often large, and it is the reason a plan written against an older tree may no longer apply cleanly. Report it; do not act on it.
+- **How far has the base moved?** `base_commits_not_merged` is how many commits the base branch gained while this branch sat idle. After days away it is often large, and it is the reason a plan written against an older base may no longer apply cleanly. Report it; do not act on it.
 
-If `is_repo` is `false`, report that no repository was found in the current directory and brief from the files alone.
+If `is_repository` is `false`, report that the invocation directory is outside every repository and brief from the files alone.
 
 ### 5. Check whether the ticket drifted
 
@@ -147,8 +147,8 @@ Progress
   {N} / {N} phases done · ~{X} hrs estimated remaining
 
 Code
-  {repo} @ {branch} · HEAD {sha} · {N} commits ahead of {base}
-  Working tree: {clean | N modified, N untracked — uncommitted}
+  {repository} @ {branch} in {worktree} · HEAD {sha} · {N} commits ahead of {base}
+  Worktree state: {clean | N modified, N untracked — uncommitted}
   {base} has moved {N} commits since you branched
   {N} stash(es): {subject}
 

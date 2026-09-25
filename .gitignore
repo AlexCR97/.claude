@@ -1,9 +1,12 @@
 /backups
 /cache
+/daemon
 /debug
 /downloads
+/feedback
 /file-history
 /ide
+/jobs
 /memory
 /plans
 /plugins
@@ -22,6 +25,7 @@
 .credentials.json
 .last-cleanup
 .last-update-result.json
+daemon.log
 history.jsonl
 mcp-needs-auth-cache.json
 policy-limits.json

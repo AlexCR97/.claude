@@ -1,6 +1,6 @@
 # Artifacts
 
-Read by `ticket-plan` and `ticket-implement`. Everything a run produces that is not a change to the codebase lives under one directory per ticket, laid out the same way for every source and every type.
+Read by `ticket-plan` and `ticket-implement`. Everything a run produces that is not a change to the workspace lives under one directory per ticket, laid out the same way for every source and every type.
 
 ```
 {ticket-dir}/artifacts/
@@ -9,9 +9,9 @@ Read by `ticket-plan` and `ticket-implement`. Everything a run produces that is 
 └── step-{N}.{M}/      ← everything one plan step produced
 ```
 
-`artifacts/` and its subdirectories are created lazily — only when a run actually produces a file. The ticket root holds nothing but its six entries: **never write a generated file directly into `{ticket-dir}/`.**
+`artifacts/` and its subdirectories are created lazily — only when a run actually produces a file. The ticket directory holds nothing but its six entries: **never write a generated file directly into `{ticket-dir}/`.**
 
-Nothing here belongs in the repository being worked on. An artifact is a record of how this ticket was investigated, not a deliverable — never copy one into the codebase unless a plan step explicitly says to.
+Nothing here belongs in the workspace. An artifact is a record of how this ticket was investigated, not a deliverable — never copy one into a repository unless a plan step explicitly says to.
 
 ---
 
@@ -26,11 +26,11 @@ Nothing here belongs in the repository being worked on. An artifact is a record 
 
 ### Who writes where
 
-| Directory | Written by | Read by |
-| --- | --- | --- |
-| `planning/` | `ticket-plan` only | both |
-| `shared/` | `ticket-implement` | both |
-| `step-{N}.{M}/` | `ticket-implement` | both |
+| Directory       | Written by         | Read by |
+| --------------- | ------------------ | ------- |
+| `planning/`     | `ticket-plan` only | both    |
+| `shared/`       | `ticket-implement` | both    |
+| `step-{N}.{M}/` | `ticket-implement` | both    |
 
 `ticket-plan` reads `planning/` to avoid re-deriving what a previous run settled. `ticket-implement` reads `planning/` to see *why* a step is shaped the way it is, and never writes to it.
 

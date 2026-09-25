@@ -6,11 +6,11 @@ argument-hint: "<[source:]id> [note]"
 
 This skill is a **driver**: it contains no field names, URLs, API versions, credential commands, markup dialects, or type-specific rules of its own. Everything specific lives alongside it in three directories, and every step below just says which file to read.
 
-| Directory | Contains | Read |
-| --- | --- | --- |
-| `ticket-common/` | the resolver (`ticket.py`) and the shared contracts — `RESOLUTION.md`, `ARTIFACTS.md`, `STATUS.md` | as each step names |
-| `ticket-providers/{source}/` | everything specific to where the ticket came from | only the **resolved** source's directory, and only the role file a step names |
-| `ticket-types/{type}.md` | everything specific to what shape the work is | only the **resolved** type's file |
+| Directory                    | Contains                                                                                                          | Read                                                                          |
+| ---------------------------- | ----------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| `ticket-common/`             | the resolver (`ticket.py`) and the shared contracts — `RESOLUTION.md`, `ARTIFACTS.md`, `STATUS.md`, `GLOSSARY.md` | as each step names                                                            |
+| `ticket-providers/{source}/` | everything specific to where the ticket came from                                                                 | only the **resolved** source's directory, and only the role file a step names |
+| `ticket-types/{type}.md`     | everything specific to what shape the work is                                                                     | only the **resolved** type's file                                             |
 
 Never let a source-specific or type-specific fact creep back into this file — a field key, a URL, an API version, a script name, a credential command, an HTML-vs-markdown decision, or a rule that only holds for bugs or only for spikes. **If a step cannot be written without naming a particular ticket system, it belongs in `ticket-providers/{source}/`; if it cannot be written without naming a ticket type, it belongs in `ticket-types/{type}.md`. This file should only name the file to read.** A source directory may hold only some of the role files; treat each as present-or-absent independently, and never substitute another source's or another type's module for a missing one.
 
@@ -63,15 +63,15 @@ There is no inference from the branch name, and there must not be. A wrong guess
 
 ### 2. Collect the git state
 
-Run the shared collector from the repository the work is being done in:
+Run the shared collector from the worktree the work is being done in:
 
 ```bash
 python "{skills}/ticket-common/collect-git-state.py"
 ```
 
-It reports the repo name and root, the branch, HEAD, the base branch and merge base, commits ahead of base, commits the base has gained since, the working-tree counts, and any stashes. It writes nothing, and it interprets nothing — `branch` is a plain string.
+It reports the repository and the path of its worktree, the branch, HEAD, the base branch and merge base, commits ahead of base, commits the base has gained since, the worktree's uncommitted-change counts, and any stashes. It writes nothing, and it interprets nothing — `branch` is a plain string. Its terms are the ones in `ticket-common/GLOSSARY.md`.
 
-If `is_repo` is `false`, record `**Where:** not in a git repository` and carry on — an entry without git coordinates is still worth far more than no entry.
+If `is_repository` is `false`, record `**Where:** not in a repository` and carry on — an entry without git coordinates is still worth far more than no entry.
 
 ### 3. Reconstruct what this session did
 
@@ -127,7 +127,7 @@ Rules for an entry:
 
 - Timestamp the heading in **UTC**, matching the `> Generated on` convention in `digest.md` and `plan.md`.
 - Name the phase and step the session was in, so the heading alone locates the work.
-- `**Where:**`, `**Working tree:**`, `**Stopped at:**` and `**Next:**` are always present. Where a fact is unavailable, say so explicitly rather than omitting the line.
+- `**Where:**`, `**Worktree state:**`, `**Stopped at:**` and `**Next:**` are always present. Where a fact is unavailable, say so explicitly rather than omitting the line.
 - Omit any of the `### Done`, `### Decisions`, `### Inferences`, `### Open questions` and `### Blockers` sections that would be empty. Do not pad an entry with a heading over nothing.
 - **Never edit or delete an existing entry.** A session's account of itself is not regenerable — the one thing here that no later run can reconstruct. A correction is a new entry saying what it corrects.
 - Keep it factual and short. An entry is read in a hurry, by someone who has forgotten everything.

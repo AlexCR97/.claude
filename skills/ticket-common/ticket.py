@@ -21,6 +21,7 @@ Usage:
     python ticket.py drift <ref>
     python ticket.py auth-status [--source S]
     python ticket.py list
+    python ticket.py scan-roots [--set [DIR ...]]
 
 Exit codes:
     0  ok — for `drift`, also "up to date"
@@ -33,6 +34,7 @@ Exit codes:
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -293,6 +295,47 @@ def verb_auth_status(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def verb_scan_roots(args: argparse.Namespace) -> int:
+    if args.set is not None:
+        config.set_scan_roots(normalize_directories(args.set))
+
+    emit(
+        {
+            "root_config": str(paths.root_config_path()),
+            "scan_roots": config.scan_roots(),
+        }
+    )
+    return EXIT_OK
+
+
+def normalize_directories(raw: list[str]) -> list[str]:
+    """
+    Absolute, existing, and each listed once, in the order given.
+
+    Every path is checked before anything is written, so one typo cannot leave
+    the stored list half-replaced.
+    """
+    directories: list[str] = []
+    seen: set[str] = set()
+
+    for entry in raw:
+        path = Path(entry).expanduser().resolve()
+        if not path.is_dir():
+            raise TicketError(
+                f"not a directory — {path}",
+                EXIT_ERROR,
+                "Pass only directories that exist. Nothing was saved.",
+            )
+
+        # Windows paths compare case-insensitively; normcase is identity elsewhere.
+        key = os.path.normcase(str(path))
+        if key not in seen:
+            seen.add(key)
+            directories.append(str(path))
+
+    return directories
+
+
 def slugify(title: str) -> str:
     """
     A fallback id for a store that has no upstream numbering.
@@ -320,6 +363,7 @@ VERBS = {
     "publish": verb_publish,
     "drift": verb_drift,
     "auth-status": verb_auth_status,
+    "scan-roots": verb_scan_roots,
 }
 
 
@@ -380,6 +424,16 @@ def build_parser() -> argparse.ArgumentParser:
 
     p = sub.add_parser("auth-status", help="report each source's credential state")
     p.add_argument("--source")
+
+    p = sub.add_parser(
+        "scan-roots", help="show or replace the default scan roots every plan starts from"
+    )
+    p.add_argument(
+        "--set",
+        nargs="*",
+        metavar="DIR",
+        help="replace the list with these directories; none empties it",
+    )
 
     return parser
 

@@ -7,11 +7,11 @@ allowed-tools: Read Grep Glob Write Bash(python:*)
 
 This skill is a **driver**: it contains no field names, URLs, API versions, credential commands, markup dialects, or type-specific rules of its own. Everything specific lives alongside it in three directories, and every step below just says which file to read.
 
-| Directory | Contains | Read |
-| --- | --- | --- |
-| `ticket-common/` | the resolver (`ticket.py`) and the shared contracts — `RESOLUTION.md`, `ARTIFACTS.md`, `STATUS.md` | as each step names |
-| `ticket-providers/{source}/` | everything specific to where the ticket came from | only the **resolved** source's directory, and only the role file a step names |
-| `ticket-types/{type}.md` | everything specific to what shape the work is | only the **resolved** type's file |
+| Directory                    | Contains                                                                                                          | Read                                                                          |
+| ---------------------------- | ----------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| `ticket-common/`             | the resolver (`ticket.py`) and the shared contracts — `RESOLUTION.md`, `ARTIFACTS.md`, `STATUS.md`, `GLOSSARY.md` | as each step names                                                            |
+| `ticket-providers/{source}/` | everything specific to where the ticket came from                                                                 | only the **resolved** source's directory, and only the role file a step names |
+| `ticket-types/{type}.md`     | everything specific to what shape the work is                                                                     | only the **resolved** type's file                                             |
 
 Never let a source-specific or type-specific fact creep back into this file — a field key, a URL, an API version, a script name, a credential command, an HTML-vs-markdown decision, or a rule that only holds for bugs or only for spikes. **If a step cannot be written without naming a particular ticket system, it belongs in `ticket-providers/{source}/`; if it cannot be written without naming a ticket type, it belongs in `ticket-types/{type}.md`. This file should only name the file to read.** A source directory may hold only some of the role files; treat each as present-or-absent independently, and never substitute another source's or another type's module for a missing one.
 
@@ -105,7 +105,7 @@ Rules:
 - Replace every `{placeholder}` with the actual value derived from the snapshot and the analysis.
 - `{ticket-url}` is `ticket.json`'s `url`. **Where it is `null`, write the title as plain text rather than a broken link** — that source has no web address.
 - For links to other tickets, comments and attachments, use the patterns in `ticket-providers/{source}/links.md`. It is a short file; read it rather than guessing a URL shape.
-- **Always prefer the local downloaded file over a remote URL for an attachment.** `digest.md` sits in the ticket root, so a downloaded file is at `raw/{on-disk name}`. Fall back to the remote URL only where no local file exists.
+- **Always prefer the local downloaded file over a remote URL for an attachment.** `digest.md` sits in the ticket directory, so a downloaded file is at `raw/{on-disk name}`. Fall back to the remote URL only where no local file exists.
 
 Do not print the full digest body in chat. Once the file is written, confirm with a single line:
 
