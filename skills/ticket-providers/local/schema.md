@@ -19,7 +19,7 @@ A small frontmatter block sits at the top, fenced by `---`, holding flat `key: v
 | Description         | the `## Description` section                                                              |
 | Acceptance criteria | the `## Acceptance Criteria` section                                                      |
 | Labels              | frontmatter `labels`, a list                                                              |
-| Parent              | frontmatter `parent` — a `[source:]id` reference, present only on a task that has one     |
+| Parent              | frontmatter `parent` — a reference, present only on a task that has one                   |
 | Reproduction steps  | *absent* — a bug's repro lives in `## Description`, or in a `##` section the author added |
 
 **Fields this source does not have:** `Component`, `Milestone`, `Assignee`. There is no project structure, no iteration, and no assignment — one person's local notes have no one to assign to. **Omit those Metadata rows rather than filling them with a placeholder.**
@@ -50,12 +50,12 @@ List the directory to enumerate them. The on-disk name is also the display name.
 
 **One relation only: a task's link to its parent user story.** `capabilities.related` is `true`, but this store has no generic link structure and no tree — build both directions by reading frontmatter across tickets, not by calling anything.
 
-| Direction | Where it comes from                                                                                                                                                                                                                                                                                 |
-| --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Parent    | frontmatter `parent` on this ticket — a `[source:]id` reference, present only when this ticket is a task that was given one. Always absent on a user story and on a standalone task.                                                                                                                |
-| Children  | not stored on this ticket. Enumerate every local ticket under `{tickets_home}/local/*/raw/ticket.md`, read each one's frontmatter, and collect the ones whose `parent` resolves to this ticket's own `source:id`. Only meaningful when this ticket's type is `user-story` — a task has no children. |
+| Direction | Where it comes from                                                                                                                                                                                                                                                                                                                         |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Parent    | frontmatter `parent` on this ticket — short (`local:{id}`) when the parent is filed in the same product, qualified (`{namespace}/{product}/{source}:{id}`) when it is not. Present only when this ticket is a task that was given one. Always absent on a user story and on a standalone task.                                              |
+| Children  | not stored on this ticket. Run `ticket.py list` and collect the entries whose `parent_ref` equals this ticket's `qualified_ref` — the front door has already resolved every stored `parent` from its own ticket's product, wherever that ticket is filed. Only meaningful when this ticket's type is `user-story` — a task has no children. |
 
-Resolve a bare `parent` value (no `source:` prefix) as `local:{id}` — that is the only store it could have been written against. To render a Parent or Children entry, open that ticket's own `ticket.json` for its title, type and state; never fabricate them from the id alone. A `parent` naming a ticket that is not on disk is listed as a reference by id only, exactly like a skipped node elsewhere in this suite.
+Resolve a `parent` value the way the front door does: nearest first from this ticket's own product, so a short value means "in my product". `ticket.py list` reports each one resolved as `parent_ref`, and `null` where it resolves to nothing. To render a Parent or Children entry, open that ticket's own `ticket.json` for its title, type and state; never fabricate them from the id alone. A `parent` naming a ticket that is not on disk is listed as a reference by id only, exactly like a skipped node elsewhere in this suite.
 
 **No generic `related` kind exists here.** `## Links` may hold markdown links the author wrote, including to other local tickets. Treat them as prose, not as structured relations — surface them if they are useful, but they carry no type, state or title that can be trusted without opening the target.
 
@@ -63,11 +63,19 @@ Resolve a bare `parent` value (no `source:` prefix) as `local:{id}` — that is 
 
 Whoever writes into this store — a driver seeding or refining a body, or a person editing by hand — links to another local ticket with a **real relative markdown link**, never `[[double-bracket]]` wiki syntax. This store has no wiki-link resolver; `[[id]]` renders as literal bracketed text in every markdown viewer that opens `raw/ticket.md`, including this one, which makes it a broken link, not a working one dressed differently.
 
-Every ticket lives at `{tickets_home}/local/{id}/raw/ticket.md`, so from inside one ticket's `raw/ticket.md`, a sibling is always two levels up and back down:
+Every ticket lives at `{tickets_home}/{namespace}/{product}/local/{id}/raw/ticket.md`, so from inside one ticket's `raw/ticket.md`, a sibling filed in the same product is always two levels up and back down:
 
 ```
 [{other-id}](../../{other-id}/raw/ticket.md)
 ```
+
+A ticket filed in another product is five levels up, to the tickets home, and back down through its namespace and product:
+
+```
+[{other-id}](../../../../../{namespace}/{product}/local/{other-id}/raw/ticket.md)
+```
+
+Prefer the first. A link across products breaks whenever either ticket is re-filed; `/ticket-move` reports it, but nothing repairs it.
 
 For example, from `local/fincaapp-google-play-compliance-requirements/raw/ticket.md`:
 

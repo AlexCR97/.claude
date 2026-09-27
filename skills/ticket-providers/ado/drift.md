@@ -3,18 +3,18 @@
 Read by `ticket-resume`.
 
 ```
-python "{skills}/ticket-common/ticket.py" drift {source}:{id}
+python "{skills}/ticket-common/ticket.py" drift "{qualified_ref}"
 ```
 
 Read-only against both Azure DevOps and the local data. `raw.json` is never rewritten.
 
 ## Exit contract
 
-| Exit | Means |
-| --- | --- |
-| 0 | the local copy is current |
-| 1 | the comparison could not be made — no raw data, expired `az login`, no network |
-| 2 | the work item changed since it was fetched |
+| Exit | Means                                                                          |
+| ---- | ------------------------------------------------------------------------------ |
+| 0    | the local copy is current                                                      |
+| 1    | the comparison could not be made — no raw data, expired `az login`, no network |
+| 2    | the work item changed since it was fetched                                     |
 
 ## What is compared
 

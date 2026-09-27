@@ -1,7 +1,7 @@
 ---
 name: ticket-digest
 description: Reads a fetched ticket by reference, analyzes its description, acceptance criteria, attached files and images, and related tickets, then writes a structured digest to digest.md.
-argument-hint: "<[source:]id> [--type T]"
+argument-hint: "<[namespace/product/][source:]id> [--type T]"
 allowed-tools: Read Grep Glob Write Bash(python:*)
 ---
 
@@ -28,7 +28,7 @@ Turns a source-shaped snapshot into one readable document that every later skill
 ## Input
 
 ```
-/ticket-digest <[source:]id> [--type {type}]
+/ticket-digest <[namespace/product/][source:]id> [--type {type}]
 ```
 
 - `{ref}` — the ticket, optionally prefixed with its source. If none is given, ask for one before proceeding.
@@ -42,8 +42,10 @@ Run the following steps **in order**. Do not skip any step.
 
 ### 1. Resolve the ticket
 
+When this session has a session context, pass `--context {context}` below, and start your first output line with `Ticket context: {context}`. An explicit qualified reference overrides it for that one call. `ticket-common/RESOLUTION.md` → *The session context* has the rule.
+
 ```bash
-python "{skills}/ticket-common/ticket.py" resolve "{ref}" --require raw [--type {type}]
+python "{skills}/ticket-common/ticket.py" resolve "{ref}" --require raw [--type {type}] [--context {context}]
 ```
 
 Everything below uses the paths, type and `ticket.json` it returns; **every path it prints is absolute**, so nothing here needs expanding. On a non-zero exit, report the message and its hint verbatim and stop. `ticket-common/RESOLUTION.md` carries the full contract — open it only when the output is disputed.

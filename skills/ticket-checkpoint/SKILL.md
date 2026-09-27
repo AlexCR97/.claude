@@ -1,7 +1,7 @@
 ---
 name: ticket-checkpoint
 description: Records the current session's state on a ticket as an entry in journal.md — where the code is, what was done, what was decided and why, what is blocking, and the single next action. Run it before switching away from a ticket so a later /ticket-resume can pick the work up. Makes NO code changes.
-argument-hint: "<[source:]id> [note]"
+argument-hint: "<[namespace/product/][source:]id> [note]"
 ---
 
 This skill is a **driver**: it contains no field names, URLs, API versions, credential commands, markup dialects, or type-specific rules of its own. Everything specific lives alongside it in three directories, and every step below just says which file to read.
@@ -49,15 +49,23 @@ Run the following steps **in order**. Do not skip any step.
 
 ### 1. Resolve the ticket
 
+When this session has a session context, pass `--context {context}` on every `ticket.py` call below that takes one, and start your first output line with `Ticket context: {context}`. An explicit qualified reference overrides it for that one call. `ticket-common/RESOLUTION.md` → *The session context* has the rule.
+
 ```bash
-python "{skills}/ticket-common/ticket.py" resolve "{ref}" --require ticket_dir
+python "{skills}/ticket-common/ticket.py" resolve "{ref}" --require ticket_dir [--context {context}]
 ```
 
 Everything below uses the paths, type and `ticket.json` it returns; **every path it prints is absolute**, so nothing here needs expanding. On a non-zero exit, report the message and its hint verbatim and stop. `ticket-common/RESOLUTION.md` carries the full contract — open it only when the output is disputed.
 
 Take the ref from the invocation, or from the ticket this session has been working on — a `/ticket-implement` or `/ticket-resume` run earlier in the conversation, or a `plan.md` already read.
 
-**Failing both, ask. Never guess.** Run `ticket.py list` and print the candidates as a table with a **Source** column, each with its title and the modification times of its `journal.md` and `plan.md`, newest first. Then ask which to checkpoint.
+**Failing both, ask. Never guess.** Run `ticket.py list [--context {context}]` and print the candidates as a table with **Product** and **Source** columns, each with its title and the modification times of its `journal.md` and `plan.md`, newest first. With a session context, print only the tickets whose `in_context` is true, and say how many are outside it with an offer to show them all. Then ask which to checkpoint.
+
+**Confirm a ticket outside the session context.** When `outside_context` is true, stop and ask before anything else:
+
+> {qualified_ref} is filed under `{product}`, outside the session context `{context}`. Checkpoint it anyway? [y/N]
+
+`journal.md` is the one file nothing can regenerate, and a session working in one product while checkpointing a ticket in another is exactly how an entry lands on the wrong ticket. On no, stop.
 
 There is no inference from the branch name, and there must not be. A wrong guess here attaches a session's account of itself to the wrong ticket, and `journal.md` is the one file in this system that nothing can regenerate.
 
@@ -130,6 +138,8 @@ Rules for an entry:
 - `**Where:**`, `**Worktree state:**`, `**Stopped at:**` and `**Next:**` are always present. Where a fact is unavailable, say so explicitly rather than omitting the line.
 - Omit any of the `### Done`, `### Decisions`, `### Inferences`, `### Open questions` and `### Blockers` sections that would be empty. Do not pad an entry with a heading over nothing.
 - **Never edit or delete an existing entry.** A session's account of itself is not regenerable — the one thing here that no later run can reconstruct. A correction is a new entry saying what it corrects.
+- **Write a reference to another ticket the way a stored one is written**: short (`{source}:{id}`) when it is filed in the same product as this ticket, qualified (`{namespace}/{product}/{source}:{id}`) when it is not. A short reference is read from this ticket's product, so a qualified one is what keeps a cross-product mention resolvable.
+- **Do not record where this ticket is filed.** Its directory already says so, and an entry that did would go stale on the first `/ticket-move` with no way to correct it.
 - Keep it factual and short. An entry is read in a hurry, by someone who has forgotten everything.
 
 ### 6. Reconcile plan.md status lines
@@ -161,6 +171,7 @@ Confirm in **two lines at most**. Do not print the entry body in chat — it was
 - Run only read-only commands. `collect-git-state.py` and `ticket.py resolve` are read-only; do not run `git fetch`, `git pull`, `git add`, `git stash`, or any other command that changes repository state
 - Never run a git operation that writes — the developer decides when to commit, stash or push
 - **Never infer the ticket from the branch name or from anything else.** Use the argument, or the ticket this session was working on, or ask
+- Never write an entry on a ticket outside the session context without asking first
 - Never invent a `**Next:**` line — derive it from the session, or ask
 - Never record a decision without its rationale; the *why* is the reason the entry exists
 - Do not print the entry body in chat — the report is two lines

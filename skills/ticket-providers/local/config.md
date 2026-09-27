@@ -2,25 +2,21 @@
 
 Read by `ticket-init`.
 
-## What `local/config.json` holds
+## What a local binding holds
 
-```json
-{}
-```
+Nothing. `provider.json` declares no coordinates: there is no service to connect to, nothing upstream to locate a ticket in, and **no credential of any kind**.
 
-Nothing. There is no service to connect to, no coordinates to record, and **no credential of any kind**.
-
-The file is still written, and that is deliberate: `on_disk.config` is how every driver distinguishes "set up" from "never set up", and a store that needs no credential still has to answer that question. An empty object is the honest answer.
+A source with no coordinates is usable in **every** product without an init, so a local ticket can be created under any namespace and product the moment it exists — a side project that has nothing upstream at all is a product with only local tickets.
 
 ## What init actually does
 
-Creates the store directory and writes the empty config. It makes no network call, runs no external command, and asks the user for nothing.
+With `--in`, it creates that product if it does not exist. Without, there is nothing to do. It makes no network call, runs no external command, writes no config, and asks the user for nothing.
 
 ```
-python "{skills}/ticket-common/ticket.py" init --source local
+python "{skills}/ticket-common/ticket.py" init --source local [--in {namespace}/{product}]
 ```
 
-There are no provider options.
+There are no provider options. `init --in {namespace}/{product}` with no source creates a product just the same.
 
 ## What to report afterwards
 

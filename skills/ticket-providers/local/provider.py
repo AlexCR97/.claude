@@ -7,16 +7,16 @@ credential. Those gaps are real rather than stubs, and each is declared absent
 in provider.json so the front door refuses the verb before any code here runs.
 
 The one relation it does carry — a task's optional link to its parent user
-story — has no tree and no reverse index. It lives entirely in `raw/ticket.md`'s
-`parent` frontmatter key, validated once here in `new()` and never touched again
-by this module.
+story — has no tree and no reverse index. It lives in `raw/ticket.md`'s
+`parent` frontmatter key, validated here in `new()`, and rewritten only by
+`set_parent()` when a move would leave it pointing nowhere.
 """
 
 import argparse
 import re
 from pathlib import Path
 
-from ticketlib import config, providers, sources, tickets
+from ticketlib import providers, sources, tickets
 from ticketlib.errors import EXIT_ERROR, EXIT_NOT_FOUND, TicketError
 
 # The heading level `ticket-refine` writes its four synthesized sections at —
@@ -42,41 +42,34 @@ ACCEPTANCE_STUB = "TODO — run `/ticket-refine` to establish these."
 _store = providers.load_private(SOURCE, "_store")
 
 
-def ticket_file(ticket_id: str) -> Path:
-    from ticketlib import paths
-
-    return paths.ticket_dir(SOURCE, ticket_id) / "raw" / TICKET_FILENAME
+def ticket_file(ctx: dict) -> Path:
+    return Path(ctx["paths"]["raw_dir"]) / TICKET_FILENAME
 
 
-def require_ticket_file(ticket_id: str) -> Path:
-    path = ticket_file(ticket_id)
+def require_ticket_file(ctx: dict) -> Path:
+    path = ticket_file(ctx)
     if not path.is_file():
         raise TicketError(
             f"no ticket body at {path}",
             EXIT_NOT_FOUND,
-            f"Run `/ticket-new` to create it.",
+            "Run `/ticket-new` to create it.",
         )
     return path
 
 
+def binding(ctx: dict, extra: list[str]) -> dict:
+    """This store declares no coordinates, so there is nothing to bind."""
+    return {"coordinates": {}, "defaults_applied": [], "inherited": []}
+
+
 def init(ctx: dict, extra: list[str]) -> dict:
     """
-    There is nothing to connect to, so init only makes the store exist.
+    There is nothing to connect to and nothing to record.
 
-    The empty config is written rather than skipped: `on_disk.config` is how
-    every driver tells "set up" from "never set up", and a local store that
-    needs no credential still needs to answer that question.
+    A source with no coordinates is usable in every product without an init,
+    so this only confirms that — the front door creates the product directory.
     """
-    from ticketlib import paths
-
-    paths.source_dir(SOURCE).mkdir(parents=True, exist_ok=True)
-    if not config.is_initialized(SOURCE):
-        config.save_source(SOURCE, {})
-
-    return {
-        "store": str(paths.source_dir(SOURCE)),
-        "credential": "none — this store is local files",
-    }
+    return {"credential": "none — this store is local files"}
 
 
 def new(ctx: dict, title: str, ticket_type: str | None, extra: list[str]) -> dict:
@@ -85,7 +78,7 @@ def new(ctx: dict, title: str, ticket_type: str | None, extra: list[str]) -> dic
     args = parser.parse_args(extra)
 
     ticket_id = ctx["id"]
-    path = ticket_file(ticket_id)
+    path = ticket_file(ctx)
 
     if path.exists():
         raise TicketError(f"{path} already exists", EXIT_ERROR)
@@ -99,7 +92,9 @@ def new(ctx: dict, title: str, ticket_type: str | None, extra: list[str]) -> dic
             "Known types: " + ", ".join(known) + ".",
         )
 
-    parent_ref = resolve_parent(args.parent, resolved_type) if args.parent else None
+    parent_ref = (
+        resolve_parent(args.parent, resolved_type, ctx) if args.parent else None
+    )
 
     frontmatter = {
         "id": ticket_id,
@@ -137,7 +132,7 @@ def new(ctx: dict, title: str, ticket_type: str | None, extra: list[str]) -> dic
     )
     if parent_ref:
         changes["parent"] = parent_ref
-    tickets.update(SOURCE, ticket_id, **changes)
+    tickets.update(ctx["location"], **changes)
 
     result = {
         "ticket_file": str(path),
@@ -149,13 +144,15 @@ def new(ctx: dict, title: str, ticket_type: str | None, extra: list[str]) -> dic
     return result
 
 
-def resolve_parent(ref: str, resolved_type: str) -> str:
+def resolve_parent(ref: str, resolved_type: str, ctx: dict) -> str:
     """
-    Validate a --parent reference and return it in canonical `source:id` form.
+    Validate a --parent reference and return it as this ticket should store it.
 
     Only a task may carry one, and only a user story may be named as one — the
-    one relationship this suite tracks, enforced here because `new()` is the
-    only place a local ticket's parent is ever set.
+    one relationship this suite tracks, enforced here because `new()` is where
+    a local ticket's parent is set. The stored form is short when the parent
+    is filed in the same product and qualified when it is not, because a
+    stored reference is resolved from its own ticket's product first.
     """
     if resolved_type != "task":
         raise TicketError(
@@ -164,25 +161,50 @@ def resolve_parent(ref: str, resolved_type: str) -> str:
             "Only a task may have a parent user story.",
         )
 
-    from ticketlib import paths
-
-    parent_source, parent_id = sources.resolve_source(ref, None)
-    if not paths.ticket_dir(parent_source, parent_id).is_dir():
+    location = ctx["location"]
+    parent = sources.resolve_stored(ref, location.product)
+    if parent is None:
         raise TicketError(
-            f"parent ticket '{parent_source}:{parent_id}' does not exist",
+            f"parent ticket '{ref}' does not exist, or names more than one",
             EXIT_ERROR,
-            "Create the parent user story first, or check the reference.",
+            "Create the parent user story first, or pass its qualified reference.",
         )
 
-    parent_type = tickets.load(parent_source, parent_id).get("type")
+    parent_type = tickets.load(parent).get("type")
     if parent_type and parent_type != "user-story":
         raise TicketError(
-            f"parent '{parent_source}:{parent_id}' is a {parent_type}, not a user-story",
+            f"parent '{parent.qualified}' is a {parent_type}, not a user-story",
             EXIT_ERROR,
             "A task's parent must be a user story.",
         )
 
-    return f"{parent_source}:{parent_id}"
+    return parent.ref_from(location.product)
+
+
+def set_parent(ctx: dict, ref: str, dry_run: bool = False) -> None:
+    """
+    Rewrite the frontmatter `parent` to a reference that still resolves after a move.
+
+    `ticket.json` records the same value, but the frontmatter is this store's
+    source of truth, so it is the one that has to change. The fingerprint moves
+    with it, or the next resume would report the rewrite as someone's edit.
+
+    `dry_run` fails exactly where a real run would and writes nothing, which is
+    how a move finds out before renaming anything.
+    """
+    path = require_ticket_file(ctx)
+    try:
+        _store.set_frontmatter(path, "parent", ref, dry_run=dry_run)
+    except ValueError as exc:
+        raise TicketError(
+            f"cannot rewrite the parent of {ctx['location'].qualified} — {exc}",
+            EXIT_ERROR,
+            f"Give {path} a `---` frontmatter block, or set `parent: {ref}` by hand.",
+        ) from exc
+    if not dry_run:
+        tickets.update(
+            ctx["location"], fingerprint={"sha256": _store.fingerprint(path)}
+        )
 
 
 def publish(ctx: dict, text: str, extra: list[str]) -> dict:
@@ -194,7 +216,7 @@ def publish(ctx: dict, text: str, extra: list[str]) -> dict:
     `new()` left a stub for them: `Goal and Success Criteria` becomes the new
     `Acceptance Criteria`, and the rest becomes `Description`. See `publish.md`.
     """
-    path = require_ticket_file(ctx["id"])
+    path = require_ticket_file(ctx)
     preamble, sections = split_refinement(text)
 
     acceptance = sections.get("Goal and Success Criteria", "")
@@ -216,9 +238,7 @@ def publish(ctx: dict, text: str, extra: list[str]) -> dict:
 
     # The body just changed, so the drift fingerprint has to move with it or
     # the next resume would report the refinement as someone else's edit.
-    tickets.update(
-        SOURCE, ctx["id"], fingerprint={"sha256": _store.fingerprint(path)}
-    )
+    tickets.update(ctx["location"], fingerprint={"sha256": _store.fingerprint(path)})
 
     return {"ticket_file": str(path), "sections_updated": updated, "url": None}
 
@@ -283,8 +303,8 @@ def strip_todos(text: str) -> str:
 
 
 def drift(ctx: dict, extra: list[str]) -> dict:
-    path = require_ticket_file(ctx["id"])
-    record = tickets.load(SOURCE, ctx["id"])
+    path = require_ticket_file(ctx)
+    record = tickets.load(ctx["location"])
 
     recorded = (record.get("fingerprint") or {}).get("sha256") or ""
     current = _store.fingerprint(path)
@@ -316,11 +336,8 @@ def field_changes(record: dict, frontmatter: dict) -> list[dict]:
 
 
 def auth_status(ctx: dict) -> dict:
-    from ticketlib import paths
-
     return {
         "credential": "none — this store is local files",
         "status": "not applicable",
         "usable": True,
-        "store": str(paths.source_dir(SOURCE)),
     }

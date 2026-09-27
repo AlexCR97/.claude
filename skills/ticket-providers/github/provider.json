@@ -1,7 +1,14 @@
 {
   "source": "github",
   "kind": "remote",
-  "prefixes": ["github", "gh"],
+  "prefixes": [
+    "github",
+    "gh"
+  ],
+  "coordinates": {
+    "owner": "namespace",
+    "repository": "product"
+  },
   "nouns": {
     "singular": "issue",
     "plural": "issues",

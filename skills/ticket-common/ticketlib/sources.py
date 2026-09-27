@@ -1,20 +1,27 @@
 #!/usr/bin/env python3
 """
-Turning a reference the user typed into a source, an id and a set of paths.
+Turning a reference the user typed into a ticket's location and a set of paths.
 
 The resolution order is implemented here once and restated in prose nowhere:
 
-1. A web address — matched against the `url.patterns` each source declares
-2. An explicit prefix — `ado:12345`, `gh:42`, `local:auth-fix`
-3. A bare token — scan every source for a ticket directory of that name;
-   exactly one hit wins, two or more is an error that lists them
-4. The root config's `default_source`
+1. A web address — matched against the `url.patterns` each source declares.
+   Its coordinates decide where it is filed when it is not on disk yet.
+2. A qualified reference — `{namespace}/{product}/{source}:{id}` — names one
+   directory exactly.
+3. `{source}:{id}` or a bare id — the nearest ticket directory of that name:
+   in the session context's product, then its namespace, then everywhere.
+   Two equally near is an error that lists them; guessing would attach work
+   to the wrong ticket.
+4. Not on disk anywhere — the ticket is filed by `filing.py`, and a bare id
+   takes the effective `default_source`.
 """
 
 import re
 import urllib.parse
+from dataclasses import dataclass, field
+from pathlib import Path
 
-from . import config, paths, providers, tickets
+from . import config, filing, layout, paths, providers, tickets
 from .errors import (
     EXIT_AMBIGUOUS,
     EXIT_ERROR,
@@ -22,6 +29,8 @@ from .errors import (
     EXIT_REQUIRE_UNMET,
     TicketError,
 )
+from .filing import Filing
+from .layout import Location, Product, Scope
 
 LEGACY_HINT = (
     "The pre-`~/.tickets` layout is still on disk at {legacy}. "
@@ -40,6 +49,27 @@ REQUIREMENTS = (
 )
 
 
+@dataclass
+class Reference:
+    """What a typed reference says, before anything on disk is consulted."""
+
+    id: str
+    source: str | None = None
+    product: Product | None = None
+    coordinates: dict = field(default_factory=dict)
+
+
+@dataclass
+class Target:
+    """Where a reference points: an existing ticket directory, or where a new one would be filed."""
+
+    location: Location
+    filed: bool
+    filing: Filing | None = None
+    address: dict = field(default_factory=dict)
+    outside_context: bool = False
+
+
 def prefix_map() -> dict[str, str]:
     """Every accepted prefix, including each source's own name."""
     mapping: dict[str, str] = {}
@@ -50,17 +80,11 @@ def prefix_map() -> dict[str, str]:
     return mapping
 
 
-def split_ref(ref: str) -> tuple[str | None, str]:
-    """Split `prefix:token`, leaving an unprefixed reference's prefix as None."""
-    if ":" not in ref:
-        return None, ref.strip()
-
-    head, _, tail = ref.partition(":")
-    head = head.strip().lower()
+def source_for_prefix(prefix: str, ref: str) -> str:
     known = prefix_map()
+    head = prefix.strip().lower()
     if head in known:
-        return known[head], tail.strip()
-
+        return known[head]
     raise TicketError(
         f"unknown source prefix '{head}' in '{ref}'",
         EXIT_ERROR,
@@ -88,9 +112,9 @@ def url_hint() -> str:
     )
 
 
-def match_url(ref: str) -> tuple[str, str]:
+def match_url(ref: str) -> Reference:
     """
-    A pasted web address -> (source, id), by the patterns the manifests declare.
+    A pasted web address -> its source, id and coordinates, by the patterns the manifests declare.
 
     The patterns live in `provider.json` and not here for the same reason the
     prefixes do: this module must stay ignorant of what any one ticket system's
@@ -114,42 +138,193 @@ def match_url(ref: str) -> tuple[str, str]:
                     EXIT_ERROR,
                     "Its `url.patterns` in provider.json needs an `id` group.",
                 )
-            check_coordinates(source, ref, found)
-            return source, ticket_id
+            require_segment(ticket_id, ref)
+            return Reference(ticket_id, source, coordinates=found)
 
     raise TicketError(
         f"no source recognises the address '{ref}'", EXIT_ERROR, url_hint()
     )
 
 
-def check_coordinates(source: str, ref: str, coordinates: dict[str, str]) -> None:
-    """
-    A captured group other than `id` names a config key the address must match.
+def parse(ref: str) -> Reference:
+    """`[{namespace}/{product}/][{source}:]{id}`, or a web address."""
+    text = ref.strip()
+    if looks_like_url(text):
+        return match_url(text)
 
-    An address into another organization, project or repository would otherwise
-    resolve against the configured one and fetch whichever ticket happens to
-    share that number.
-    """
-    settings = config.load_source(source)
-    for key, value in coordinates.items():
-        configured = settings.get(key)
-        if configured is None or str(configured).casefold() == value.casefold():
-            continue
+    head, colon, tail = text.partition(":")
+    scoped, ticket_id = (head, tail) if colon else ("", head)
+    prefix = None
+
+    if colon:
+        scope_part, slash, prefix = scoped.rpartition("/")
+        scoped = scope_part if slash else ""
+    elif "/" in text:
+        scoped, _, ticket_id = text.rpartition("/")
+
+    product = None
+    if scoped:
+        product = layout.parse_scope(scoped).as_product()
+        if product is None:
+            raise TicketError(
+                f"'{ref}' names a namespace but no product",
+                EXIT_ERROR,
+                "A qualified reference is `{namespace}/{product}/{source}:{id}`.",
+            )
+
+    ticket_id = ticket_id.strip()
+    if not ticket_id:
+        raise TicketError(f"'{ref}' carries no ticket id", EXIT_ERROR)
+    require_segment(ticket_id, ref)
+
+    source = source_for_prefix(prefix, ref) if prefix else None
+    return Reference(ticket_id, source, product)
+
+
+def require_segment(ticket_id: str, ref: str) -> None:
+    """Refuse an id that is not one path component, before it is joined onto any directory."""
+    if not paths.is_segment(ticket_id):
         raise TicketError(
-            f"'{ref}' names {key} '{value}' "
-            f"but '{source}' is configured for '{configured}'",
+            f"'{ticket_id}' in '{ref}' is not a ticket id",
             EXIT_ERROR,
-            f"Run `/ticket-init {source}` to repoint it.",
+            "An id is a single name: no `..` and no path separators.",
         )
 
 
-def directories_holding(token: str) -> list[str]:
-    """Every source with a ticket directory of this name, in listing order."""
-    return [
-        source
-        for source in providers.list_sources()
-        if paths.ticket_dir(source, token).is_dir()
+def known_sources_hint() -> str:
+    return "Known sources: " + (", ".join(providers.list_sources()) or "none") + "."
+
+
+def id_pattern(source: str) -> str | None:
+    return (providers.load_manifest(source).get("id") or {}).get("pattern")
+
+
+def id_matches(source: str, ticket_id: str) -> bool:
+    pattern = id_pattern(source)
+    return paths.is_segment(ticket_id) and (
+        not pattern or bool(re.fullmatch(pattern, ticket_id))
+    )
+
+
+def validate_id(source: str, ticket_id: str) -> None:
+    require_segment(ticket_id, ticket_id)
+    pattern = id_pattern(source)
+    if not pattern:
+        return
+    if not re.fullmatch(pattern, ticket_id):
+        manifest = providers.load_manifest(source)
+        noun = (manifest.get("nouns") or {}).get("singular", "ticket")
+        raise TicketError(
+            f"'{ticket_id}' is not a valid {source} {noun} id",
+            EXIT_ERROR,
+            f"Ids for this source match {pattern}.",
+        )
+
+
+def require_installed(source: str, reason: str) -> None:
+    if source not in providers.list_sources():
+        raise TicketError(
+            f"{reason} '{source}', which is not installed",
+            EXIT_ERROR,
+            known_sources_hint(),
+        )
+
+
+def require_sources() -> None:
+    if not providers.list_sources():
+        raise TicketError(
+            "no sources are installed",
+            EXIT_ERROR,
+            "Expected at least one provider directory under "
+            f"{providers.providers_root()}.",
+        )
+
+
+def optional_scope(text: str | None) -> Scope | None:
+    return layout.parse_scope(text) if text else None
+
+
+def narrow(restrict: Scope | None, product: Product | None, ref: str) -> Scope | None:
+    """A qualified reference and `--in` must agree; the reference is the narrower of the two."""
+    if product is None:
+        return restrict
+    if restrict and not restrict.contains(product):
+        raise TicketError(
+            f"'{ref}' is in {product.ref}, outside --in {restrict.ref}", EXIT_ERROR
+        )
+    return Scope.of(product)
+
+
+def ambiguous(ref: str, matches: list[Location]) -> TicketError:
+    listing = "\n".join(f"  {match.qualified} — {match.dir}" for match in matches)
+    return TicketError(
+        f"'{ref}' exists in more than one place",
+        EXIT_AMBIGUOUS,
+        f"Name it with a qualified reference:\n{listing}",
+    )
+
+
+def find_existing(
+    reference: Reference, restrict: Scope | None, prefer: Scope | None, ref: str
+) -> Location | None:
+    """
+    The one ticket directory a reference means, or None when it is on disk nowhere.
+
+    A bare id is only looked for under the sources whose id pattern it fits,
+    so a slug is never matched against a directory of numeric ids, or the
+    other way round.
+    """
+    candidates = (
+        [reference.source]
+        if reference.source
+        else [
+            source
+            for source in providers.list_sources()
+            if id_matches(source, reference.id)
+        ]
+    )
+    matches = [
+        match
+        for source in candidates
+        for match in layout.locations(source, reference.id, restrict)
     ]
+
+    if reference.coordinates:
+        # The same number in another organization is another ticket.
+        matches = [
+            match
+            for match in matches
+            if not filing.conflicts(
+                tickets.load(match).get("coordinates") or {}, reference.coordinates
+            )
+        ]
+
+    matches = layout.nearest(matches, prefer)
+    if len(matches) > 1:
+        raise ambiguous(ref, matches)
+    return matches[0] if matches else None
+
+
+def resolve_stored(ref: str, own: Product) -> Location | None:
+    """
+    A reference written inside a ticket — `parent` — resolved from that ticket's own product.
+
+    Nearest first from where the writer was filed is the rule `Location.ref_from`
+    writes by, so a short reference means "in my product" and survives the
+    whole product being moved together.
+    """
+    try:
+        reference = parse(ref)
+    except TicketError:
+        return None
+    try:
+        if reference.source:
+            validate_id(reference.source, reference.id)
+        return find_existing(
+            reference, narrow(None, reference.product, ref), Scope.of(own), ref
+        )
+    except TicketError:
+        return None
 
 
 def check_legacy(token: str) -> None:
@@ -173,114 +348,134 @@ def check_legacy(token: str) -> None:
         )
 
 
-def known_sources_hint() -> str:
-    return "Known sources: " + (", ".join(providers.list_sources()) or "none") + "."
-
-
-def validate_id(source: str, ticket_id: str) -> None:
-    manifest = providers.load_manifest(source)
-    pattern = (manifest.get("id") or {}).get("pattern")
-    if not pattern:
-        return
-    if not re.fullmatch(pattern, ticket_id):
-        noun = (manifest.get("nouns") or {}).get("singular", "ticket")
+def default_source_for(restrict: Scope | None, context: Scope | None) -> str:
+    """The effective `default_source` of the nearest scope that says where the ticket goes."""
+    for scope in (restrict, context):
+        if scope:
+            value = config.default_source(scope.namespace, scope.product)
+            if value:
+                return value
+    namespace = config.default_namespace()
+    value = config.default_source(namespace, config.default_product(namespace))
+    if not value:
         raise TicketError(
-            f"'{ticket_id}' is not a valid {source} {noun} id",
-            EXIT_ERROR,
-            f"Ids for this source match {pattern}.",
-        )
-
-
-def require_installed(source: str, reason: str) -> None:
-    if source not in providers.list_sources():
-        raise TicketError(
-            f"{reason} '{source}', which is not installed",
-            EXIT_ERROR,
-            known_sources_hint(),
-        )
-
-
-def resolve_source(ref: str | None, explicit_source: str | None) -> tuple[str, str]:
-    """Returns (source, ticket_id); the id is empty when only a source is named."""
-    known = providers.list_sources()
-    if not known:
-        raise TicketError(
-            "no sources are installed",
-            EXIT_ERROR,
-            "Expected at least one provider directory under "
-            f"{providers.providers_root()}.",
-        )
-
-    if explicit_source:
-        require_installed(explicit_source, "--source names")
-
-    if ref is None:
-        source = explicit_source or config.default_source() or ""
-        if not source:
-            raise TicketError(
-                "no source given and no default_source is configured",
-                EXIT_ERROR,
-                "Pass --source, or run `/ticket-init` to set one. "
-                + known_sources_hint(),
-            )
-        require_installed(source, "default_source is")
-        return source, ""
-
-    if looks_like_url(ref):
-        prefix_source, token = match_url(ref)
-    else:
-        prefix_source, token = split_ref(ref)
-
-    if not token:
-        raise TicketError(f"'{ref}' carries no ticket id", EXIT_ERROR)
-
-    if prefix_source and explicit_source and prefix_source != explicit_source:
-        raise TicketError(
-            f"'{ref}' names source '{prefix_source}' "
-            f"but --source says '{explicit_source}'",
-            EXIT_ERROR,
-        )
-
-    if prefix_source:
-        source = prefix_source
-    elif explicit_source:
-        source = explicit_source
-    else:
-        source = resolve_bare(token)
-
-    validate_id(source, token)
-    return source, token
-
-
-def resolve_bare(token: str) -> str:
-    """A reference with no prefix: what is on disk decides, then the default."""
-    matches = directories_holding(token)
-
-    if len(matches) > 1:
-        listing = "\n".join(
-            f"  {name}:{token} — {paths.ticket_dir(name, token)}" for name in matches
-        )
-        raise TicketError(
-            f"'{token}' exists in more than one source",
-            EXIT_AMBIGUOUS,
-            f"Name the source explicitly:\n{listing}",
-        )
-
-    if matches:
-        return matches[0]
-
-    check_legacy(token)
-
-    source = config.default_source() or ""
-    if not source:
-        raise TicketError(
-            f"'{token}' is not on disk and no default_source is configured",
+            "the id names no source, it is on disk nowhere, and no default_source is configured",
             EXIT_ERROR,
             "Prefix the id with a source, or run `/ticket-init`. "
             + known_sources_hint(),
         )
-    require_installed(source, "default_source is")
-    return source
+    require_installed(value, "default_source is")
+    return value
+
+
+def locate(
+    ref: str,
+    explicit_source: str | None = None,
+    restrict: Scope | None = None,
+    context: Scope | None = None,
+    cwd: Path | None = None,
+) -> Target:
+    require_sources()
+    reference = parse(ref)
+
+    if explicit_source:
+        require_installed(explicit_source, "--source names")
+        if reference.source and reference.source != explicit_source:
+            raise TicketError(
+                f"'{ref}' names source '{reference.source}' but --source says '{explicit_source}'",
+                EXIT_ERROR,
+            )
+        reference.source = explicit_source
+
+    # Before any lookup: an id is joined onto directories, and only one its
+    # source's pattern admits can name a ticket directory rather than another.
+    if reference.source:
+        validate_id(reference.source, reference.id)
+
+    scope = narrow(restrict, reference.product, ref)
+    found = find_existing(reference, scope, context, ref)
+    if found:
+        return Target(
+            found,
+            filed=True,
+            address=reference.coordinates,
+            outside_context=bool(context and not context.contains(found.product)),
+        )
+
+    check_legacy(reference.id)
+    if reference.source is None:
+        reference.source = default_source_for(scope, context)
+
+    validate_id(reference.source, reference.id)
+    choice = filing.choose(
+        reference.source,
+        restrict=scope,
+        address=reference.coordinates,
+        context=context,
+        cwd=cwd,
+    )
+    return Target(
+        Location(choice.product, reference.source, reference.id),
+        filed=False,
+        filing=choice,
+        address=reference.coordinates,
+        outside_context=bool(context and not context.contains(choice.product)),
+    )
+
+
+def ticket_coordinates(
+    location: Location, record: dict, address: dict | None = None
+) -> dict:
+    """
+    What locates this ticket upstream: the product's binding, overridden by the ticket's own.
+
+    A ticket's recorded coordinates win because they are its identity, while a
+    binding is only where new tickets are fetched from by default.
+    """
+    merged = config.binding(
+        location.source, location.product.namespace, location.product.name
+    )
+    merged.update(record.get("coordinates") or {})
+    merged.update(address or {})
+    return merged
+
+
+def is_usable(source: str, coordinates: dict) -> bool:
+    return all(coordinates.get(name) for name in providers.coordinates(source))
+
+
+def provider_context(
+    source: str,
+    product: Product | None,
+    location: Location | None = None,
+    coordinates: dict | None = None,
+) -> dict:
+    """
+    What every provider entry point is handed, so none rebuilds it.
+
+    A provider reads its coordinates from here and nowhere else. It never
+    opens a config file or builds a ticket path itself, which is what lets one
+    source be bound in any number of products.
+    """
+    namespace, name = (product.namespace, product.name) if product else (None, None)
+    merged = config.effective(namespace, name)[0]
+    binding = config.binding(source, namespace, name)
+    ctx = {
+        "source": source,
+        "id": location.id if location else "",
+        "manifest": providers.load_manifest(source),
+        "product": product.ref if product else None,
+        "config": merged,
+        "binding": binding,
+        "coordinates": coordinates if coordinates is not None else binding,
+        "provider_dir": str(providers.provider_dir(source)),
+        "tickets_home": str(paths.tickets_home()),
+    }
+    if location:
+        ctx["location"] = location
+        ctx["ticket_dir"] = str(location.dir)
+        ctx["paths"] = location.paths()
+    return ctx
 
 
 def describe_source(source: str) -> dict:
@@ -292,6 +487,7 @@ def describe_source(source: str) -> dict:
         "nouns": manifest.get("nouns") or {},
         "formats": manifest.get("formats") or {},
         "capabilities": manifest.get("capabilities") or {},
+        "coordinate_levels": providers.coordinates(source),
         "role_files": providers.role_files(source),
         "provider_dir": str(providers.provider_dir(source)),
         "types_dir": str(providers.types_root()),
@@ -299,32 +495,39 @@ def describe_source(source: str) -> dict:
     }
 
 
+def describe_scope(scope: Scope | None) -> dict:
+    namespace, product = (scope.namespace, scope.product) if scope else (None, None)
+    merged, origins = config.effective(namespace, product)
+    return {"config": config.redact(merged), "config_sources": origins}
+
+
 def resolve(
     ref: str | None,
     explicit_source: str | None = None,
     type_override: str | None = None,
     require: list[str] | None = None,
+    restrict: Scope | None = None,
+    context: Scope | None = None,
+    cwd: Path | None = None,
 ) -> dict:
     """The full resolver output — every path absolute, every secret redacted."""
-    source, ticket_id = resolve_source(ref, explicit_source)
-    resolved = describe_source(source)
+    layout.require_current()
 
-    if not ticket_id:
-        resolved.update(
-            {
-                "id": None,
-                "paths": {
-                    "tickets_home": str(paths.tickets_home()),
-                    "source_dir": str(paths.source_dir(source)),
-                    "source_config": str(paths.source_config_path(source)),
-                },
-                "config": config.redact(config.load_source(source)),
-                "on_disk": {"config": config.is_initialized(source)},
-            }
+    if ref is None:
+        require_sources()
+        source = explicit_source or default_source_for(restrict, context)
+        require_installed(
+            source, "--source names" if explicit_source else "default_source is"
         )
+        resolved = describe_source(source)
+        resolved.update({"id": None, "scope": restrict.ref if restrict else None})
+        resolved.update(describe_scope(restrict))
+        resolved["paths"] = {"tickets_home": str(paths.tickets_home())}
         return resolved
 
-    record = tickets.load(source, ticket_id)
+    target = locate(ref, explicit_source, restrict, context, cwd)
+    location = target.location
+    record = tickets.load(location)
 
     if type_override:
         known = providers.list_types()
@@ -334,18 +537,29 @@ def resolve(
                 EXIT_ERROR,
                 "Known types: " + ", ".join(known) + ".",
             )
-        if paths.ticket_dir(source, ticket_id).is_dir():
-            record = tickets.update(source, ticket_id, type=type_override)
+        if location.dir.is_dir():
+            record = tickets.update(location, type=type_override)
         else:
             record = {**record, "type": type_override}
 
-    survey = tickets.on_disk(source, ticket_id)
-    if not survey["ticket_dir"]:
-        check_legacy(ticket_id)
+    coordinates = ticket_coordinates(location, record, target.address)
+    survey = tickets.on_disk(location, is_usable(location.source, coordinates))
+    merged, origins = config.effective(
+        location.product.namespace, location.product.name
+    )
 
+    resolved = describe_source(location.source)
     resolved.update(
         {
-            "id": ticket_id,
+            "id": location.id,
+            "ref": location.ref,
+            "qualified_ref": location.qualified,
+            "namespace": location.product.namespace,
+            "product": location.product.ref,
+            "filed": target.filed,
+            "filing": target.filing.as_dict() if target.filing else None,
+            "context": context.ref if context else None,
+            "outside_context": target.outside_context,
             "type": record.get("type"),
             "native_type": record.get("native_type"),
             "title": record.get("title"),
@@ -353,9 +567,11 @@ def resolve(
             "url": record.get("url"),
             "last_fetched_at": record.get("last_fetched_at"),
             "type_file": type_file_for(record.get("type")),
-            "paths": paths.ticket_paths(source, ticket_id),
+            "coordinates": coordinates,
+            "paths": location.paths(),
             "ticket_json": record,
-            "config": config.redact(config.load_source(source)),
+            "config": config.redact(merged),
+            "config_sources": origins,
             "on_disk": survey,
         }
     )
@@ -363,9 +579,9 @@ def resolve(
     unmet = [name for name in (require or []) if not survey.get(name)]
     if unmet:
         raise TicketError(
-            f"{source}:{ticket_id} is missing " + ", ".join(unmet),
+            f"{location.qualified} is missing " + ", ".join(unmet),
             EXIT_REQUIRE_UNMET,
-            requirement_hint(source, ticket_id, unmet),
+            requirement_hint(location, unmet),
         )
 
     return resolved
@@ -378,7 +594,7 @@ def type_file_for(ticket_type: str | None) -> str | None:
     return str(path) if path.is_file() else None
 
 
-def requirement_hint(source: str, ticket_id: str, unmet: list[str]) -> str:
+def requirement_hint(location: Location, unmet: list[str]) -> str:
     """
     Name the skill that would satisfy each unmet requirement.
 
@@ -386,14 +602,15 @@ def requirement_hint(source: str, ticket_id: str, unmet: list[str]) -> str:
     populated by `/ticket-new`, and pointing it at `/ticket-fetch` would send
     the user to a verb that structurally refuses.
     """
-    ref = f"{source}:{ticket_id}"
+    source = location.source
+    ref = location.qualified
     populate = (
         f"Run `/ticket-fetch {ref}`."
         if providers.has_capability(source, "fetch")
         else f"Run `/ticket-new` to create it — `{source}` has no fetch."
     )
     steps = {
-        "config": f"Run `/ticket-init {source}`.",
+        "config": f"Run `/ticket-init {source} --in {location.product.ref}` to bind it there.",
         "raw": populate,
         "ticket_dir": populate,
         "ticket_json": populate,

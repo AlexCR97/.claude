@@ -1,7 +1,11 @@
 {
   "source": "local",
   "kind": "local",
-  "prefixes": ["local", "l"],
+  "prefixes": [
+    "local",
+    "l"
+  ],
+  "coordinates": {},
   "nouns": {
     "singular": "ticket",
     "plural": "tickets",

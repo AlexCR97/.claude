@@ -15,6 +15,7 @@ A provider directory is trusted **code**, not configuration. `provider.py` is im
   "source": "ado",
   "kind": "remote",
   "prefixes": ["ado", "azdo"],
+  "coordinates": { "organization": "namespace", "project": "product" },
   "url": { "patterns": ["https?://dev\\.azure\\.com/(?P<organization>[^/]+)/(?P<project>[^/]+)/_workitems/edit/(?P<id>[1-9][0-9]*)(?:[/?#]|$)"] },
   "nouns": { "singular": "work item", "plural": "work items" },
   "id": { "pattern": "\\d+", "shape": "numeric work item id" },
@@ -26,7 +27,9 @@ A provider directory is trusted **code**, not configuration. `provider.py` is im
 }
 ```
 
-`url.patterns` is what lets a user paste a ticket's web address instead of typing `{source}:{id}`. Each pattern is a Python regex matched case-insensitively against the head of the address, and it **must** capture the id as a group named `id`. Capture the coordinates the id is only unique within as groups too — name each one after the config key it corresponds to, and the resolver refuses an address whose coordinates disagree with this source's config rather than fetching the wrong ticket. The key is optional: a source that declares none is simply never matched against an address.
+`coordinates` is what maps this source's own concepts onto the tickets home's. It names each value that locates a ticket upstream and the level it is bound at — `namespace` for an account-level one such as an organization or an owner, `product` for one such as a project or a repository. A binding under `sources.{source}` in a namespace's or product's `config.json` holds exactly these, and a ticket's own `ticket.json` records them at fetch. A source with nothing upstream declares `{}`, and is then usable in every product without an init. The key is required.
+
+`url.patterns` is what lets a user paste a ticket's web address instead of typing `{source}:{id}`. Each pattern is a Python regex matched case-insensitively against the head of the address, and it **must** capture the id as a group named `id`. Capture the coordinates the id is only unique within as groups too, **named exactly as `coordinates` names them**: the resolver files the address under the product bound to them, and never matches it to a ticket whose own coordinates disagree. The key is optional: a source that declares none is simply never matched against an address.
 
 `ticket.py` gates every verb on `capabilities` **before** the module is loaded, so an absent capability is exit 3 and there is no code path for a driver to improvise past.
 
@@ -34,8 +37,8 @@ A provider directory is trusted **code**, not configuration. `provider.py` is im
 
 | Role file                         | Answers                                                                                          | Read by                                             | Gates capability |
 | --------------------------------- | ------------------------------------------------------------------------------------------------ | --------------------------------------------------- | ---------------- |
-| `provider.json`                   | capabilities, prefixes, address patterns, id shape, nouns, comment format                        | all, via `resolve`                                  | —                |
-| `config.md`                       | what `{source}/config.json` holds, how credentials are acquired and validated                    | `ticket-init`                                       | —                |
+| `provider.json`                   | capabilities, prefixes, coordinates, address patterns, id shape, nouns, comment format           | all, via `resolve`                                  | —                |
+| `config.md`                       | what a binding holds and at which level, how credentials are acquired and validated              | `ticket-init`                                       | —                |
 | `fetch.md`                        | how raw data lands in `raw/`, traversal policy, attachment rules, how `ticket.json` is refreshed | `ticket-fetch`                                      | `fetch`          |
 | `new.md`                          | how a ticket is created here                                                                     | `ticket-new`                                        | `new`            |
 | `schema.md`                       | where the content is on disk and the logical→physical field map                                  | `ticket-digest`, `ticket-refine`                    | —                |
@@ -45,7 +48,7 @@ A provider directory is trusted **code**, not configuration. `provider.py` is im
 | `drift.md`                        | how to tell the local snapshot is stale, as exit 0/1/2                                           | `ticket-resume`                                     | `drift`          |
 | `provider.py` (+ private `_*.py`) | every network call and every credential                                                          | never read — invoked via `ticket.py`                | —                |
 
-`config.md`, `schema.md`, `types.md` and `links.md` are **required of every source**. The other four are present exactly when the matching capability is `true`. `python ticket-common/ticket.py sources --check` validates that agreement, and a mismatch is an error.
+`config.md`, `schema.md`, `types.md` and `links.md` are **required of every source**. The other four are present exactly when the matching capability is `true`. `python ticket-common/ticket.py sources --check` validates that agreement, and that `coordinates` names real levels and covers every group the address patterns capture; a mismatch is an error.
 
 ### Absence is the mechanism
 
@@ -85,22 +88,27 @@ Then write `types.md`, `links.md`, `config.md`, `provider.py`, and whichever of 
 
 ### What `provider.py` must expose
 
-`ticket.py` calls these and nothing else. Each is handed a `ctx` dict (source, id, manifest, config, absolute paths) and the list of unrecognised command-line flags, so a provider can take its own options without the front door knowing about them.
+`ticket.py` calls these and nothing else. Each is handed a `ctx` dict and the list of unrecognised command-line flags, so a provider can take its own options without the front door knowing about them. `ctx` carries the source, the id, the manifest, the `product` the ticket is filed under, that product's effective `config` and `binding`, the ticket's `coordinates` — its own where `ticket.json` records them, else the binding, else a pasted address's — and, for a ticket, its `location` and absolute `paths`.
 
-| Function                              | Returns                                                               |
-| ------------------------------------- | --------------------------------------------------------------------- |
-| `init(ctx, extra)`                    | a report dict; writes `{source}/config.json`                          |
-| `fetch(ctx, extra)`                   | a report dict; writes `raw/` and refreshes `ticket.json`              |
-| `new(ctx, title, ticket_type, extra)` | a report dict; creates the ticket directory and `ticket.json`         |
-| `publish(ctx, text, extra)`           | a report dict                                                         |
-| `drift(ctx, extra)`                   | a report dict carrying `is_stale`; `ticket.py` maps it to exit 0 or 2 |
-| `auth_status(ctx)`                    | a report dict; **never** a credential                                 |
+**A provider reads its coordinates from `ctx["coordinates"]` and nowhere else.** It never opens a `config.json` or builds a ticket path itself; that is what lets one source be bound in any number of products. A credential it caches goes through `ticketlib/tokencache.py`, keyed by its namespace-level coordinate.
 
-Only the functions whose capability is `true` need to exist.
+| Function                              | Returns                                                                                                                                                                                                                                                                  |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `binding(ctx, extra)`                 | `{"coordinates", "defaults_applied", "inherited"}` — what an init would bind: from the flags, else `ctx["binding"]`, else this source's defaults. Validates nothing                                                                                                      |
+| `init(ctx, extra)`                    | a report dict; validates `ctx["coordinates"]` and acquires any credential. The front door writes the binding                                                                                                                                                             |
+| `fetch(ctx, extra)`                   | a report dict; writes `raw/` and refreshes `ticket.json`, including its `coordinates`                                                                                                                                                                                    |
+| `new(ctx, title, ticket_type, extra)` | a report dict; creates the ticket directory and `ticket.json`                                                                                                                                                                                                            |
+| `publish(ctx, text, extra)`           | a report dict                                                                                                                                                                                                                                                            |
+| `drift(ctx, extra)`                   | a report dict carrying `is_stale`; `ticket.py` maps it to exit 0 or 2                                                                                                                                                                                                    |
+| `auth_status(ctx)`                    | a report dict; **never** a credential                                                                                                                                                                                                                                    |
+| `set_parent(ctx, ref, dry_run=False)` | optional; rewrites a stored `parent` in this source's own record, for `move`, raising `TicketError` where it cannot. `dry_run` fails exactly where a real run would and writes nothing, so `move` can check before renaming. Without it, only `ticket.json` is rewritten |
+| `binding_from_layout1(config)`        | optional; the coordinates an older `{source}/config.json` held, where its keys differ from `coordinates`. Read only by the migration                                                                                                                                     |
+
+`binding`, `init` and `auth_status` always exist. The capability-gated ones need to exist only when their capability is `true`.
 
 ---
 
 ## Known limitations, recorded rather than discovered
 
-- **Cross-repository GitHub references (`gh:owner/repo#42`) are out of scope.** The `github/{number}/` layout forecloses them: two repositories' issue #42 would collide in one directory. Supporting them means changing the layout, not patching the resolver.
+- **Cross-repository GitHub references (`gh:owner/repo#42`) are out of scope.** A product is bound to one repository and holds its issues at `github/{number}/`, so two repositories' issue #42 would collide in one product. A second repository is a second product; a GitHub Projects board spanning repositories cannot be bound, for the same reason.
 - **Creating an upstream ticket is out of scope** for both remote sources. The door is left open — add a `new.md` and flip the capability.

@@ -1,7 +1,7 @@
 ---
 name: ticket-refine
 description: EXPERIMENTAL — under active development, not extensively tested. Runs an interactive refinement session between Claude and the user to challenge and sharpen a ticket's requirements against its domain model and business context. Posts a structured Q&A summary back to the ticket when complete.
-argument-hint: "<[source:]id> [--type T]"
+argument-hint: "<[namespace/product/][source:]id> [--type T]"
 ---
 
 This skill is a **driver**: it contains no field names, URLs, API versions, credential commands, markup dialects, or type-specific rules of its own. Everything specific lives alongside it in three directories, and every step below just says which file to read.
@@ -48,7 +48,7 @@ You may loop fetch and refine as the ticket evolves and its discussion grows.
 ## Input
 
 ```
-/ticket-refine <[source:]id> [--type {type}]
+/ticket-refine <[namespace/product/][source:]id> [--type {type}]
 ```
 
 - `{ref}` — the ticket, optionally prefixed with its source. If none is given, ask for one before proceeding.
@@ -62,11 +62,13 @@ Run the following steps **in order**. Do not skip any step.
 
 ### 1. Resolve the ticket
 
+When this session has a session context, pass `--context {context}` below, and start your first output line with `Ticket context: {context}`. An explicit qualified reference overrides it for that one call. `ticket-common/RESOLUTION.md` → *The session context* has the rule.
+
 ```bash
-python "{skills}/ticket-common/ticket.py" resolve "{ref}" --require raw [--type {type}]
+python "{skills}/ticket-common/ticket.py" resolve "{ref}" --require raw [--type {type}] [--context {context}]
 ```
 
-Everything below uses the paths, capabilities, type and `ticket.json` it returns; **every path it prints is absolute**, so nothing here needs expanding. On a non-zero exit, report the message and its hint verbatim and stop. `ticket-common/RESOLUTION.md` carries the full contract — open it only when the output is disputed.
+Everything below uses the paths, capabilities, type and `ticket.json` it returns — and its `qualified_ref` wherever a later command names the ticket; **every path it prints is absolute**, so nothing here needs expanding. On a non-zero exit, report the message and its hint verbatim and stop. `ticket-common/RESOLUTION.md` carries the full contract — open it only when the output is disputed.
 
 ### 2. Read the two contracts this skill needs
 
@@ -172,7 +174,7 @@ Write the confirmed summary into the ticket directory, named `refinement-comment
 ### 8. Publish it
 
 ```bash
-python "{skills}/ticket-common/ticket.py" publish "{source}:{id}" --file "{staged file}" --delete-after-post
+python "{skills}/ticket-common/ticket.py" publish "{qualified_ref}" --file "{staged file}" --delete-after-post
 ```
 
 There is no credential flag — never pass one, and never read a credential out of a config yourself. `--delete-after-post` removes the staged file once the post is confirmed; do not delete it by hand, because if the post fails that file is what a retry uses.
@@ -195,7 +197,7 @@ The summary just posted changes the ticket's discussion, so the local snapshot i
 
 ```
 Skill: ticket-fetch
-args: {source}:{id}
+args: {qualified_ref}
 ```
 
 Once it completes:

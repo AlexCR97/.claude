@@ -58,8 +58,10 @@ Not in the ticket directory. Putting it under `raw/` means `--require raw` is sa
 ## Creating one
 
 ```
-python "{skills}/ticket-common/ticket.py" new --source local --title "…" --id {slug} --type {type} [--parent {ref}]
+python "{skills}/ticket-common/ticket.py" new --source local --title "…" --id {slug} --type {type} --in {namespace}/{product} [--parent {ref}]
 ```
+
+The ticket is created under the product `--in` names — the one the driver confirmed from `--propose`.
 
 The **slug is the driver's** to derive — it is a store convention, not a property of this source. Passing `--id` is the normal path; omitting it falls back to a slug derived from the title.
 
@@ -73,9 +75,9 @@ Rejected before anything is written:
 - **A parent that is not on disk.** Create the parent user story first — this source never invents one.
 - **A parent whose own `type` is not `user-story`.** The relationship this suite tracks is task-under-story, not task-under-anything.
 
-Once accepted, the reference is written verbatim to frontmatter `parent` and to `ticket.json`, in `[source:]id` form — `local:cache-invalidation-story`, or a cross-source reference such as `ado:12345` where the parent lives elsewhere. There is no reverse index: a story's children are found by scanning, per `schema.md`.
+Once accepted, the reference is written to frontmatter `parent` and to `ticket.json` **short when the parent is filed in the same product** — `local:cache-invalidation-story`, or a cross-source `ado:12345` — and **qualified when it is not**: `edwire/ew-educate/ado:12345`. A stored reference is resolved nearest first from its own ticket's product, so that is the form that resolves back to the same parent. There is no reverse index: a story's children are found by scanning, per `schema.md`.
 
-A task created without `--parent` can still gain one later — a person edits `parent: {ref}` into the frontmatter by hand, exactly as every other field in this store is edited.
+A task created without `--parent` can still gain one later — a person edits `parent: {ref}` into the frontmatter by hand, in the same form, exactly as every other field in this store is edited. `/ticket-move` is the one other writer: it rewrites `parent` when a move would leave it resolving nowhere.
 
 ## Seeding by type
 

@@ -1,13 +1,23 @@
 #!/usr/bin/env python3
 """
-Reading and writing the two config levels.
+Reading, merging and writing the three config levels.
 
-Root `config.json` holds what belongs to the machine rather than to any one
-source: `default_source`, and `scan_roots`, the default scan roots every plan
-starts from. Everything a source needs to connect — coordinates, a cached credential —
-lives in that source's own `config.json`, so one source's setup can never
-disturb another's. A provider rewrites its own file whole on every init, which
-is why nothing machine-wide can be kept there.
+The tickets home, each namespace and each product may hold a `config.json`.
+Every skill reads the effective config — the three merged, the inner level
+winning — so a product records only what differs from its namespace, and a
+namespace only what differs from the machine. Objects merge key by key, which
+is how a namespace's `sources.ado.organization` and a product's
+`sources.ado.project` combine into one binding; anything else replaces what
+an outer level set, so `scan_roots: []` clears an inherited list.
+
+A key describing a level's relationship to what is inside it is read from that
+level alone and never merged: `layout` and `default_namespace` belong to the
+root, `default_product` to a namespace. A product inheriting `default_product`
+would be naming a product that is not there.
+
+No credential lives in any of these files. They are hand-edited and merged,
+and a token inherited or overridden by accident is a token printed by
+accident, so `tokencache` keeps credentials in a store of their own.
 """
 
 import json
@@ -15,6 +25,8 @@ import os
 from pathlib import Path
 
 from . import paths
+
+LEVEL_ONLY_KEYS = frozenset({"layout", "default_namespace", "default_product"})
 
 
 def read_json(path: Path) -> dict:
@@ -26,65 +38,198 @@ def read_json(path: Path) -> dict:
     return data if isinstance(data, dict) else {}
 
 
-def write_json(path: Path, data: dict) -> None:
-    """Atomic write: a crash cannot leave a config half-written."""
+def write_json(path: Path, data: dict, mode: int | None = None) -> None:
+    """
+    Atomic write: a crash cannot leave a config half-written.
+
+    With `mode`, the file is created with those permissions rather than
+    narrowed to them afterwards, so a credential is never readable by anyone
+    else even for the moment between the write and a chmod.
+    """
     path.parent.mkdir(parents=True, exist_ok=True)
     temp_path = path.with_suffix(path.suffix + ".tmp")
-    temp_path.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    text = json.dumps(data, indent=2, ensure_ascii=False)
+    if mode is None:
+        temp_path.write_text(text, encoding="utf-8")
+    else:
+        temp_path.unlink(missing_ok=True)
+        descriptor = os.open(temp_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, mode)
+        with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
+            handle.write(text)
     os.replace(temp_path, path)
 
 
+def load_level(namespace: str | None = None, product: str | None = None) -> dict:
+    return read_json(paths.level_config_path(namespace, product))
+
+
+def update_level(
+    changes: dict, namespace: str | None = None, product: str | None = None
+) -> dict:
+    """
+    Set top-level keys without clobbering the rest of the file.
+
+    A key passed as None is removed rather than written as null: every key in
+    these files is optional, and an absent key is what "inherit it" means.
+    """
+    data = load_level(namespace, product)
+    for key, value in changes.items():
+        if value is None:
+            data.pop(key, None)
+        else:
+            data[key] = value
+    write_json(paths.level_config_path(namespace, product), data)
+    return data
+
+
 def load_root() -> dict:
-    return read_json(paths.root_config_path())
+    return load_level()
 
 
-def save_root(config: dict) -> None:
-    write_json(paths.root_config_path(), config)
+def save_root(data: dict) -> None:
+    write_json(paths.root_config_path(), data)
 
 
-def set_default_source(source: str) -> None:
-    """Records the default without clobbering any other key already there."""
-    config = load_root()
-    config["default_source"] = source
-    save_root(config)
+def level_paths(namespace: str | None, product: str | None) -> list[Path]:
+    """The config files that apply, outermost first."""
+    levels = [paths.root_config_path()]
+    if namespace is not None:
+        levels.append(paths.level_config_path(namespace))
+        if product is not None:
+            levels.append(paths.level_config_path(namespace, product))
+    return levels
 
 
-def default_source() -> str | None:
-    value = load_root().get("default_source")
+def effective(
+    namespace: str | None = None, product: str | None = None
+) -> tuple[dict, dict[str, str]]:
+    """
+    The merged config, and which file each of its values came from.
+
+    The second half is what answers "why did this plan scan that directory?":
+    each leaf is keyed by its dotted path — `scan_roots`,
+    `sources.ado.project` — and maps to the absolute path of the file that set it.
+    """
+    merged: dict = {}
+    origins: dict[str, str] = {}
+    for path in level_paths(namespace, product):
+        layer = {
+            key: value
+            for key, value in read_json(path).items()
+            if key not in LEVEL_ONLY_KEYS
+        }
+        merge_into(merged, layer, str(path), origins, "")
+    return merged, origins
+
+
+def merge_into(
+    target: dict, layer: dict, origin: str, origins: dict, prefix: str
+) -> None:
+    for key, value in layer.items():
+        dotted = f"{prefix}{key}"
+        if isinstance(value, dict) and isinstance(target.get(key), dict):
+            merge_into(target[key], value, origin, origins, f"{dotted}.")
+            continue
+
+        # A replaced value takes every origin at and beneath it along with it.
+        for stale in [
+            name for name in origins if name == dotted or name.startswith(f"{dotted}.")
+        ]:
+            del origins[stale]
+
+        if isinstance(value, dict):
+            target[key] = {}
+            merge_into(target[key], value, origin, origins, f"{dotted}.")
+        else:
+            target[key] = value
+            origins[dotted] = origin
+
+
+def binding(source: str, namespace: str | None, product: str | None) -> dict:
+    """The coordinates this level inherits and sets for one source."""
+    sources = effective(namespace, product)[0].get("sources")
+    value = sources.get(source) if isinstance(sources, dict) else None
+    return dict(value) if isinstance(value, dict) else {}
+
+
+def own_binding(source: str, namespace: str | None, product: str | None = None) -> dict:
+    """The coordinates this one level's file sets for a source, inherited ones excluded."""
+    sources = load_level(namespace, product).get("sources")
+    value = sources.get(source) if isinstance(sources, dict) else None
+    return dict(value) if isinstance(value, dict) else {}
+
+
+def set_binding(
+    source: str, coordinates: dict, namespace: str, product: str | None = None
+) -> None:
+    """Merge coordinates into one level's `sources.{source}`, leaving every other key alone."""
+    if not coordinates:
+        return
+    data = load_level(namespace, product)
+    sources = data.get("sources")
+    if not isinstance(sources, dict):
+        sources = {}
+    entry = sources.get(source)
+    if not isinstance(entry, dict):
+        entry = {}
+    entry.update(coordinates)
+    sources[source] = entry
+    data["sources"] = sources
+    write_json(paths.level_config_path(namespace, product), data)
+
+
+def default_source(
+    namespace: str | None = None, product: str | None = None
+) -> str | None:
+    value = effective(namespace, product)[0].get("default_source")
     return str(value) if value else None
 
 
-def scan_roots() -> list[str]:
-    value = load_root().get("scan_roots")
-    return [str(path) for path in value] if isinstance(value, list) else []
+def set_default_source(source: str) -> None:
+    update_level({"default_source": source})
 
 
-def set_scan_roots(directories: list[str]) -> None:
-    """Replaces the list without clobbering any other key already there."""
-    config = load_root()
-    config["scan_roots"] = directories
-    save_root(config)
+def scan_roots(
+    namespace: str | None = None, product: str | None = None
+) -> tuple[list[str], str | None]:
+    """The effective scan roots, and the file that set them — None when none did."""
+    merged, origins = effective(namespace, product)
+    value = merged.get("scan_roots")
+    if not isinstance(value, list):
+        return [], None
+    return [str(path) for path in value], origins.get("scan_roots")
 
 
-def load_source(source: str) -> dict:
-    return read_json(paths.source_config_path(source))
+def own_scan_roots(
+    namespace: str | None = None, product: str | None = None
+) -> list[str] | None:
+    """What this one level sets, or None when it inherits."""
+    value = load_level(namespace, product).get("scan_roots")
+    return [str(path) for path in value] if isinstance(value, list) else None
 
 
-def save_source(source: str, config: dict) -> None:
-    write_json(paths.source_config_path(source), config)
+def set_scan_roots(
+    directories: list[str], namespace: str | None = None, product: str | None = None
+) -> None:
+    update_level({"scan_roots": directories}, namespace, product)
 
 
-def is_initialized(source: str) -> bool:
-    return paths.source_config_path(source).exists()
+def default_namespace() -> str:
+    value = load_level().get("default_namespace")
+    return str(value) if value else paths.DEFAULT_NAME
+
+
+def default_product(namespace: str) -> str:
+    value = load_level(namespace).get("default_product")
+    return str(value) if value else paths.DEFAULT_NAME
 
 
 def redact(config: dict) -> dict:
     """
     A config as it may be printed.
 
-    `token` is replaced by its status rather than omitted, so a driver can tell
-    "no credential yet" from "a credential that expired" without ever holding
-    the secret.
+    No level should hold a `token` any more, but one written by hand or left by
+    an older layout is still replaced by its status rather than shown.
     """
     from . import tokencache
 

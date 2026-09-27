@@ -1,7 +1,7 @@
 ---
 name: ticket-resume
 description: Rebuilds the context for a ticket in a fresh session — reads journal.md, plan.md, digest.md and prior artifacts, inspects the live git state, and checks whether the ticket changed since it was last fetched. Outputs a briefing ending in the single next action. Read-only; makes NO changes.
-argument-hint: "<[source:]id>"
+argument-hint: "<[namespace/product/][source:]id>"
 allowed-tools: Read Grep Glob Bash(python:*)
 ---
 
@@ -35,7 +35,7 @@ This skill assembles all of it into one briefing: what the work is, where it sto
 /ticket-resume <[source:]id>
 ```
 
-`{ref}` — the ticket, optionally prefixed with its source (`ado:18159`, `gh:42`, `local:auth-fix`). A bare id resolves against what is on disk. When omitted, **ask** — see step 1.
+`{ref}` — the ticket, optionally prefixed with its source (`ado:18159`, `gh:42`, `local:auth-fix`) or qualified with its namespace and product (`edwire/ew-educate/ado:18159`). A bare id resolves against what is on disk, nearest the session context first. When omitted, **ask** — see step 1.
 
 ---
 
@@ -45,15 +45,23 @@ Run the following steps **in order**. Do not skip any step.
 
 ### 1. Resolve the ticket
 
+When this session has a session context, pass `--context {context}` on every `ticket.py` call below that takes one. An explicit qualified reference overrides it for that one call; say so in one line. `ticket-common/RESOLUTION.md` → *The session context* has the rule.
+
 ```bash
-python "{skills}/ticket-common/ticket.py" resolve "{ref}" --require ticket_dir
+python "{skills}/ticket-common/ticket.py" resolve "{ref}" --require ticket_dir [--context {context}]
 ```
 
-Everything below uses the paths, capabilities, type and `ticket.json` it returns; **every path it prints is absolute**, so nothing here needs expanding. On a non-zero exit, report the message and its hint verbatim and stop. `ticket-common/RESOLUTION.md` carries the full contract — open it only when the output is disputed.
+Everything below uses the paths, capabilities, type and `ticket.json` it returns — and its `qualified_ref` for every later `ticket.py` call; **every path it prints is absolute**, so nothing here needs expanding. On a non-zero exit, report the message and its hint verbatim and stop. `ticket-common/RESOLUTION.md` carries the full contract — open it only when the output is disputed.
 
-**When no ref was given, ask. Never guess.** Run `ticket.py list` and print the candidates as a table with a **Source** column, each with its title, type, the date of its newest journal entry, its phase progress from `plan.md`, and when it was last touched — most recently touched first. Then ask which to resume.
+**When no ref was given, ask. Never guess.** Run `ticket.py list [--context {context}]` and print the candidates as a table with **Product** and **Source** columns, each with its title, type, the date of its newest journal entry, its phase progress from `plan.md`, and when it was last touched — most recently touched first. With a session context, print only the tickets whose `in_context` is true, and say how many are outside it (`outside_context`) with an offer to show them all. Then ask which to resume.
 
 That listing is worth printing whenever the user does not name a ticket, because "which one was I in the middle of" is half the problem this skill solves.
+
+**Adopt the ticket's product as the session context when none is set.** Resuming a ticket is the user choosing where this session works, so make the briefing's first line:
+
+> Ticket context: `{product}` (adopted from {qualified_ref})
+
+Every later skill in this session then uses it exactly as if `/ticket-context {product}` had been run. **Never replace a context that is set.** Where the resolved ticket is outside it (`outside_context`), keep the context, make the first line `Ticket context: {context}` as usual, and say in the briefing that this ticket is filed under `{product}`.
 
 There is no inference from the branch name, and there must not be: a guess that attaches a session to the wrong ticket is silent, and it is the journal — the one unregenerable file here — that it would corrupt.
 
@@ -106,7 +114,7 @@ Where the resolver reported `capabilities.drift` is **false**, skip this step an
 Otherwise run:
 
 ```bash
-python "{skills}/ticket-common/ticket.py" drift "{source}:{id}"
+python "{skills}/ticket-common/ticket.py" drift "{qualified_ref}"
 ```
 
 It is read-only against both the source and the local snapshot. What it compares, and why some fields are reported as context rather than as diff rows, is in `ticket-providers/{source}/drift.md` — read that only when a result needs interpreting.
@@ -127,8 +135,9 @@ Interpret the exit code:
 One message, in this shape. Omit any section that has no content — an empty heading is noise. Keep it scannable: this is read by someone who has forgotten everything and wants to start working.
 
 ```
+Ticket context: {context} {(adopted from {qualified_ref})}
 Resuming {ref} — {title}
-{type} · {state} · last touched {N} days ago ({date of newest journal entry or file})
+{product} · {type} · {state} · last touched {N} days ago ({date of newest journal entry or file})
 
 The work
   {2–3 sentences from digest.md: the goal, and what done looks like}
@@ -193,6 +202,7 @@ Do not start implementing, fetching, or planning. Resuming is about restoring co
 - Never run a script under `artifacts/` — a captured output already on disk is the answer, and re-running a probe against a live system needs the user's approval in the session that needs it
 - **Never read the source's raw data for ticket content** — `digest.md` is the source of truth. The drift check reads the snapshot for comparison only, which is not the same thing
 - **Never infer the ticket from the branch name or from anything else.** Use the argument, or ask
+- Adopt the resumed ticket's product as the session context only when none is set, and say so in the first line; never replace one that is set
 - Never chain into another skill automatically — step 7 offers, the user chooses
 - Never present a reconstruction as a record; label it
 - Do not correct `plan.md` even when it is visibly stale — report the discrepancy and let `/ticket-checkpoint` or `/ticket-plan` fix it

@@ -1,7 +1,7 @@
 ---
 name: ticket-implement
 description: Follow-up to ticket-plan. Reads plan.md for a ticket and implements one, several, or all phases by making real code changes. Tracks step status (Pending, In Progress, Blocked, Done) in plan.md as it goes. On completion, reports what the run produced and what was inferred.
-argument-hint: "<[source:]id> [phases]"
+argument-hint: "<[namespace/product/][source:]id> [phases]"
 ---
 
 This skill is a **driver**: it contains no field names, URLs, API versions, credential commands, markup dialects, or type-specific rules of its own. Everything specific lives alongside it in three directories, and every step below just says which file to read.
@@ -23,7 +23,7 @@ No `allowed-tools` here: this skill's whole purpose is to change code and build 
 ## Input
 
 ```
-/ticket-implement <[source:]id> [{phases}]
+/ticket-implement <[namespace/product/][source:]id> [{phases}]
 ```
 
 - `{ref}` — required. The ticket, optionally prefixed with its source. If none is given, ask for it before proceeding.
@@ -61,8 +61,10 @@ Run the following steps **in order**. Do not skip any step.
 
 ### 1. Resolve the ticket
 
+When this session has a session context, pass `--context {context}` below, and start your first output line with `Ticket context: {context}`. An explicit qualified reference overrides it for that one call. `ticket-common/RESOLUTION.md` → *The session context* has the rule.
+
 ```bash
-python "{skills}/ticket-common/ticket.py" resolve "{ref}" --require plan
+python "{skills}/ticket-common/ticket.py" resolve "{ref}" --require plan [--context {context}]
 ```
 
 Everything below uses the paths and type it returns; **every path it prints is absolute**, so nothing here needs expanding. On a non-zero exit, report the message and its hint verbatim and stop. `ticket-common/RESOLUTION.md` carries the full contract — open it only when the output is disputed.

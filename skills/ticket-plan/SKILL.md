@@ -1,7 +1,7 @@
 ---
 name: ticket-plan
 description: Follow-up to ticket-digest. Reads the digest.md for a ticket, discovers its workspace — the repositories, worktrees and projects the work spans — from its scan roots (the default scan roots saved by ticket-init, plus the directories the user gives or else the invocation directory; it asks when there are none), and produces a phased, file-level implementation plan written to plan.md. Researches unknowns that would change the plan, storing scripts and findings under artifacts/planning/, and asking first before running any script. On subsequent runs, shows progress and updates step status. Makes NO code changes.
-argument-hint: "<[source:]id> [--type T] [dir ...]"
+argument-hint: "<[namespace/product/][source:]id> [--type T] [dir ...]"
 ---
 
 This skill is a **driver**: it contains no field names, URLs, API versions, credential commands, markup dialects, or type-specific rules of its own. Everything specific lives alongside it in three directories, and every step below just says which file to read.
@@ -45,7 +45,7 @@ Every term for the code a ticket touches — directory, path, scan root, reposit
 ## Input
 
 ```
-/ticket-plan <[source:]id> [--type {type}] [{dir} ...]
+/ticket-plan <[namespace/product/][source:]id> [--type {type}] [{dir} ...]
 ```
 
 - `{ref}` — the ticket, optionally prefixed with its source. If none is given, ask for one before proceeding.
@@ -60,11 +60,13 @@ Run the following steps **in order**. Do not skip any step.
 
 ### 1. Resolve the ticket
 
+When this session has a session context, pass `--context {context}` on every `ticket.py` call below that takes one, and start your first output line with `Ticket context: {context}`. An explicit qualified reference overrides it for that one call. `ticket-common/RESOLUTION.md` → *The session context* has the rule.
+
 ```bash
-python "{skills}/ticket-common/ticket.py" resolve "{ref}" --require digest [--type {type}]
+python "{skills}/ticket-common/ticket.py" resolve "{ref}" --require digest [--type {type}] [--context {context}]
 ```
 
-Everything below uses the paths, type and `ticket.json` it returns; **every path it prints is absolute**, so nothing here needs expanding. On a non-zero exit, report the message and its hint verbatim and stop. `ticket-common/RESOLUTION.md` carries the full contract — open it only when the output is disputed.
+Everything below uses the paths, type, `product` and `ticket.json` it returns; **every path it prints is absolute**, so nothing here needs expanding. On a non-zero exit, report the message and its hint verbatim and stop. `ticket-common/RESOLUTION.md` carries the full contract — open it only when the output is disputed.
 
 An unmet `digest` requirement means there is nothing to plan from; the hint names the skill that fixes it.
 
@@ -98,13 +100,13 @@ Anything measured or established there is **evidence, and outranks assumption**.
 
 Discovery always begins from scan roots. They come from the three sources below, combined into one list in which each directory appears once; compare resolved absolute paths, case-insensitively on Windows. The glossary says how far each kind is trusted: a directory the user gave and the invocation directory are facts about this ticket, while a default scan root, or one found by search, says only where to look.
 
-**The default scan roots, always.** Read the list `/ticket-init` saved:
+**The default scan roots, always.** Read the list the ticket's own product uses — `/ticket-init` saves one at the root, on a namespace or on a product, and the nearest level that sets one wins:
 
 ```bash
-python "{skills}/ticket-common/ticket.py" scan-roots
+python "{skills}/ticket-common/ticket.py" scan-roots --in "{product}"
 ```
 
-Every directory in `scan_roots` is a scan root on every run. Skip one that no longer exists, with a one-line note.
+`{product}` is step 1's `product` — the ticket's own, never the session context's. Every directory in `scan_roots` is a scan root on every run; `scan_roots_from` is the file they came from, worth naming in step 6. Skip one that no longer exists, with a one-line note.
 
 **Directories the user gave**, on the invocation or earlier in the conversation. Each is a scan root: do not second-guess it, drop it, or swap it for another worktree of the same repository. If one does not exist, say so and ask for a correction rather than guessing a nearby directory. When the user gave directories, the invocation directory adds nothing.
 
@@ -119,7 +121,7 @@ Every directory in `scan_roots` is a scan root on every run. Skip one that no lo
 
 > I have no code to plan this ticket against: {no default scan roots are saved, and `{invocation directory}` holds none | nothing beneath the default scan roots matches it}. Which directories hold it? Name a repository's worktree, or a directory holding several repositories. If you are not sure, say so and I will search for it.
 
-Where no default scan roots are saved, add that `/ticket-init` can save them so the question does not come up again. Wait for the answer. Any directory it names counts as a directory the user gave.
+Where no default scan roots are saved, add that `/ticket-init` can save them — for this ticket's namespace or product — so the question does not come up again. Wait for the answer. Any directory it names counts as a directory the user gave.
 
 **If the user cannot name one, search.** Keep the search bounded: never walk the whole home directory or a drive.
 

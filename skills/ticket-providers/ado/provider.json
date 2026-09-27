@@ -1,7 +1,14 @@
 {
   "source": "ado",
   "kind": "remote",
-  "prefixes": ["ado", "azdo"],
+  "prefixes": [
+    "ado",
+    "azdo"
+  ],
+  "coordinates": {
+    "organization": "namespace",
+    "project": "product"
+  },
   "nouns": {
     "singular": "work item",
     "plural": "work items",

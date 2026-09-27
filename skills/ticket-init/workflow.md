@@ -22,7 +22,8 @@ flowchart LR
 
 | Skill               | Runs                                                   | Prerequisite     |
 | ------------------- | ------------------------------------------------------ | ---------------- |
-| `ticket-init`       | Once per machine per source                            | None             |
+| `ticket-init`       | Once per binding, or to create a namespace or product  | None             |
+| `ticket-context`    | Optional; once per session, to work in one product     | a product        |
 | `ticket-new`        | To create a ticket in a local store                    | `init`           |
 | `ticket-fetch`      | Once per ticket; always re-run after `refine`          | `init`           |
 | `ticket-refine` ⚠️   | Optional; followed by `fetch` where the source has one | `fetch` or `new` |
@@ -31,6 +32,7 @@ flowchart LR
 | `ticket-implement`  | Once or multiple times for specific phases             | `plan`           |
 | `ticket-checkpoint` | Whenever attention leaves the ticket                   | a ticket on disk |
 | `ticket-resume`     | First thing in a new session on an existing ticket     | a ticket on disk |
+| `ticket-move`       | To re-file a ticket under another product              | a ticket on disk |
 
 ⚠️ **`ticket-refine` is experimental** — under active development and not extensively tested. It is also the only skill in the suite that writes to a system outside this machine, so its confirmation gate is load-bearing: it never posts without an explicit yes. Prefer a scratch ticket while trying it out.
 
@@ -88,6 +90,26 @@ A ticket's type is resolved once, by its source's `types.md`, and recorded in `t
 
 The two that carry the most weight are `spike` and `tech-debt`, because each inverts a default: a spike that touched no source file is a **complete** run, and a tech-debt run whose tests needed editing to pass is a **failure to report**, not progress.
 
+## Namespaces and Products
+
+Tickets are kept apart by where the work belongs, not by where they came from. A **namespace** is a body of work that must never mix with another — an employer, a client, personal work. A **product** is one thing inside it that tickets are filed under — EW.Educate, a notes app. Every term is defined in `ticket-common/GLOSSARY.md`.
+
+Each maps onto what the source already has, through a **binding** recorded in the namespace's and product's `config.json`:
+
+| Source   | Namespace                         | Product                 |
+| -------- | --------------------------------- | ----------------------- |
+| `ado`    | organization                      | project                 |
+| `github` | owner — a user or an organization | repository              |
+| `local`  | whatever the user names           | whatever the user names |
+
+A product can be bound to several sources or to none: EW.Educate holds its ADO work items and the local tickets written about it side by side, and a side project with nothing upstream is a product with only local tickets.
+
+**Where a new ticket goes** is decided in two steps. First, which products can hold it — a pasted address goes where its coordinates are bound, and a remote ticket needs a product bound to its source. Then, among those, the session context, the invocation directory and the configured default product, in that order. A ticket nothing places lands in a namespace's `default` product, or in `default/default`. Every filing is reported, and `/ticket-move` re-files a ticket at any time.
+
+**`/ticket-context` sets where a session works.** Once set, every skill prefers that product when resolving a reference, files new tickets there, and narrows its ticket listings to it. `/ticket-resume` adopts the resumed ticket's product when nothing is set. It lives in the conversation and nowhere else.
+
+**Config cascades.** The root, namespace and product `config.json` are merged, the inner level winning, so a product records only what differs from its namespace. That is how EdWire plans scan EdWire code and personal plans scan personal code — `scan_roots` set on each namespace — and how bare ids resolve against ADO at work and against another source at home.
+
 ## Picking Work Back Up
 
 Work gets put down. An interrupt arrives, the day ends, another ticket takes priority — and the session that held all the context is gone. Two skills exist for that boundary:
@@ -99,33 +121,43 @@ What makes this work is that the two halves record different things. `plan.md` s
 
 **`journal.md` belongs to these two skills alone.** `checkpoint` is the only writer, `resume` the only reader; `plan` and `implement` never open it. That boundary is deliberate: once `resume` has briefed a session, the journal's contents are already in the conversation, so a later skill re-reading the file would only spend its context on what it already has. The trade is that `checkpoint` has to actually run — it is what converts a session's reasoning into something the next one can read, and nothing else does it.
 
-**Neither infers the ticket from the branch name.** Both take the reference or ask, listing what is on disk across every source. A guess that attached a session's journal entry to the wrong ticket would corrupt the one file here that nothing can regenerate.
+**Neither infers the ticket from the branch name.** Both take the reference or ask, listing what is on disk — the session context's product first, every product on request. A guess that attached a session's journal entry to the wrong ticket would corrupt the one file here that nothing can regenerate, which is also why `checkpoint` asks before writing to a ticket outside the session context.
 
 ## Data Layout
 
-Two levels: one directory per source, one per ticket.
+Four levels, always: namespace, product, source, ticket.
 
 ```txt
 ~/.tickets/
-├── config.json                 {"default_source": "ado", "scan_roots": ["C:\\src"]} — machine-wide only
-└── {source}/
-    ├── config.json             this source's coordinates and cached credential
-    └── {id}/
-        ├── ticket.json         source, id, title, type, native_type, state, url, last_fetched_at
-        ├── digest.md           ← ticket-digest
-        ├── journal.md          ← ticket-checkpoint only (newest entry first)
-        ├── plan.md             ← ticket-plan (the index: each step names its artifacts)
-        ├── raw/                ← ticket-fetch, or the source of truth for a local store
-        └── artifacts/          ← ticket-plan and ticket-implement
-            ├── planning/       ← research the plan was built on
-            ├── shared/         ← artifacts spanning more than one step
-            ├── step-1.1/       ← probe.js, probe.output.json, README.md
-            └── step-1.3/
+├── config.json                           {"layout": 2, "default_source": "ado", "default_namespace": "edwire"}
+├── .credentials/ado/edwire.json          cached token, keyed by organization — never merged, never printed
+├── default/default/local/{slug}/         where a ticket nothing places lands
+├── edwire/                               namespace ⇄ ADO organization "edwire"
+│   ├── config.json                       {"default_product": "ew-educate", "scan_roots": ["C:\\src\\edwire"], "sources": {"ado": {"organization": "edwire"}}}
+│   ├── default/                          edwire tickets no product fits
+│   └── ew-educate/                       product ⇄ ADO project "EW.Educate"
+│       ├── config.json                   {"sources": {"ado": {"project": "EW.Educate"}}}
+│       ├── ado/{id}/
+│       └── local/{slug}/
+│           ├── ticket.json               source, id, title, type, native_type, state, url, last_fetched_at, coordinates
+│           ├── digest.md                 ← ticket-digest
+│           ├── journal.md                ← ticket-checkpoint only (newest entry first)
+│           ├── plan.md                   ← ticket-plan (the index: each step names its artifacts)
+│           ├── raw/                      ← ticket-fetch, or the source of truth for a local store
+│           └── artifacts/                ← ticket-plan and ticket-implement
+│               ├── planning/             ← research the plan was built on
+│               ├── shared/               ← artifacts spanning more than one step
+│               ├── step-1.1/             ← probe.js, probe.output.json, README.md
+│               └── step-1.3/
+└── personal/                             namespace ⇄ GitHub owner
+    └── notes-app/                        product ⇄ repository — github/{number}/, local/{slug}/
 ```
+
+Keeping `{source}/` directly above the id is what keeps ids unique and relative links between sibling tickets working, as long as they are filed together.
 
 `ticket.json` is what keeps source-specific URL patterns out of every driver and every template. A skill reads `ticket.json.url` and **degrades to plain text when it is `null`** — a local store has no web address, and a digest that prints a broken link is worse than one that prints a plain title.
 
-A bare id resolves by scanning every source for a ticket directory of that name. Exactly one match wins; **two or more is an error that lists them**, because guessing here attaches work to the wrong ticket.
+A reference resolves to the nearest ticket directory of that name — in the session context's product, then its namespace, then everywhere. Exactly one at the nearest level wins; **two or more is an error that lists them**, because guessing here attaches work to the wrong ticket. A qualified reference, `{namespace}/{product}/{source}:{id}`, is never ambiguous.
 
 `journal.md` is append-only in the strongest sense in here: an entry is one session's account of itself, and unlike a plan, a digest or a probe output, nothing can regenerate it. Entries are added above the newest one so the current state is the top of the file, and an existing entry is never edited or deleted — a correction is a new entry that says what it corrects.
 
@@ -161,7 +193,7 @@ flowchart TD
     INIT_CHECK -->|No| INIT
     INIT_CHECK -->|"Yes — skip"| ORIGIN
 
-    INIT["/ticket-init [source]\n────────────────\nEnumerates the installed sources\nRuns that source's own connection setup\nMigrates any older layout it finds\nSaves the default scan roots\n\nRun once per machine per source"]
+    INIT["/ticket-init [source] [--in ns/product]\n────────────────\nMigrates any older layout it finds\nBinds a source under a namespace and product\nRuns that source's own connection setup\nSets the default namespace and product\nSaves the default scan roots\n\nRun once per binding"]
 
     INIT --> ORIGIN{"Does the ticket\nexist upstream?"}
 

@@ -7,7 +7,7 @@ Read by `ticket-refine`.
 A comment on the issue thread, posted through:
 
 ```
-python "{skills}/ticket-common/ticket.py" publish {source}:{id} --file "{comment-file}" --delete-after-post
+python "{skills}/ticket-common/ticket.py" publish "{qualified_ref}" --file "{comment-file}" --delete-after-post
 ```
 
 which routes through the GitHub CLI's own comment command, so the credential is whatever `gh` already holds. `--delete-after-post` removes the staged file once the post is confirmed; do not delete it by hand, because if the post fails that file is what a retry uses.

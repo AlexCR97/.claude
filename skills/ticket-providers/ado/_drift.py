@@ -17,8 +17,9 @@ import urllib.parse
 from datetime import datetime, timezone
 from pathlib import Path
 
-from ticketlib import config, http, paths
+from ticketlib import http
 from ticketlib.errors import EXIT_ERROR, TicketError
+from ticketlib.layout import Location
 
 API_VERSION = "7.1"
 COMMENTS_API_VERSION = "7.1-preview.4"
@@ -194,19 +195,19 @@ def new_comments(live_comments: list[dict], known_ids: set) -> list[dict]:
     return added
 
 
-def run(ticket_id: str, header: str, record: dict) -> dict:
-    raw_path = paths.ticket_dir("ado", ticket_id) / "raw" / "raw.json"
+def run(
+    location: Location,
+    bound_org: str,
+    bound_project: str,
+    header: str,
+    record: dict,
+) -> dict:
+    ticket_id = location.id
+    raw_path = location.dir / "raw" / "raw.json"
     local = read_local(raw_path, ticket_id)
 
-    stored = config.load_source("ado")
-    org = local["meta"].get("organization") or stored.get("organization")
-    project = local["meta"].get("project") or stored.get("project")
-    if not org or not project:
-        raise TicketError(
-            "could not determine the ADO organization and project",
-            EXIT_ERROR,
-            "Run `/ticket-init ado` first.",
-        )
+    org = local["meta"].get("organization") or bound_org
+    project = local["meta"].get("project") or bound_project
 
     live = fetch_live(ticket_id, str(org), str(project), header)
 

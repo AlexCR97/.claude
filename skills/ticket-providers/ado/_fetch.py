@@ -25,8 +25,9 @@ import urllib.parse
 import zipfile
 from pathlib import Path
 
-from ticketlib import http, paths, tickets
+from ticketlib import http, tickets
 from ticketlib.http import NETWORK_ERRORS
+from ticketlib.layout import Location
 
 API_VERSION = "7.1"
 COMMENTS_API_VERSION = "7.1-preview.4"
@@ -324,23 +325,29 @@ def collect_all_attachments(node: dict) -> list[dict]:
     return attachments
 
 
-def run(ticket_id: str, org: str, project: str, header: str) -> dict:
-    work_item_id = int(ticket_id)
-    project_encoded = urllib.parse.quote(project, safe="")
+def run(location: Location, org: str, project: str, header: str) -> dict:
+    work_item_id = int(location.id)
 
-    out_dir = paths.ticket_dir("ado", ticket_id) / "raw"
+    out_dir = location.dir / "raw"
     out_dir.mkdir(parents=True, exist_ok=True)
 
     try:
         root_wi = get(
             f"https://dev.azure.com/{org}/_apis/wit/workItems/{work_item_id}"
-            f"?fields=System.WorkItemType&api-version={API_VERSION}",
+            f"?fields=System.WorkItemType,System.TeamProject&api-version={API_VERSION}",
             header,
         )
-        root_type = (root_wi.get("fields") or {}).get("System.WorkItemType", "").lower()
+        root_fields = root_wi.get("fields") or {}
+        root_type = root_fields.get("System.WorkItemType", "").lower()
+        # Ids are unique per organization, so the project this was fetched
+        # through need not be the one it lives in — and the comments endpoint
+        # only answers for the one it lives in.
+        project = str(root_fields.get("System.TeamProject") or project)
     except NETWORK_ERRORS as exc:
         print(f"Warning: could not determine work item type — {exc}", file=sys.stderr)
         root_type = ""
+
+    project_encoded = urllib.parse.quote(project, safe="")
 
     if root_type == "task":
         allowed_relations = TASK_RELATIONS
@@ -430,17 +437,19 @@ def run(ticket_id: str, org: str, project: str, header: str) -> dict:
     fields = (tree.get("work_item") or {}).get("fields") or {}
     canonical_type, native_type, type_note = resolve_type(fields)
 
+    own_project = str(fields.get("System.TeamProject") or project)
+
     tickets.update(
-        "ado",
-        ticket_id,
+        location,
         title=fields.get("System.Title"),
         state=fields.get("System.State"),
         type=canonical_type,
         native_type=native_type,
-        url=f"https://dev.azure.com/{org}/{urllib.parse.quote(project)}"
+        url=f"https://dev.azure.com/{org}/{urllib.parse.quote(own_project)}"
         f"/_workitems/edit/{work_item_id}",
         last_fetched_at=tickets.now_iso(),
         fingerprint={"rev": (tree.get("work_item") or {}).get("rev")},
+        coordinates={"organization": org, "project": own_project},
     )
 
     print(f"\nOutput directory: {out_dir}")

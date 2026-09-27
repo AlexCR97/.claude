@@ -22,6 +22,10 @@ Divergence risk is nil. Once migrated, nothing reads the old path: the drivers
 look only under `~/.tickets/`, and the legacy hint fires only when the *new*
 directory is absent.
 
+It writes the `{source}/{id}` layout, which `migrate-layout.py` then moves under
+namespaces and products. So it stands down once that layout is recorded, and
+once its own `MIGRATED.md` says it already ran.
+
 Usage:
     python migrate-az-workitems.py [--dry-run]
 
@@ -45,10 +49,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 # A Windows console defaults to a legacy codepage, which turns any non-ASCII
 # character in a ticket title into mojibake.
 for stream in (sys.stdout, sys.stderr):
-    if hasattr(stream, "reconfigure"):
-        stream.reconfigure(encoding="utf-8", errors="replace")
+    reconfigure = getattr(stream, "reconfigure", None)
+    if callable(reconfigure):
+        reconfigure(encoding="utf-8", errors="replace")
 
-from ticketlib import config, paths, providers
+from ticketlib import config, layout, paths, providers
 
 SOURCE = "ado"
 
@@ -173,7 +178,7 @@ def migrate_config(legacy_root: Path, dry_run: bool) -> dict:
         report["source_config"] = "skipped_no_legacy_config"
         return report
 
-    destination = paths.source_config_path(SOURCE)
+    destination = paths.layout1_source_config_path(SOURCE)
     if destination.exists():
         # Overwriting could replace a working credential with a stale one.
         report["source_config"] = "skipped_exists"
@@ -188,14 +193,14 @@ def migrate_config(legacy_root: Path, dry_run: bool) -> dict:
     # Carried over so no re-authentication is needed.
     report["source_config_keys"] = sorted(carried)
     if not dry_run:
-        config.save_source(SOURCE, carried)
+        config.write_json(destination, carried)
 
     return report
 
 
 def migrate_ticket(ticket_path: Path, dry_run: bool) -> dict:
     ticket_id = ticket_path.name
-    destination = paths.ticket_dir(SOURCE, ticket_id)
+    destination = paths.layout1_ticket_dir(SOURCE, ticket_id)
 
     entry = {
         "id": ticket_id,
@@ -239,6 +244,23 @@ def main() -> int:
         print(json.dumps({"result": "nothing_to_migrate", "legacy_root": str(legacy_root)}, indent=2))
         return 0
 
+    already = (legacy_root / "MIGRATED.md").is_file()
+    current = (layout.version() or 0) >= layout.LAYOUT_VERSION
+    if already or current:
+        print(
+            json.dumps(
+                {
+                    "result": "nothing_to_migrate",
+                    "legacy_root": str(legacy_root),
+                    "reason": "already migrated"
+                    if already
+                    else "the tickets home is on the current layout",
+                },
+                indent=2,
+            )
+        )
+        return 0
+
     candidates = sorted(
         (path for path in legacy_root.iterdir() if is_candidate(path)),
         key=lambda path: int(path.name),
@@ -264,7 +286,7 @@ def main() -> int:
     if not args.dry_run:
         note_path.write_text(
             MIGRATED_NOTE.format(
-                destination=paths.source_dir(SOURCE),
+                destination=paths.layout1_source_dir(SOURCE),
                 date=datetime.now(timezone.utc).strftime("%Y-%m-%d"),
             ),
             encoding="utf-8",

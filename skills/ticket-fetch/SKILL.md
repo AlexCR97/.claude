@@ -1,7 +1,7 @@
 ---
 name: ticket-fetch
 description: Fetches raw ticket data (fields, comments, attachments, related tickets) from a remote source and writes it to the ticket's raw/ directory. Always re-fetches the snapshot; keeps existing attachment files and only downloads new ones. Required before running ticket-refine or ticket-digest.
-argument-hint: "<[source:]id | url>"
+argument-hint: "<[namespace/product/][source:]id | url> [--in NS[/PRODUCT]]"
 ---
 
 This skill is a **driver**: it contains no field names, URLs, API versions, credential commands, markup dialects, or type-specific rules of its own. Everything specific lives alongside it in three directories, and every step below just says which file to read.
@@ -35,10 +35,11 @@ ticket-init → ticket-fetch → ticket-refine → [fetch → refine → …] �
 ## Input
 
 ```
-/ticket-fetch <[source:]id | url>
+/ticket-fetch <[namespace/product/][source:]id | url> [--in namespace[/product]]
 ```
 
-`{ref}` — the ticket, optionally prefixed with its source, **or the address of the ticket's page as the source displays it**, pasted verbatim. Step 1 turns either into the same source and id; nothing below is aware of which was typed, and no address is ever parsed here. If none is given, ask for one before proceeding.
+- `{ref}` — the ticket, optionally prefixed with its source or qualified with its namespace and product, **or the address of the ticket's page as the source displays it**, pasted verbatim. Step 1 turns any of them into the same location; nothing below is aware of which was typed, and no address is ever parsed here. If none is given, ask for one before proceeding.
+- `--in` — where to file a ticket not yet on disk, overriding the filing rules. Namespace, product and filing mean what `ticket-common/GLOSSARY.md` says.
 
 ---
 
@@ -48,13 +49,17 @@ Run the following steps **in order**. Do not skip any step.
 
 ### 1. Resolve the ticket
 
+When this session has a session context, pass `--context {context}` on every `ticket.py` call below, and start your first output line with `Ticket context: {context}`. An `--in` or a qualified reference in the invocation overrides it for that one call; say so in one line. `ticket-common/RESOLUTION.md` → *The session context* has the rule.
+
 ```bash
-python "{skills}/ticket-common/ticket.py" resolve "{ref}" --require config
+python "{skills}/ticket-common/ticket.py" resolve "{ref}" --require config [--in {in}] [--context {context}]
 ```
 
 Everything below uses the paths, capabilities and `ticket.json` it returns; **every path it prints is absolute**, so nothing here needs expanding. On a non-zero exit, report the message and its hint verbatim and stop. `ticket-common/RESOLUTION.md` carries the full contract — open it only when the output is disputed.
 
-An unmet `config` requirement means the source was never initialized; the hint names the skill that fixes it.
+An unmet `config` requirement means the source is not bound where the ticket is filed; the hint names the skill that fixes it.
+
+**A ticket not on disk yet** has `filed: false`, and `filing` names the product it will be filed under and the rule that chose it. **Exit 3 on filing** means more than one product can hold it and nothing prefers one: list the candidates from the hint, ask which, and run this step again with `--in` for the answer. Never pick one yourself.
 
 ### 2. Refuse where the source cannot fetch
 
@@ -78,10 +83,10 @@ Whatever it says, these hold for **every** source and are this skill's own contr
 ### 4. Run the fetch
 
 ```bash
-python "{skills}/ticket-common/ticket.py" fetch "{source}:{id}"
+python "{skills}/ticket-common/ticket.py" fetch "{qualified_ref}"
 ```
 
-There is no credential flag — never pass one, and never read a credential out of a config yourself. The provider uses its cached credential and refreshes it when it is close to expiring.
+Pass step 1's `qualified_ref`, so the fetch writes exactly where step 1 said — for a pasted address, pass the address itself instead, since its coordinates are what the fetch needs. There is no credential flag — never pass one, and never read a credential out of a config yourself. The provider uses its cached credential and refreshes it when it is close to expiring.
 
 Wait for it to complete. If it exits with a non-zero code, report the stderr output to the user and stop.
 
@@ -93,6 +98,8 @@ Report the result in a single line, plus anything that needs attention:
 
 Then, from the fetch's own output:
 
+- **Where a new ticket was filed**, when it was not on disk before: the product and the reason, from `filing`, in one line — `Filed under edwire/ew-educate: the only product ado is bound in.` Never silently. Where it is outside the session context, say that too.
+- **A filing the fetch contradicts**, when the output carries `misfiled`: the ticket's own coordinates disagree with the product it is filed under. Name each disagreeing coordinate, and offer `/ticket-move {qualified_ref} {belongs_under}` — or, where `belongs_under` is null, say that no product is bound to its coordinates yet and `/ticket-init` can bind one. Do not move it yourself.
 - **The resolved type**, where the fetch reported a `type_note`. A tag overriding the native type, or a native type that mapped to nothing and fell back, is stated in one line — never silently. The mapping is in `ticket-providers/{source}/types.md`; what the type then *means* is `ticket-types/{type}.md`'s business, and neither is read here.
 - **Any attachment that failed to download**, by name. It is noted as unavailable, never omitted.
 

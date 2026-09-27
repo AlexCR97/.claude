@@ -1,7 +1,7 @@
 ---
 name: ticket-new
 description: Creates a ticket in a store that supports it, seeded from its type so the body starts with the right questions, then chains into ticket-refine. For local tickets that have no upstream system to fetch from.
-argument-hint: '"<title>" [--source S] [--type T] [--parent REF]'
+argument-hint: '"<title>" [--source S] [--type T] [--in NS[/PRODUCT]] [--parent REF]'
 ---
 
 This skill is a **driver**: it contains no field names, URLs, API versions, credential commands, markup dialects, or type-specific rules of its own. Everything specific lives alongside it in three directories, and every step below just says which file to read.
@@ -31,13 +31,16 @@ This skill creates one locally, seeds its body from its **type** so it starts wi
 ## Input
 
 ```
-/ticket-new "<title>" [--source {source}] [--type {type}] [--parent {ref}]
+/ticket-new "<title>" [--source {source}] [--type {type}] [--in {namespace}[/{product}]] [--parent {ref}]
 ```
 
 - `{title}` — required. If none was given, ask for one before proceeding.
 - `--source` — which store to create it in. When omitted, see step 2.
 - `--type` — the kind of work. When omitted, see step 3.
-- `--parent` — for a task, the `[source:]id` of the parent user story it belongs to. Optional, and only meaningful for a task; a source's `new.md` says whether it accepts this and how it is stored. When omitted for a task, leave it to the seeded stub from step 5 and to `/ticket-refine` to establish.
+- `--in` — the namespace or product to file it under. When omitted, see step 4. Namespace, product and filing mean what `ticket-common/GLOSSARY.md` says.
+- `--parent` — for a task, the reference of the parent user story it belongs to. Optional, and only meaningful for a task; a source's `new.md` says whether it accepts this and how it is stored. When omitted for a task, leave it to the seeded stub from step 5 and to `/ticket-refine` to establish.
+
+When this session has a session context, pass `--context {context}` on every `ticket.py` call below that takes one, and start your first output line with `Ticket context: {context}`. An `--in` in the invocation overrides it for that one call; say so in one line. `ticket-common/RESOLUTION.md` → _The session context_ has the rule.
 
 ---
 
@@ -69,7 +72,7 @@ Take the type the user supplied. If they supplied none, **offer the list from st
 
 Read `ticket-types/{type}.md` once the type is known. Its _"What this type is"_ and _"What refine must establish"_ sections are what step 5 seeds from.
 
-### 4. Derive the slug and create the ticket
+### 4. Derive the slug, file it, and create the ticket
 
 The slug is the ticket's id and its directory name. **The driver owns this algorithm** — it is a store convention, not a property of any source:
 
@@ -80,15 +83,27 @@ The slug is the ticket's id and its directory name. **The driver owns this algor
 
 `"Cache the authorization lookup"` → `cache-the-authorization-lookup`.
 
-Show the slug and let the user override it before creating anything — they have to live with it, and it is the one thing here that cannot be changed later without moving a directory.
+Then ask the front door where it would be filed, creating nothing:
+
+```bash
+python "{skills}/ticket-common/ticket.py" new --source {source} --title "{title}" --id {slug} --propose [--in {in}] [--context {context}]
+```
+
+`product` and `filing` say where it would go and which rule chose it; `exists` says whether that slug is already taken there, and `elsewhere` lists a ticket of the same slug in another product. **Exit 3** means more than one product could hold it and nothing prefers one: list the candidates from the hint and ask which. **Exit 5** means the `--in` or the session context names a namespace or product that does not exist: say so, and offer `/ticket-init --in {scope}` to create it rather than filing into a misspelling.
+
+Show both the slug and the product, and let the user override either before creating anything — they have to live with both, and each is a directory name:
+
+> Creating `{qualified_ref}` — filed under `{product}`: {filing reason}. Change the slug or the product?
+
+Where `exists` is true, the slug needs changing. Where `elsewhere` is not empty, mention it in one line: a bare reference to the slug will then need its product to be unambiguous from outside the session context. Re-run `--propose` for anything the user changes.
 
 Read `ticket-providers/{source}/new.md` for what that store creates and where, then:
 
 ```bash
-python "{skills}/ticket-common/ticket.py" new --source {source} --title "{title}" --id {slug} --type {type} [--parent {ref}]
+python "{skills}/ticket-common/ticket.py" new --source {source} --title "{title}" --id {slug} --type {type} --in "{product}" [--parent {ref}]
 ```
 
-Include `--parent {ref}` only when the user supplied one; `new.md` says whether this source accepts it and what it validates.
+Always pass the confirmed product with `--in`, so the ticket lands exactly where the user agreed. Include `--parent {ref}` only when the user supplied one; `new.md` says whether this source accepts it and what it validates.
 
 If it exits non-zero, report the message and its hint verbatim and stop. A slug that already exists is the common case, and the fix is a different slug — never a merge into the existing directory. A `--parent` that does not resolve, or resolves to the wrong type, is also reported verbatim — never silently dropped or substituted.
 
@@ -109,7 +124,7 @@ Do not invent content. A seeded stub is a prompt for the refinement, not an answ
 
 Report in two lines at most:
 
-> Created {source}:{slug} — {title} ({type}). Body at `{ticket file path}`.
+> Created {qualified_ref} — {title} ({type}). Body at `{ticket file path}`.
 > Seeded from `ticket-types/{type}.md`; acceptance criteria left as a TODO for refinement.
 
 Then hand over to refinement, saying in the same line that it is experimental:
@@ -118,10 +133,10 @@ Then hand over to refinement, saying in the same line that it is experimental:
 
 ```
 Skill: ticket-refine
-args: {source}:{slug}
+args: {qualified_ref}
 ```
 
-Chain by default: a ticket whose acceptance criteria are still a `TODO` stub is not ready to plan against, and refinement is what fills them in. But do not chain over an objection — the skill being handed to is experimental, so a user who wants to stop and read the seeded body first is making a reasonable call. If they skip, close by naming the two ways back in: `/ticket-refine {source}:{slug}` when they are ready, or editing the body by hand.
+Chain by default: a ticket whose acceptance criteria are still a `TODO` stub is not ready to plan against, and refinement is what fills them in. But do not chain over an objection — the skill being handed to is experimental, so a user who wants to stop and read the seeded body first is making a reasonable call. If they skip, close by naming the two ways back in: `/ticket-refine {qualified_ref}` when they are ready, or editing the body by hand.
 
 ---
 
@@ -132,5 +147,6 @@ Chain by default: a ticket whose acceptance criteria are still a `TODO` stub is 
 - Never invent acceptance criteria; leave the stub and let refinement establish them
 - Never invent content for a seeded section — a stub is a prompt, not an answer
 - Never pick a type silently; ask, because it shapes every skill downstream
+- Never create a ticket without showing the product it is filed under and letting the user change it
 - Never write into an existing ticket directory — a collision is a different slug, never a merge
 - Never write a file into the ticket directory other than what the store's `new.md` describes

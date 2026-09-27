@@ -104,6 +104,48 @@ def section_content(parsed: dict, heading: str) -> str:
     return ""
 
 
+def set_frontmatter(path: Path, key: str, value: str, dry_run: bool = False) -> None:
+    """
+    Set one frontmatter key in place, leaving every other line byte-for-byte as it was.
+
+    Re-rendering the whole block would reorder keys and drop any comment a
+    person wrote there; this file is hand-edited, so only the one line moves.
+    Line endings are read and written untranslated for the same reason.
+
+    `dry_run` raises exactly what a real run would and writes nothing, so a
+    caller can find out before it changes anything else.
+    """
+    with path.open(encoding="utf-8", newline="") as handle:
+        lines = handle.read().splitlines(keepends=True)
+    if not lines or lines[0].strip() != FRONTMATTER_FENCE:
+        raise ValueError(f"{path} has no frontmatter block")
+
+    end = next(
+        (
+            index
+            for index, line in enumerate(lines[1:], start=1)
+            if line.strip() == FRONTMATTER_FENCE
+        ),
+        None,
+    )
+    if end is None:
+        raise ValueError(f"{path} has an unterminated frontmatter block")
+
+    newline = "\r\n" if lines[0].endswith("\r\n") else "\n"
+    entry = f"{key}: {value}{newline}"
+    for index in range(1, end):
+        if lines[index].partition(":")[0].strip() == key:
+            lines[index] = entry
+            break
+    else:
+        lines.insert(end, entry)
+
+    if dry_run:
+        return
+    with path.open("w", encoding="utf-8", newline="") as handle:
+        handle.write("".join(lines))
+
+
 def fingerprint(path: Path) -> str:
     """
     A content hash, which is the whole of this store's drift signal.

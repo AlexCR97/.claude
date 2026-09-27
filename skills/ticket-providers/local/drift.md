@@ -3,7 +3,7 @@
 Read by `ticket-resume`.
 
 ```
-python "{skills}/ticket-common/ticket.py" drift {source}:{id}
+python "{skills}/ticket-common/ticket.py" drift "{qualified_ref}"
 ```
 
 Read-only. Nothing is rewritten.

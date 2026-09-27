@@ -2,7 +2,7 @@
 
 Read by `ticket-digest`, `ticket-plan` and `ticket-checkpoint`.
 
-`{org}` and `{project}` come from `ticket-json`'s `url` where one is already recorded; otherwise they are the `organization` and `project` in this source's config. **Prefer `ticket.json.url` when it is set** — it was written by the fetch that produced the data being linked.
+`{org}` and `{project}` come from `ticket.json`'s `url` where one is already recorded; otherwise from its `coordinates`, then the `coordinates` the resolver reports — the binding of the product it is filed under. **Prefer `ticket.json.url` when it is set** — it was written by the fetch that produced the data being linked.
 
 | Reference  | Pattern                                                                              |
 | ---------- | ------------------------------------------------------------------------------------ |

@@ -15,14 +15,15 @@ import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 
-from ticketlib import config, paths, providers, tickets
+from ticketlib import config, providers, tickets
 from ticketlib.errors import EXIT_ERROR, TicketError
 
 SOURCE = "github"
 
-# owner/name. A third segment would be a cross-repo reference, which the
-# `github/{number}/` layout cannot express — see README.md.
+# owner/name. A third segment would be a cross-repo reference, which a product
+# bound to one repository cannot express — see README.md.
 REPO_PATTERN = re.compile(r"^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$")
+NAME_PATTERN = re.compile(r"^[A-Za-z0-9._-]+$")
 
 # GitHub has no type field, so a label is the only signal there is.
 LABEL_TYPE_MAP = {
@@ -65,14 +66,30 @@ def resolve_type(issue: dict) -> tuple[str, str, str]:
     )
 
 
-def init(ctx: dict, extra: list[str]) -> dict:
+def binding(ctx: dict, extra: list[str]) -> dict:
+    """
+    The owner and repository an init would bind, without validating them.
+
+    `--repo name` alone is enough where the namespace is already bound to an
+    owner. With no flag, the repository the invocation directory belongs to.
+    """
     parser = argparse.ArgumentParser(prog="ticket.py init --source github")
     parser.add_argument("--repo", "--repository", dest="repo")
     args = parser.parse_args(extra)
 
-    _gh.require_cli()
+    inherited = ctx.get("binding") or {}
+    inherited_applied: list[str] = []
+    repo = args.repo
 
-    repo = args.repo or detect_repo()
+    if repo and NAME_PATTERN.match(repo) and inherited.get("owner"):
+        repo = f"{inherited['owner']}/{repo}"
+        inherited_applied.append("owner")
+    if not repo and inherited.get("owner") and inherited.get("repository"):
+        repo = f"{inherited['owner']}/{inherited['repository']}"
+        inherited_applied.extend(["owner", "repository"])
+    if not repo:
+        _gh.require_cli()
+        repo = detect_repo()
     if not repo:
         raise TicketError(
             "no repository given and none could be detected",
@@ -86,15 +103,31 @@ def init(ctx: dict, extra: list[str]) -> dict:
             "Cross-repository references are out of scope; see ticket-providers/README.md.",
         )
 
+    owner, _, name = repo.partition("/")
+    return {
+        "coordinates": {"owner": owner, "repository": name},
+        "defaults_applied": [],
+        "inherited": inherited_applied,
+    }
+
+
+def binding_from_layout1(legacy: dict) -> dict:
+    """The older layout kept one `repository: owner/name` key; a binding keeps the two halves apart."""
+    owner, _, name = str(legacy.get("repository") or "").partition("/")
+    return {"owner": owner, "repository": name} if owner and name else {}
+
+
+def init(ctx: dict, extra: list[str]) -> dict:
+    _gh.require_cli()
+    repo = _gh.repository(ctx)
+
     print("Checking the GitHub CLI's authentication…")
     _gh.require_auth()
 
     print(f"Validating access to {repo}…")
     _gh.api(f"repos/{repo}")
 
-    # Only the repository is stored. There is no token here, by design.
-    config.save_source(SOURCE, {"repository": repo})
-
+    # Only the owner and repository are bound. There is no token here, by design.
     return {"repository": repo, "credential": "delegated to the GitHub CLI; nothing stored"}
 
 
@@ -105,9 +138,9 @@ def detect_repo() -> str | None:
 
 def fetch(ctx: dict, extra: list[str]) -> dict:
     ticket_id = ctx["id"]
-    repo = _gh.repository()
+    repo = _gh.repository(ctx)
 
-    out_dir = paths.ticket_dir(SOURCE, ticket_id) / "raw"
+    out_dir = ctx["location"].dir / "raw"
     out_dir.mkdir(parents=True, exist_ok=True)
 
     print(f"Fetching {repo}#{ticket_id}…")
@@ -134,9 +167,9 @@ def fetch(ctx: dict, extra: list[str]) -> dict:
 
     canonical_type, native_type, note = resolve_type(issue)
 
+    owner, _, name = repo.partition("/")
     tickets.update(
-        SOURCE,
-        ticket_id,
+        ctx["location"],
         title=issue.get("title"),
         state=issue.get("state"),
         type=canonical_type,
@@ -147,6 +180,7 @@ def fetch(ctx: dict, extra: list[str]) -> dict:
             "updated_at": issue.get("updated_at"),
             "comment_count": len(comments),
         },
+        coordinates={"owner": owner, "repository": name},
     )
 
     return {
@@ -162,7 +196,7 @@ def fetch(ctx: dict, extra: list[str]) -> dict:
 
 
 def publish(ctx: dict, text: str, extra: list[str]) -> dict:
-    repo = _gh.repository()
+    repo = _gh.repository(ctx)
     _gh.require_auth()
 
     # `gh issue comment` takes a file rather than an argument, which also keeps
@@ -198,10 +232,10 @@ def publish(ctx: dict, text: str, extra: list[str]) -> dict:
 
 def drift(ctx: dict, extra: list[str]) -> dict:
     ticket_id = ctx["id"]
-    repo = _gh.repository()
-    record = tickets.load(SOURCE, ticket_id)
+    repo = _gh.repository(ctx)
+    record = tickets.load(ctx["location"])
 
-    raw_path = paths.ticket_dir(SOURCE, ticket_id) / "raw" / "raw.json"
+    raw_path = ctx["location"].dir / "raw" / "raw.json"
     local = config.read_json(raw_path)
     if not local:
         raise TicketError(
@@ -301,8 +335,10 @@ def age_in_days(raw: str | None) -> float | None:
 
 def auth_status(ctx: dict) -> dict:
     signed_in, detail = _gh.auth_state()
+    coordinates = ctx.get("coordinates") or {}
+    owner, name = coordinates.get("owner"), coordinates.get("repository")
     return {
-        "repository": config.load_source(SOURCE).get("repository"),
+        "repository": f"{owner}/{name}" if owner and name else None,
         "credential": "delegated to the GitHub CLI; nothing stored",
         "status": detail or ("signed in" if signed_in else "not signed in"),
         "usable": signed_in,

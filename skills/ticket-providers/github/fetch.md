@@ -40,13 +40,14 @@ A failed call aborts rather than writing a partial file.
 
 ## What `ticket.json` is refreshed with
 
-| Key | From |
-| --- | --- |
-| `title`, `state` | the issue |
-| `type`, `native_type` | resolved per `types.md`; `native_type` records the labels |
-| `url` | the issue's own web address |
-| `last_fetched_at` | the moment the fetch completed, UTC |
-| `fingerprint` | the issue's last-updated timestamp and its comment count, which `drift.md` compares against |
+| Key                   | From                                                                                        |
+| --------------------- | ------------------------------------------------------------------------------------------- |
+| `title`, `state`      | the issue                                                                                   |
+| `type`, `native_type` | resolved per `types.md`; `native_type` records the labels                                   |
+| `url`                 | the issue's own web address                                                                 |
+| `last_fetched_at`     | the moment the fetch completed, UTC                                                         |
+| `fingerprint`         | the issue's last-updated timestamp and its comment count, which `drift.md` compares against |
+| `coordinates`         | `owner` and `repository`, so a re-filed issue still fetches from where it lives             |
 
 ## Upstream is never modified
 

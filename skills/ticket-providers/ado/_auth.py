@@ -3,9 +3,9 @@
 Azure DevOps credentials.
 
 dev.azure.com accepts an Azure CLI access token as a bearer credential, so the
-whole `az account get-access-token` response is cached in this source's
-config.json and replaced as it nears expiry. There is no PAT, and the user is
-never asked for one — they only need to stay signed in with `az login`.
+whole `az account get-access-token` response is cached in the credential store,
+keyed by organization, and replaced as it nears expiry. There is no PAT, and the
+user is never asked for one — they only need to stay signed in with `az login`.
 
 The caching mechanics themselves are not ADO's: they live in
 ticketlib/tokencache.py and would serve any bearer-token source. What is ADO's
@@ -14,7 +14,7 @@ is the resource id below and the fact that the Azure CLI is the issuer.
 
 import json
 
-from ticketlib import config, proc, tokencache
+from ticketlib import proc, tokencache
 
 SOURCE = "ado"
 
@@ -51,51 +51,46 @@ def fetch_cli_token() -> tuple[dict, str]:
     return token, ""
 
 
-def get_token() -> tuple[dict, str]:
+def get_token(org: str) -> tuple[dict, str]:
     """Returns (token, error_message); token is empty when acquisition failed."""
-    stored = config.load_source(SOURCE)
-    cached = stored.get("token")
-    if tokencache.is_usable(cached):
+    cached = tokencache.load(SOURCE, org)
+    if cached and tokencache.is_usable(cached):
         return cached, ""
 
     token, error = fetch_cli_token()
     if error:
         return {}, error
 
-    # Creating a config here would omit the organization and project that
-    # /ticket-init writes.
-    if stored:
-        stored["token"] = token
-        config.save_source(SOURCE, stored)
-
+    tokencache.save(SOURCE, org, token)
     return token, ""
 
 
-def require_token() -> dict:
+def require_token(org: str) -> dict:
     from ticketlib.errors import EXIT_ERROR, TicketError
 
-    token, error = get_token()
+    token, error = get_token(org)
     if token:
         return token
 
     raise TicketError(error, EXIT_ERROR, AZ_LOGIN_HINT)
 
 
-def auth_header() -> str:
-    return tokencache.make_auth_header(require_token())
+def auth_header(org: str) -> str:
+    return tokencache.make_auth_header(require_token(org))
 
 
-def coordinates() -> tuple[str, str]:
-    """The organization and project this machine is pointed at."""
+def coordinates(ctx: dict) -> tuple[str, str]:
+    """The organization and project this ticket, or the product it is filed under, points at."""
     from ticketlib.errors import EXIT_ERROR, TicketError
 
-    stored = config.load_source(SOURCE)
-    org = stored.get("organization")
-    project = stored.get("project")
+    values = ctx.get("coordinates") or {}
+    org = values.get("organization")
+    project = values.get("project")
     if not org or not project:
+        where = ctx.get("product") or "this product"
         raise TicketError(
-            "no Azure DevOps organization and project are configured",
+            f"no Azure DevOps organization and project are bound for {where}",
             EXIT_ERROR,
-            "Run `/ticket-init ado` first.",
+            f"Run `/ticket-init ado --in {where}` first.",
         )
     return str(org), str(project)

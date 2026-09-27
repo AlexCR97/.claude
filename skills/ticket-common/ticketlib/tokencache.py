@@ -1,17 +1,46 @@
 #!/usr/bin/env python3
 """
-Caching a bearer token in a source's config.json.
+Caching a bearer token in the tickets home's credential store.
 
 Nothing here is specific to any one source: a provider that authenticates with
-a bearer token stores the issuer's whole response under `token` and reuses it
-until it nears expiry. The dual `expires_on`/`expiresOn` handling and the
-fail-closed refresh margin are the parts worth not re-deriving per source.
+a bearer token stores the issuer's whole response and reuses it until it nears
+expiry. The dual `expires_on`/`expiresOn` handling and the fail-closed refresh
+margin are the parts worth not re-deriving per source.
+
+Each token is keyed by the source and by the value of the coordinate it was
+issued for — an Azure DevOps organization, say — so one namespace's credential
+is never handed to another's. The store sits outside every `config.json`: those
+are hand-edited and merged across levels, and a credential must be neither.
 """
 
 from datetime import datetime, timezone
 
+from . import config, paths
+
 # Refreshing early costs one cheap call; a 401 mid-fetch costs a partial run.
 REFRESH_MARGIN_SECONDS = 300
+
+PRIVATE_DIR_MODE = 0o700
+PRIVATE_FILE_MODE = 0o600
+
+
+def load(source: str, key: str) -> dict | None:
+    token = config.read_json(paths.credentials_path(source, key))
+    return token or None
+
+
+def save(source: str, key: str, token: dict) -> None:
+    """
+    Cache a token readable by its owner alone.
+
+    Windows ignores these modes and protects the file with the user profile's
+    own permissions; elsewhere the umask would otherwise leave it readable by
+    every local user who can traverse the home directory.
+    """
+    path = paths.credentials_path(source, key)
+    for directory in (path.parent.parent, path.parent):
+        directory.mkdir(mode=PRIVATE_DIR_MODE, parents=True, exist_ok=True)
+    config.write_json(path, token, mode=PRIVATE_FILE_MODE)
 
 
 def make_auth_header(token: dict) -> str:

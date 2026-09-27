@@ -31,9 +31,9 @@ Related work items are resolved recursively to a maximum depth of **3**. Already
 
 Which relations are followed depends on the root work item's own type:
 
-| Root type | Relations expanded |
-| --- | --- |
-| Task | `parent` only |
+| Root type       | Relations expanded           |
+| --------------- | ---------------------------- |
+| Task            | `parent` only                |
 | Everything else | `parent`, `child`, `related` |
 
 A Task's children and siblings are almost never the context its own work needs, and expanding them pulls in the whole sprint.
@@ -62,13 +62,18 @@ Each attachment record carries `local_filename` (null when the download failed) 
 
 ## What `ticket.json` is refreshed with
 
-| Key | From |
-| --- | --- |
-| `title`, `state` | the root work item's fields |
-| `type`, `native_type` | resolved per `types.md` |
-| `url` | per `links.md` |
-| `last_fetched_at` | the moment the fetch completed, UTC |
-| `fingerprint.rev` | the work item revision, which `drift.md` compares against |
+| Key                   | From                                                                                                                                                                                                |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `title`, `state`      | the root work item's fields                                                                                                                                                                         |
+| `type`, `native_type` | resolved per `types.md`                                                                                                                                                                             |
+| `url`                 | per `links.md`                                                                                                                                                                                      |
+| `last_fetched_at`     | the moment the fetch completed, UTC                                                                                                                                                                 |
+| `fingerprint.rev`     | the work item revision, which `drift.md` compares against                                                                                                                                           |
+| `coordinates`         | `organization`, and `project` as the work item itself reports it in `System.TeamProject` — ids are unique per organization, so the project it was fetched through is not always the one it lives in |
+
+## Where it is fetched from
+
+The organization and project come from the ticket's own `coordinates` once it has them, else from the binding of the product it is filed under, else from the pasted address that filed it. A ticket re-filed under another product therefore still fetches from where it lives.
 
 ## Upstream is never modified
 

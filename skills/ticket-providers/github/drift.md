@@ -3,18 +3,18 @@
 Read by `ticket-resume`.
 
 ```
-python "{skills}/ticket-common/ticket.py" drift {source}:{id}
+python "{skills}/ticket-common/ticket.py" drift "{qualified_ref}"
 ```
 
 Read-only against both GitHub and the local snapshot. The fetched data is never rewritten.
 
 ## Exit contract
 
-| Exit | Means |
-| --- | --- |
-| 0 | the local copy is current |
-| 1 | the comparison could not be made — nothing fetched yet, the CLI missing or signed out, no network |
-| 2 | the issue changed since it was fetched |
+| Exit | Means                                                                                             |
+| ---- | ------------------------------------------------------------------------------------------------- |
+| 0    | the local copy is current                                                                         |
+| 1    | the comparison could not be made — nothing fetched yet, the CLI missing or signed out, no network |
+| 2    | the issue changed since it was fetched                                                            |
 
 ## What is compared
 

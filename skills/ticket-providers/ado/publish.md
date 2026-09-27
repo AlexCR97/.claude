@@ -7,7 +7,7 @@ Read by `ticket-refine`.
 A comment on the work item's discussion thread, posted through:
 
 ```
-python "{skills}/ticket-common/ticket.py" publish {source}:{id} --file "{comment-file}" --delete-after-post
+python "{skills}/ticket-common/ticket.py" publish "{qualified_ref}" --file "{comment-file}" --delete-after-post
 ```
 
 `--delete-after-post` removes the staged file once the post is confirmed. Do not delete it by hand — if the post fails, the file is what the retry uses.

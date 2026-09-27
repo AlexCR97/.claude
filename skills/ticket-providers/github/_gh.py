@@ -4,13 +4,13 @@ Everything this provider does, it does through the `gh` CLI.
 
 That is the whole credential story: `gh` already holds the user's GitHub
 authentication, refreshes it, and knows about enterprise hosts and SSO. **No
-token is ever stored by this suite** — `{source}/config.json` holds only the
+token is ever stored by this suite** — a binding holds only the owner and the
 repository, and there is nothing in it worth protecting.
 """
 
 import json
 
-from ticketlib import config, proc
+from ticketlib import proc
 from ticketlib.errors import EXIT_ERROR, EXIT_NOT_FOUND, TicketError
 
 SOURCE = "github"
@@ -53,15 +53,18 @@ def require_auth() -> None:
         raise TicketError(f"not signed in to GitHub — {detail}", EXIT_ERROR, GH_HINT)
 
 
-def repository() -> str:
-    repo = config.load_source(SOURCE).get("repository")
-    if not repo:
+def repository(ctx: dict) -> str:
+    """`owner/name`, from the ticket's own coordinates or the binding it is filed under."""
+    values = ctx.get("coordinates") or {}
+    owner, name = values.get("owner"), values.get("repository")
+    if not owner or not name:
+        where = ctx.get("product") or "this product"
         raise TicketError(
-            "no GitHub repository is configured",
+            f"no GitHub owner and repository are bound for {where}",
             EXIT_ERROR,
-            "Run `/ticket-init github --repo owner/name` first.",
+            f"Run `/ticket-init github --in {where} --repo owner/name` first.",
         )
-    return str(repo)
+    return f"{owner}/{name}"
 
 
 def api(path: str, paginate: bool = False) -> object:

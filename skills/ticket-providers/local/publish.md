@@ -20,7 +20,7 @@ There is no discussion thread here that means anything — `raw/ticket.md` *is* 
 Posted through:
 
 ```
-python "{skills}/ticket-common/ticket.py" publish {source}:{id} --file "{comment-file}" --delete-after-post
+python "{skills}/ticket-common/ticket.py" publish "{qualified_ref}" --file "{comment-file}" --delete-after-post
 ```
 
 The verb name and the staged filename (`refinement-comment.{ext}`) are the driver's generic vocabulary for "the confirmed summary" — inherited from the sources that really do post a comment. Nothing here is actually appended to a comment thread.
