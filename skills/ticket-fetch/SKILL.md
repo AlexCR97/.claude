@@ -1,10 +1,15 @@
 ---
 name: ticket-fetch
-description: Fetches raw ticket data (fields, comments, attachments, related tickets) from a remote source and writes it to the ticket's raw/ directory. Always re-fetches the snapshot; keeps existing attachment files and only downloads new ones. Required before running ticket-refine or ticket-digest.
-argument-hint: "<[namespace/product/][source:]id | url> [--in NS[/PRODUCT]]"
+description: Fetches or refreshes a ticket's raw data — fields, comments, attachments, related tickets — from its remote source into the ticket's raw/ directory. Required before ticket-refine or ticket-digest.
+argument-hint: "<ref> [--in namespace[/product]]"
+allowed-tools: Read Bash(python *ticket.py:*)
 ---
 
-This skill is a **driver**: it contains no field names, URLs, API versions, credential commands, markup dialects, or type-specific rules of its own. Everything specific lives alongside it in three directories, and every step below just says which file to read.
+Downloads everything a remote source knows about a ticket into the ticket's `raw/` directory, so `ticket-refine` and `ticket-digest` work offline from one consistent snapshot. Run it again at any time to refresh the snapshot.
+
+End state: a complete, fresh `raw/` and a refreshed `ticket.json`, plus a report of where the ticket is filed, any filing the fetch contradicts, any type note, and every attachment that failed to download.
+
+This skill is a **driver**: it contains no field names, URLs, API versions, credential commands, markup dialects, or type-specific rules of its own. Everything specific lives alongside it in three directories, and each step names the file to read.
 
 | Directory                    | Contains                                                                                                          | Read                                                                          |
 | ---------------------------- | ----------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
@@ -12,104 +17,76 @@ This skill is a **driver**: it contains no field names, URLs, API versions, cred
 | `ticket-providers/{source}/` | everything specific to where the ticket came from                                                                 | only the **resolved** source's directory, and only the role file a step names |
 | `ticket-types/{type}.md`     | everything specific to what shape the work is                                                                     | not read by this skill                                                        |
 
-Never let a source-specific or type-specific fact creep back into this file — a field key, a URL, an API version, a script name, a credential command, an HTML-vs-markdown decision, or a rule that only holds for bugs or only for spikes. **If a step cannot be written without naming a particular ticket system, it belongs in `ticket-providers/{source}/`; if it cannot be written without naming a ticket type, it belongs in `ticket-types/{type}.md`. This file should only name the file to read.** A source directory may hold only some of the role files; treat each as present-or-absent independently, and never substitute another source's or another type's module for a missing one.
-
-No `allowed-tools` here: fetching writes a whole directory tree whose filenames are not known in advance.
+A fact that needs a particular ticket system belongs in `ticket-providers/{source}/`, and one that needs a ticket type belongs in `ticket-types/{type}.md` — never in this file.
 
 ---
 
-## Purpose
+## Parameters
 
-Downloads everything the source knows about a ticket and stores it locally, so that `ticket-refine` and `ticket-digest` can work offline from a consistent snapshot. Run it any time you want to refresh the data.
-
-**Fetch is for remote sources only.** A local store has no upstream to fetch from — its `raw/` *is* the source of truth, written by `/ticket-new` and edited by hand. That is not a special case in this skill; it falls out of step 2.
-
-**Recommended skill order:**
-
-```
-ticket-init → ticket-fetch → ticket-refine → [fetch → refine → …] → ticket-digest → ticket-plan → ticket-implement
-```
+- **`<ref>`** — the ticket: a reference as `ticket-common/RESOLUTION.md` → *How a reference resolves* defines it, or the ticket's web address pasted verbatim. Step 1 turns every form into the same location, and no step parses an address. Ask for one when it is absent.
+- **`[--in namespace[/product]]`** — where to file a ticket not yet on disk, overriding the filing rules. Namespace, product and filing mean what `ticket-common/GLOSSARY.md` says.
 
 ---
 
-## Input
+## Ground rules
 
-```
-/ticket-fetch <[namespace/product/][source:]id | url> [--in namespace[/product]]
-```
-
-- `{ref}` — the ticket, optionally prefixed with its source or qualified with its namespace and product, **or the address of the ticket's page as the source displays it**, pasted verbatim. Step 1 turns any of them into the same location; nothing below is aware of which was typed, and no address is ever parsed here. If none is given, ask for one before proceeding.
-- `--in` — where to file a ticket not yet on disk, overriding the filing rules. Namespace, product and filing mean what `ticket-common/GLOSSARY.md` says.
+1. **Never modify the ticket upstream.** Fetching is read-only, including every related ticket it walks.
+2. **Keep attachment files already on disk.** The fetch downloads only what is new; never delete one.
+3. **Report a missing capability or role file as a gap.** Never improvise a fetch, and never substitute another source's file for a missing one — `ticket-providers/README.md` → *Absence is the mechanism*.
+4. **Never handle a credential.** Never print one, pass one to a command, or read one from a config.
+5. **Stop on a non-zero exit.** The one exception is exit 3 on filing in Step 1, which asks and runs again.
+6. **Move bytes, never read them.** Reading, summarizing or acting on the fetched content is `ticket-digest`'s job.
 
 ---
 
 ## Execution Steps
 
-Run the following steps **in order**. Do not skip any step.
+### Step 1 — Resolve the ticket
 
-### 1. Resolve the ticket
-
-When this session has a session context, pass `--context {context}` on every `ticket.py` call below, and start your first output line with `Ticket context: {context}`. An `--in` or a qualified reference in the invocation overrides it for that one call; say so in one line. `ticket-common/RESOLUTION.md` → *The session context* has the rule.
+With a session context, pass `--context {context}` on every `ticket.py` call below and open the first output line with `Ticket context: {context}` — `ticket-common/RESOLUTION.md` → *The session context* covers overrides.
 
 ```bash
-python "{skills}/ticket-common/ticket.py" resolve "{ref}" --require config [--in {in}] [--context {context}]
+python "{skills}/ticket-common/ticket.py" resolve "<ref>" --require config [--in namespace[/product]] [--context {context}]
 ```
 
-Everything below uses the paths, capabilities and `ticket.json` it returns; **every path it prints is absolute**, so nothing here needs expanding. On a non-zero exit, report the message and its hint verbatim and stop. `ticket-common/RESOLUTION.md` carries the full contract — open it only when the output is disputed.
+- **Exit 0:** continue with the paths, capabilities, `ticket.json` and `qualified_ref` it returns. Every path is absolute. A ticket not on disk yet has `filed: false`, and `filing` names the product it will be filed under and the rule that chose it.
+- **Exit 3 on filing:** more than one product can hold the ticket and nothing prefers one. List the candidates from the hint, ask which, and run this step again with `--in` set to the answer. Never pick one.
+- **Any other non-zero exit:** report the message and its hint verbatim, and stop. An unmet `config` requirement means the source is not bound where the ticket is filed; the hint names the skill that binds it.
 
-An unmet `config` requirement means the source is not bound where the ticket is filed; the hint names the skill that fixes it.
+Open `ticket-common/RESOLUTION.md` only when the output is disputed.
 
-**A ticket not on disk yet** has `filed: false`, and `filing` names the product it will be filed under and the rule that chose it. **Exit 3 on filing** means more than one product can hold it and nothing prefers one: list the candidates from the hint, ask which, and run this step again with `--in` for the answer. Never pick one yourself.
+### Step 2 — Refuse where the source cannot fetch
 
-### 2. Refuse where the source cannot fetch
+If `capabilities.fetch` is `false`, stop and report that `{source}` has no remote system to download from — its `raw/` is the original, not a copy.
 
-If the resolver reports `capabilities.fetch` is **false**, stop:
+This is a **reported gap, not a fallback**. Do not improvise a download, do not read another source's `fetch.md`, and do not treat the ticket's existing `raw/` as a failed fetch.
 
-> `{source}` has no fetch — it is not backed by a remote system, so there is nothing to download. Its `raw/` is already the source of truth.
+### Step 3 — Read the source's fetch contract
 
-This is a **reported gap, not a fallback**. Do not improvise a download, do not read another source's `fetch.md`, and do not treat the ticket's existing `raw/` as a failed fetch. The front door refuses the verb for the same reason and with the same exit code, so an attempt to run it anyway will simply be declined.
+Read `ticket-providers/{source}/fetch.md`. It alone defines what lands in `raw/`, the traversal policy, the attachment rules, and what `ticket.json` is refreshed with.
 
-### 3. Read the source's fetch contract
-
-Read `ticket-providers/{source}/fetch.md`. It is the only source of what lands in `raw/`, the traversal policy, the attachment rules, and what `ticket.json` is refreshed with.
-
-Whatever it says, these hold for **every** source and are this skill's own contract — a `fetch.md` that appears to relax one of them is wrong, and the discrepancy is worth reporting:
+These hold for every source, whatever `fetch.md` says. Report a `fetch.md` that relaxes one of them as a discrepancy:
 
 - **Always re-download the raw snapshot.** A fetch that decided nothing had changed would defeat the point of running it.
 - **Keep attachments already on disk; download only what is new.** Re-downloading a file that is already correct is wasted time and, worse, a window in which a good local copy is replaced by a failed one.
 - **Abort rather than write a partial `raw/`.** A snapshot that is missing half its comments reads as complete to every later skill.
 - **Never modify the ticket upstream.** Fetching is read-only, including any recursive walk.
 
-### 4. Run the fetch
+### Step 4 — Run the fetch
 
 ```bash
 python "{skills}/ticket-common/ticket.py" fetch "{qualified_ref}"
 ```
 
-Pass step 1's `qualified_ref`, so the fetch writes exactly where step 1 said — for a pasted address, pass the address itself instead, since its coordinates are what the fetch needs. There is no credential flag — never pass one, and never read a credential out of a config yourself. The provider uses its cached credential and refreshes it when it is close to expiring.
+Pass Step 1's `qualified_ref`, so the fetch writes exactly where Step 1 said. For a pasted address, pass the address instead: its coordinates are what the fetch needs. Pass no credential flag — there is none.
 
-Wait for it to complete. If it exits with a non-zero code, report the stderr output to the user and stop.
+On a non-zero exit, report its stderr and stop.
 
-### 5. Confirm
+### Step 5 — Confirm
 
-Report the result in a single line, plus anything that needs attention:
-
-> Fetched {ref} — raw data written to `{raw dir}`.
-
-Then, from the fetch's own output:
+Report in one line which ticket was fetched and the `raw/` directory it was written to. Then report, from the fetch's own output:
 
 - **Where a new ticket was filed**, when it was not on disk before: the product and the reason, from `filing`, in one line — `Filed under edwire/ew-educate: the only product ado is bound in.` Never silently. Where it is outside the session context, say that too.
 - **A filing the fetch contradicts**, when the output carries `misfiled`: the ticket's own coordinates disagree with the product it is filed under. Name each disagreeing coordinate, and offer `/ticket-move {qualified_ref} {belongs_under}` — or, where `belongs_under` is null, say that no product is bound to its coordinates yet and `/ticket-init` can bind one. Do not move it yourself.
-- **The resolved type**, where the fetch reported a `type_note`. A tag overriding the native type, or a native type that mapped to nothing and fell back, is stated in one line — never silently. The mapping is in `ticket-providers/{source}/types.md`; what the type then *means* is `ticket-types/{type}.md`'s business, and neither is read here.
-- **Any attachment that failed to download**, by name. It is noted as unavailable, never omitted.
-
----
-
-## Constraints
-
-- Never modify the ticket at its source
-- Never delete existing attachment files — the fetch keeps files already on disk
-- Never improvise a fetch for a source that declares it cannot: report the gap
-- Never print a credential in chat, and never pass one to a command
-- Do not proceed past a non-zero exit code
-- Do not read, summarize, or act on the fetched content here — that is `ticket-digest`'s job. This skill moves bytes and reports what moved
+- **The resolved type**, where the fetch reported a `type_note`: a tag overriding the native type, or a native type that mapped to nothing and fell back. Report it in one line. The mapping is in `ticket-providers/{source}/types.md`; what the type then *means* is `ticket-types/{type}.md`'s business, and neither is read here.
+- **Every attachment that failed to download**, by name. Report it as unavailable; never omit it.
