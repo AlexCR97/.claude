@@ -111,12 +111,6 @@ def binding(ctx: dict, extra: list[str]) -> dict:
     }
 
 
-def binding_from_layout1(legacy: dict) -> dict:
-    """The older layout kept one `repository: owner/name` key; a binding keeps the two halves apart."""
-    owner, _, name = str(legacy.get("repository") or "").partition("/")
-    return {"owner": owner, "repository": name} if owner and name else {}
-
-
 def init(ctx: dict, extra: list[str]) -> dict:
     _gh.require_cli()
     repo = _gh.repository(ctx)

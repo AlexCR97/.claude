@@ -25,17 +25,11 @@ from . import config, filing, layout, paths, providers, tickets
 from .errors import (
     EXIT_AMBIGUOUS,
     EXIT_ERROR,
-    EXIT_LEGACY_LAYOUT,
     EXIT_REQUIRE_UNMET,
     TicketError,
 )
 from .filing import Filing
 from .layout import Location, Product, Scope
-
-LEGACY_HINT = (
-    "The pre-`~/.tickets` layout is still on disk at {legacy}. "
-    "Run `/ticket-init` to migrate it."
-)
 
 # What `--require` accepts, mapped onto the survey `tickets.on_disk` returns.
 REQUIREMENTS = (
@@ -327,27 +321,6 @@ def resolve_stored(ref: str, own: Product) -> Location | None:
         return None
 
 
-def check_legacy(token: str) -> None:
-    """
-    Exit 4 rather than "not found" whenever the old layout explains the absence.
-
-    This branch is what lets every driver and every deprecated alias stay
-    ignorant of the pre-`~/.tickets` path: they never test for it, they only
-    report the code.
-    """
-    legacy = paths.legacy_home()
-    if not legacy.is_dir():
-        return
-
-    if (legacy / token).is_dir() or not paths.tickets_home().is_dir():
-        raise TicketError(
-            f"'{token}' is not under {paths.tickets_home()}, "
-            "but the legacy layout is present",
-            EXIT_LEGACY_LAYOUT,
-            LEGACY_HINT.format(legacy=legacy),
-        )
-
-
 def default_source_for(restrict: Scope | None, context: Scope | None) -> str:
     """The effective `default_source` of the nearest scope that says where the ticket goes."""
     for scope in (restrict, context):
@@ -402,7 +375,6 @@ def locate(
             outside_context=bool(context and not context.contains(found.product)),
         )
 
-    check_legacy(reference.id)
     if reference.source is None:
         reference.source = default_source_for(scope, context)
 
@@ -511,8 +483,6 @@ def resolve(
     cwd: Path | None = None,
 ) -> dict:
     """The full resolver output — every path absolute, every secret redacted."""
-    layout.require_current()
-
     if ref is None:
         require_sources()
         source = explicit_source or default_source_for(restrict, context)

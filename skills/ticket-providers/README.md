@@ -102,7 +102,6 @@ Then write `types.md`, `links.md`, `config.md`, `provider.py`, and whichever of 
 | `drift(ctx, extra)`                   | a report dict carrying `is_stale`; `ticket.py` maps it to exit 0 or 2                                                                                                                                                                                                    |
 | `auth_status(ctx)`                    | a report dict; **never** a credential                                                                                                                                                                                                                                    |
 | `set_parent(ctx, ref, dry_run=False)` | optional; rewrites a stored `parent` in this source's own record, for `move`, raising `TicketError` where it cannot. `dry_run` fails exactly where a real run would and writes nothing, so `move` can check before renaming. Without it, only `ticket.json` is rewritten |
-| `binding_from_layout1(config)`        | optional; the coordinates an older `{source}/config.json` held, where its keys differ from `coordinates`. Read only by the migration                                                                                                                                     |
 
 `binding`, `init` and `auth_status` always exist. The capability-gated ones need to exist only when their capability is `true`.
 

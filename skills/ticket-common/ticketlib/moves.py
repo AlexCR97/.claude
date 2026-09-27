@@ -19,8 +19,6 @@ from .layout import Location, Product
 
 
 def move(location: Location, target: Product, dry_run: bool) -> dict:
-    layout.require_current()
-
     if target == location.product:
         raise TicketError(
             f"{location.qualified} is already filed under {target.ref}", EXIT_ERROR
@@ -87,7 +85,6 @@ def move(location: Location, target: Product, dry_run: bool) -> dict:
     if dry_run:
         return report
 
-    layout.stamp_current()
     dest.dir.parent.mkdir(parents=True, exist_ok=True)
     try:
         os.rename(location.dir, dest.dir)

@@ -14,8 +14,6 @@ EXIT_DRIFTED = 2
 # An ambiguous bare reference, or a capability this source does not have.
 EXIT_AMBIGUOUS = 3
 EXIT_NO_CAPABILITY = 3
-# The pre-`~/.tickets` layout is on disk and this ticket is not migrated yet.
-EXIT_LEGACY_LAYOUT = 4
 EXIT_NOT_FOUND = 5
 
 

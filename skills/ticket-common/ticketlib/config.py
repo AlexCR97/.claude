@@ -11,8 +11,8 @@ is how a namespace's `sources.ado.organization` and a product's
 an outer level set, so `scan_roots: []` clears an inherited list.
 
 A key describing a level's relationship to what is inside it is read from that
-level alone and never merged: `layout` and `default_namespace` belong to the
-root, `default_product` to a namespace. A product inheriting `default_product`
+level alone and never merged: `default_namespace` belongs to the root,
+`default_product` to a namespace. A product inheriting `default_product`
 would be naming a product that is not there.
 
 No credential lives in any of these files. They are hand-edited and merged,
@@ -26,7 +26,7 @@ from pathlib import Path
 
 from . import paths
 
-LEVEL_ONLY_KEYS = frozenset({"layout", "default_namespace", "default_product"})
+LEVEL_ONLY_KEYS = frozenset({"default_namespace", "default_product"})
 
 
 def read_json(path: Path) -> dict:
@@ -228,8 +228,8 @@ def redact(config: dict) -> dict:
     """
     A config as it may be printed.
 
-    No level should hold a `token` any more, but one written by hand or left by
-    an older layout is still replaced by its status rather than shown.
+    No level should hold a `token`, but one written there by hand is still
+    replaced by its status rather than shown.
     """
     from . import tokencache
 

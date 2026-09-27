@@ -48,11 +48,6 @@ def tickets_home() -> Path:
     return Path.home() / ".tickets"
 
 
-def legacy_home() -> Path:
-    """The pre-`~/.tickets` layout, read only to detect that a migration is due."""
-    return Path.home() / ".az-workitems"
-
-
 def root_config_path() -> Path:
     return tickets_home() / CONFIG_FILENAME
 
@@ -123,21 +118,3 @@ def ticket_paths(
         "raw_dir": str(root / "raw"),
         "artifacts_dir": str(root / "artifacts"),
     }
-
-
-# --- layout 1 ---------------------------------------------------------------
-#
-# `{source}/{id}` directly under the tickets home. Read only by the two
-# migrations, which is why nothing else may call these.
-
-
-def layout1_source_dir(source: str) -> Path:
-    return tickets_home() / source
-
-
-def layout1_source_config_path(source: str) -> Path:
-    return layout1_source_dir(source) / CONFIG_FILENAME
-
-
-def layout1_ticket_dir(source: str, ticket_id: str) -> Path:
-    return layout1_source_dir(source) / ticket_id

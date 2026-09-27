@@ -14,14 +14,10 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
-from . import config, paths, providers
-from .errors import EXIT_ERROR, EXIT_LEGACY_LAYOUT, EXIT_NOT_FOUND, TicketError
-
-LAYOUT_VERSION = 2
+from . import paths, providers
+from .errors import EXIT_ERROR, EXIT_NOT_FOUND, TicketError
 
 NAME_PATTERN = re.compile(r"[a-z0-9][a-z0-9-]*")
-
-MIGRATE_HINT = "Run `/ticket-init` to migrate it."
 
 
 @dataclass(frozen=True, order=True)
@@ -256,49 +252,3 @@ def nearest(matches: list[Location], prefer: Scope | None) -> list[Location]:
         if tier:
             return tier
     return matches
-
-
-# --- layout versions ----------------------------------------------------------
-
-
-def version() -> int | None:
-    value = config.load_root().get("layout")
-    return value if isinstance(value, int) else None
-
-
-def layout1_sources() -> list[str]:
-    """
-    The source directories of the older `{source}/{id}` layout still in the tickets home.
-
-    Only an unstamped home can hold them. Once `layout` is recorded, a
-    directory named after a source is a namespace like any other.
-    """
-    if (version() or 0) >= LAYOUT_VERSION:
-        return []
-    home = paths.tickets_home()
-    return [source for source in providers.list_sources() if (home / source).is_dir()]
-
-
-def require_current() -> None:
-    """Refuse to read or write a tickets home that still needs migrating."""
-    stale = layout1_sources()
-    if stale:
-        raise TicketError(
-            f"the tickets home at {paths.tickets_home()} still uses the older "
-            f"{{source}}/{{id}} layout ({', '.join(stale)})",
-            EXIT_LEGACY_LAYOUT,
-            MIGRATE_HINT,
-        )
-
-
-def stamp_current() -> None:
-    """
-    Record the layout version before anything is written in it.
-
-    A fresh tickets home is stamped on its first write, so that a namespace
-    which happens to share a source's name can never later be mistaken for
-    the older layout.
-    """
-    require_current()
-    if version() != LAYOUT_VERSION:
-        config.update_level({"layout": LAYOUT_VERSION})

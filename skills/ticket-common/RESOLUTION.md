@@ -28,7 +28,6 @@ python "{skills}/ticket-common/ticket.py" <verb> [<ref>] [--source S] [--in X] [
 | `move <ref> --to NS/PRODUCT [--dry-run]`                         | Re-files a ticket: renames its directory, rewrites every `parent` that would stop resolving, reports the links the move breaks. See [Moving](#moving).                                             |
 | `auth-status [--source S]`                                       | Each source's credential state, once per credential, never the credential.                                                                                                                         |
 | `scan-roots [--in NS[/PRODUCT]] [--set [DIR ...]]`               | One level's scan roots and the effective list with where it came from. `--set` replaces that level's list with the given directories, each checked to exist; with none it empties it.              |
-| `migrate [--dry-run] [--map SOURCE=NS/PRODUCT]`                  | Brings an older layout up to this one. See [Migrating](#migrating).                                                                                                                                |
 
 **`--in` restricts; `--context` prefers.** `--in {namespace}[/{product}]` narrows what a reference can mean and where a new ticket can be filed. `--context` is how a driver passes the session context: it wins a tie and decides filing, but it never hides a ticket filed elsewhere. They are separate flags so a preference can never act as a restriction.
 
@@ -99,18 +98,15 @@ Every result names the product, the rule that chose it — `named`, `address`, `
 
 ## Exit codes
 
-| Code | Meaning                                                                        |
-| ---- | ------------------------------------------------------------------------------ |
-| 0    | ok — for `drift`, also "up to date"                                            |
-| 1    | error / not bound                                                              |
-| 2    | `--require` unmet, **or** `drift` found the ticket moved                       |
-| 3    | ambiguous reference or filing, or the source declares this capability absent   |
-| 4    | an older layout is on disk → tell the user to run `/ticket-init` to migrate it |
-| 5    | ticket, namespace or product not found                                         |
+| Code | Meaning                                                                      |
+| ---- | ---------------------------------------------------------------------------- |
+| 0    | ok — for `drift`, also "up to date"                                          |
+| 1    | error / not bound                                                            |
+| 2    | `--require` unmet, **or** `drift` found the ticket moved                     |
+| 3    | ambiguous reference or filing, or the source declares this capability absent |
+| 5    | ticket, namespace or product not found                                       |
 
 Exit 3 on an absent capability is structural, not advisory: the verb refuses before any provider code loads. Report it as a gap. Never substitute another source's behaviour for it, and never hand-roll the call the provider declined to make.
-
-Exit 4 is why no driver and no deprecated alias contains an old path. The resolver detects the older layout; the driver only relays the message.
 
 `--require` takes a comma-separated subset of `config, ticket_dir, ticket_json, raw, digest, plan, journal`. `config` means the source is bound where the ticket is filed: every coordinate its manifest declares is known. An unmet requirement exits 2 with a hint naming the skill that would satisfy it.
 
@@ -122,7 +118,7 @@ Exit 4 is why no driver and no deprecated alias contains an old path. The resolv
 
 ```
 ~/.tickets/
-├── config.json                  root level: layout, default_namespace, default_source, scan_roots
+├── config.json                  root level: default_namespace, default_source, scan_roots
 ├── .credentials/{source}/       cached credentials, keyed by namespace-level coordinate — never merged, never printed
 └── {namespace}/
     ├── config.json              default_product, default_source, scan_roots, sources.{source}.{namespace coordinates}
@@ -140,7 +136,7 @@ Exit 4 is why no driver and no deprecated alias contains an old path. The resolv
 
 A ticket directory holds **nothing but those six entries**. Never write a generated file directly into it.
 
-Every `config.json` is optional; an absent one reads as empty. Objects merge key by key across levels, anything else set at an inner level replaces what an outer one set, and `[]` clears an inherited list. `layout` and `default_namespace` are read from the root alone, `default_product` from its namespace alone. The resolver's `config_sources` names the file each effective value came from.
+Every `config.json` is optional; an absent one reads as empty. Objects merge key by key across levels, anything else set at an inner level replaces what an outer one set, and `[]` clears an inherited list. `default_namespace` is read from the root alone, `default_product` from its namespace alone. The resolver's `config_sources` names the file each effective value came from.
 
 `TICKETS_HOME` overrides the tickets home, which is how a test runs against a scratch tree without touching real data.
 
@@ -183,15 +179,4 @@ No verb emits a credential, and no driver reads one: acquiring, caching and refr
 
 Once the directory has moved, a rewrite that still fails is reported rather than raised: `result` is `moved_with_errors`, and `references_failed` names each ticket, the `parent` it should now hold, and why it could not be written. Report every one, so it can be set by hand.
 
----
-
-## Migrating
-
-`migrate` runs two scripts, oldest first, and reports them as one. `--dry-run` reports every action prefixed `would_` and changes nothing.
-
-- **`migrate-az-workitems.py`** copies the pre-`~/.tickets` tree into the `{source}/{id}` layout. It stands down once its `MIGRATED.md` exists or the current layout is recorded.
-- **`migrate-layout.py`** moves `{source}/{id}` under namespaces and products. Each source's tickets are filed together under the product its old config's coordinates name, or the one `--map SOURCE=NS/PRODUCT` gives; a ticket whose own coordinates disagree goes to a fallback product instead. It **renames, never copies**. Bindings move into the namespace and product configs, the cached credential into `.credentials/`, and each remote ticket's coordinates into its `ticket.json`.
-
-  A relative link the move breaks is rewritten — relative within the tickets home, as an absolute `file:` address outside it — except in `journal.md` and under `raw/`, which are never edited; those are reported. A link that was broken before the move is reported and left alone, as is any file quoting an old absolute path — except a link into the workspace, outside the tickets home, whose target is only missing because another branch is checked out: it is kept pointing where it always did, and flagged `target_missing`.
-
-  A ticket whose directory cannot be renamed — held open by a terminal or an editor — is reported with `action: failed` and its error, and the pass carries on with the rest. It is safe to re-run after that or any other interruption, and `layout: 2` is recorded last, so an unfinished pass keeps exiting 4 until it is finished.
+**Links are reported, never rewritten** — a journal entry is never edited, and the rest is someone's writing. `links_broken_by_move` lists each relative link the move breaks, from inside the ticket or into it from another, with the `replacement` that would repair it: relative within the tickets home, an absolute `file:` address outside it. A link that still resolves is not listed. One that was broken before the move is listed under `links_already_broken` and never "repaired" into pointing somewhere new — except a link into the workspace whose target is only missing because another branch is checked out, which keeps pointing where it always did and is flagged `target_missing`. Under `raw/`, only links the move itself breaks are listed.

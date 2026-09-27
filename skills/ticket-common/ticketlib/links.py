@@ -7,16 +7,17 @@ them together, because only the directories above them change. A link that
 leaves the ticket for the workspace does not: its `../../..` counts levels of
 the tickets home, so it breaks whenever that depth changes.
 
-The rule every caller shares is conservative in both directions. A link that
-still resolves after the move is never touched, and one that did not resolve
-before it is never "fixed" into pointing somewhere new — it is reported as
-already broken. Only a link the move itself broke is a candidate for rewriting,
-and whether it is rewritten is the caller's decision: `journal.md` never is.
+Nothing here rewrites a link. A move reports each one it breaks, with the
+replacement that would repair it, because a journal entry is never edited and
+the rest is someone's writing. The analysis is conservative in both
+directions: a link that still resolves after the move is never reported, and
+one that did not resolve before it is reported as already broken, never
+"repaired" into pointing somewhere new.
 
 One exception keeps a link's meaning rather than its current state: a target
 outside the tickets home. That is the workspace, where a file can be missing
-only because another branch is checked out, and the address the link spelled
-before the move is still exactly where it means. It is kept pointing there.
+only because another branch is checked out, so the replacement keeps pointing
+where the link always meant.
 """
 
 import os
@@ -137,22 +138,6 @@ def is_inside(path: Path, directory: Path) -> bool:
         return False
 
 
-def rewrite(text: str, relinks: list[Relink]) -> str:
-    replacements = {
-        relink.link: relink.replacement
-        for relink in relinks
-        if relink.status == "broken_by_move" and relink.replacement
-    }
-    if not replacements:
-        return text
-
-    def swap(match: re.Match) -> str:
-        link = match.group(2)
-        return f"{match.group(1)}{replacements.get(link, link)}{match.group(3)}"
-
-    return LINK_PATTERN.sub(swap, text)
-
-
 def markdown_files(directory: Path) -> list[Path]:
     return sorted(path for path in directory.rglob("*.md") if path.is_file())
 
@@ -165,18 +150,6 @@ def in_snapshot(path: Path, ticket_dir: Path) -> bool:
     them, so a link there that was broken before a move says nothing about it.
     """
     return path.relative_to(ticket_dir).parts[0] == "raw"
-
-
-def is_rewritable(path: Path, ticket_dir: Path) -> bool:
-    """
-    Whether a file's links may be repaired in place.
-
-    Never `journal.md`, whose entries are never edited. Never anything under
-    `raw/`, which is either a snapshot of the source or its hand-written body —
-    the one a fetch would overwrite, the other a person's own words.
-    """
-    relative = path.relative_to(ticket_dir)
-    return relative.parts[0] not in ("raw", "journal.md")
 
 
 def mentions(text: str, directory: Path) -> bool:

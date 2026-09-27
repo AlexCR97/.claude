@@ -17,7 +17,6 @@ Usage:
     python ticket.py list [--in X] [--context X]
     python ticket.py namespaces [--in X]
     python ticket.py defaults [--namespace NS] [--product NS/PRODUCT]
-    python ticket.py migrate [--dry-run] [--map SOURCE=NS/PRODUCT ...]
     python ticket.py init --source S [--in NS/PRODUCT] [--propose] [provider flags...]
     python ticket.py init --in NS[/PRODUCT]
     python ticket.py fetch <ref> [--source S] [--in X] [--context X]
@@ -37,14 +36,12 @@ Exit codes:
     1  error / not initialized
     2  `--require` unmet, or `drift` found the ticket moved
     3  ambiguous reference or filing, or the source declares this capability absent
-    4  an older layout was detected — run /ticket-init to migrate it
     5  ticket, namespace or product not found
 """
 
 import argparse
 import json
 import os
-import subprocess
 import sys
 from pathlib import Path
 
@@ -110,7 +107,6 @@ def context_of(args: argparse.Namespace) -> Scope | None:
 
 
 def locate(args: argparse.Namespace) -> sources.Target:
-    layout.require_current()
     return sources.locate(
         args.ref, args.source, restrict_of(args), context_of(args), Path.cwd()
     )
@@ -172,7 +168,6 @@ def verb_sources(args: argparse.Namespace) -> int:
             "default_source": config.default_source(),
             "default_namespace": config.default_namespace(),
             "tickets_home": str(paths.tickets_home()),
-            "layout": layout.version(),
             "providers_root": str(providers.providers_root()),
             "types_root": str(providers.types_root()),
             "known_types": providers.list_types(),
@@ -197,7 +192,6 @@ def verb_resolve(args: argparse.Namespace) -> int:
 
 
 def verb_list(args: argparse.Namespace) -> int:
-    layout.require_current()
     context = context_of(args)
     entries = tickets.list_all(restrict_of(args))
 
@@ -246,7 +240,6 @@ def binding_summary(product: Product) -> dict:
 
 
 def verb_namespaces(args: argparse.Namespace) -> int:
-    layout.require_current()
     default_namespace = config.default_namespace()
 
     if args.within:
@@ -317,7 +310,6 @@ def verb_namespaces(args: argparse.Namespace) -> int:
     emit(
         {
             "tickets_home": str(paths.tickets_home()),
-            "layout": layout.version(),
             "default_namespace": default_namespace,
             "default_product": f"{default_namespace}/{config.default_product(default_namespace)}",
             "namespaces": namespaces,
@@ -327,10 +319,6 @@ def verb_namespaces(args: argparse.Namespace) -> int:
 
 
 def verb_defaults(args: argparse.Namespace) -> int:
-    layout.require_current()
-    if args.namespace is not None or args.product is not None:
-        layout.stamp_current()
-
     if args.namespace is not None:
         name = layout.require_name(args.namespace, "namespace")
         if name != paths.DEFAULT_NAME and not paths.namespace_dir(name).is_dir():
@@ -377,52 +365,7 @@ def verb_defaults(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
-def verb_migrate(args: argparse.Namespace) -> int:
-    """
-    Run both migrations, oldest first, and report them as one.
-
-    They are scripts rather than code in this file for the reason each of them
-    states: renaming directories and rewriting config are the operations where
-    a half-completed pass is worst, and each is a single self-contained run.
-    """
-    here = Path(__file__).resolve().parent
-    reports = {}
-    for name, script in (
-        ("az_workitems", "migrate-az-workitems.py"),
-        ("layout", "migrate-layout.py"),
-    ):
-        command = [sys.executable, str(here / script)]
-        if args.dry_run:
-            command.append("--dry-run")
-        if name == "layout":
-            for mapping in args.map or []:
-                command.extend(["--map", mapping])
-
-        completed = subprocess.run(
-            command, check=False, capture_output=True, text=True, encoding="utf-8"
-        )
-        if completed.returncode != 0:
-            print(completed.stderr, file=sys.stderr, end="")
-            raise TicketError(f"{script} failed with exit code {completed.returncode}")
-        try:
-            reports[name] = json.loads(completed.stdout)
-        except json.JSONDecodeError as exc:
-            raise TicketError(
-                f"{script} printed something that is not JSON — {exc}"
-            ) from exc
-
-    results = {report.get("result") for report in reports.values()}
-    if results == {"nothing_to_migrate"}:
-        result = "nothing_to_migrate"
-    else:
-        result = "dry_run" if args.dry_run else "migrated"
-
-    emit({"result": result, **reports})
-    return EXIT_OK
-
-
 def create_scope(scope: Scope) -> int:
-    layout.stamp_current()
     created = []
     namespace_dir = paths.namespace_dir(scope.namespace)
     if not namespace_dir.is_dir():
@@ -452,7 +395,6 @@ def create_scope(scope: Scope) -> int:
 
 
 def verb_init(args: argparse.Namespace) -> int:
-    layout.require_current()
     target = restrict_of(args)
 
     if not args.source:
@@ -500,7 +442,6 @@ def verb_init(args: argparse.Namespace) -> int:
     if problems:
         raise TicketError(problems[0], EXIT_ERROR, "\n".join(problems[1:]))
 
-    layout.stamp_current()
     result = module.init(
         sources.provider_context(source, product, coordinates=coordinates), args.extra
     )
@@ -547,7 +488,6 @@ def verb_fetch(args: argparse.Namespace) -> int:
             f"Run `/ticket-init {location.source} --in {location.product.ref}` first.",
         )
 
-    layout.stamp_current()
     (location.dir / "raw").mkdir(parents=True, exist_ok=True)
 
     result = module.fetch(ctx, args.extra)
@@ -568,7 +508,6 @@ def verb_fetch(args: argparse.Namespace) -> int:
 
 
 def verb_new(args: argparse.Namespace) -> int:
-    layout.require_current()
     restrict, context = restrict_of(args), context_of(args)
     sources.require_sources()
     source = args.source or sources.default_source_for(restrict, context)
@@ -614,7 +553,6 @@ def verb_new(args: argparse.Namespace) -> int:
             f"Pass a different --id, or open {location.dir}.",
         )
 
-    layout.stamp_current()
     ctx = sources.provider_context(source, location.product, location)
     result = module.new(ctx, args.title, args.type, args.extra)
     result.update(location_report(sources.Target(location, filed=False, filing=choice)))
@@ -678,7 +616,6 @@ def verb_auth_status(args: argparse.Namespace) -> int:
     Products in one namespace share their namespace-level coordinate, which
     is what a credential is keyed by; listing each would repeat one status.
     """
-    layout.require_current()
     restrict = restrict_of(args)
     names = [args.source] if args.source else providers.list_sources()
     statuses = []
@@ -725,7 +662,6 @@ def verb_auth_status(args: argparse.Namespace) -> int:
 
 
 def verb_scan_roots(args: argparse.Namespace) -> int:
-    layout.require_current()
     scope = restrict_of(args)
     namespace, product = (scope.namespace, scope.product) if scope else (None, None)
 
@@ -742,7 +678,6 @@ def verb_scan_roots(args: argparse.Namespace) -> int:
                     EXIT_NOT_FOUND,
                     f"Create it with `/ticket-init --in {scope.ref}` first.",
                 )
-        layout.stamp_current()
         config.set_scan_roots(normalize_directories(args.set), namespace, product)
 
     effective, origin = config.scan_roots(namespace, product)
@@ -808,7 +743,6 @@ VERBS = {
     "list": verb_list,
     "namespaces": verb_namespaces,
     "defaults": verb_defaults,
-    "migrate": verb_migrate,
     "init": verb_init,
     "fetch": verb_fetch,
     "new": verb_new,
@@ -882,21 +816,6 @@ def build_parser() -> argparse.ArgumentParser:
         "--product",
         metavar="NS/PRODUCT",
         help="that namespace's default product; NS/default unsets it",
-    )
-
-    p = sub.add_parser(
-        "migrate", help="bring older layouts on disk up to the current one"
-    )
-    p.add_argument(
-        "--dry-run",
-        action="store_true",
-        help="report what would happen, change nothing",
-    )
-    p.add_argument(
-        "--map",
-        action="append",
-        metavar="SOURCE=NS/PRODUCT",
-        help="file every ticket of this source under this product",
     )
 
     p = sub.add_parser(

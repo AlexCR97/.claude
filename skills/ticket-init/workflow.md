@@ -129,7 +129,7 @@ Four levels, always: namespace, product, source, ticket.
 
 ```txt
 ~/.tickets/
-├── config.json                           {"layout": 2, "default_source": "ado", "default_namespace": "edwire"}
+├── config.json                           {"default_source": "ado", "default_namespace": "edwire"}
 ├── .credentials/ado/edwire.json          cached token, keyed by organization — never merged, never printed
 ├── default/default/local/{slug}/         where a ticket nothing places lands
 ├── edwire/                               namespace ⇄ ADO organization "edwire"
@@ -193,7 +193,7 @@ flowchart TD
     INIT_CHECK -->|No| INIT
     INIT_CHECK -->|"Yes — skip"| ORIGIN
 
-    INIT["/ticket-init [source] [--in ns/product]\n────────────────\nMigrates any older layout it finds\nBinds a source under a namespace and product\nRuns that source's own connection setup\nSets the default namespace and product\nSaves the default scan roots\n\nRun once per binding"]
+    INIT["/ticket-init [source] [--in ns/product]\n────────────────\nBinds a source under a namespace and product\nRuns that source's own connection setup\nSets the default namespace and product\nSaves the default scan roots\n\nRun once per binding"]
 
     INIT --> ORIGIN{"Does the ticket\nexist upstream?"}
 
@@ -241,7 +241,3 @@ flowchart TD
 
     CHECKPOINT -.->|"days later,\nnew session"| RESUME
 ```
-
-## Deprecated aliases
-
-The eight `az-workitem-*` skills still work. Each is a twelve-line alias that prefixes the id with `ado:` and hands off to its `ticket-*` equivalent, printing one deprecation line first. They hold no logic, no scripts and no templates of their own.
