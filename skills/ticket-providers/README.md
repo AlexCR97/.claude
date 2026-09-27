@@ -40,9 +40,9 @@ A provider directory is trusted **code**, not configuration. `provider.py` is im
 | `provider.json`                   | capabilities, prefixes, coordinates, address patterns, id shape, nouns, comment format           | all, via `resolve`                                  | —                |
 | `config.md`                       | what a binding holds and at which level, how credentials are acquired and validated              | `ticket-setup`                                      | —                |
 | `fetch.md`                        | how raw data lands in `raw/`, traversal policy, attachment rules, how `ticket.json` is refreshed | `ticket-fetch`                                      | `fetch`          |
-| `new.md`                          | how a ticket is created here                                                                     | `ticket-new`                                        | `new`            |
+| `new.md`                          | how a ticket is created here                                                                     | `ticket-create`                                     | `new`            |
 | `schema.md`                       | where the content is on disk and the logical→physical field map                                  | `ticket-digest`, `ticket-refine`                    | —                |
-| `types.md`                        | this source's native type and tag/label vocabulary → one canonical type                          | `ticket-fetch`, `ticket-new`                        | —                |
+| `types.md`                        | this source's native type and tag/label vocabulary → one canonical type                          | `ticket-fetch`, `ticket-create`                     | —                |
 | `links.md`                        | ticket / comment / attachment URL patterns                                                       | `ticket-digest`, `ticket-plan`, `ticket-checkpoint` | —                |
 | `publish.md`                      | where a refinement summary goes, in what markup, via what verb, which template                   | `ticket-refine`                                     | `publish`        |
 | `drift.md`                        | how to tell the local snapshot is stale, as exit 0/1/2                                           | `ticket-resume`                                     | `drift`          |
@@ -55,7 +55,7 @@ A provider directory is trusted **code**, not configuration. `provider.py` is im
 Two deliberate gaps are how the suite enforces its rules without a single `if source == …` branch in any driver:
 
 - **`local/fetch.md` is absent** and `capabilities.fetch` is `false`, so `ticket-fetch` refuses `local` structurally. Fetch being remote-only falls out of the module system, not out of driver logic.
-- **`ado/new.md` and `github/new.md` are absent**, so `ticket-new` refuses remote sources — and the absence documents that creating an upstream ticket is out of scope rather than forgotten.
+- **`ado/new.md` and `github/new.md` are absent**, so `ticket-create` refuses remote sources — and the absence documents that creating an upstream ticket is out of scope rather than forgotten.
 
 A source directory may hold only some of the optional role files. Treat each as present-or-absent independently, and **never substitute another source's module for a missing one**. A missing module is a reported gap.
 

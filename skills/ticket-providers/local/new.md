@@ -1,6 +1,6 @@
 # local — new
 
-Read by `ticket-new`. **This is the only source that has this file**, which is what makes `/ticket-new` refuse the remote ones.
+Read by `ticket-create`. **This is the only source that has this file**, which is what makes `/ticket-create` refuse the remote ones.
 
 ## What gets created
 

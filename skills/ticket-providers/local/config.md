@@ -20,4 +20,4 @@ There are no provider options. `init --in {namespace}/{product}` with no source 
 
 ## What to report afterwards
 
-That the store is local files, that it needs no credential and will never expire, and that tickets here are created with `/ticket-new` rather than fetched — this source has no `fetch`.
+That the store is local files, that it needs no credential and will never expire, and that tickets here are created with `/ticket-create` rather than fetched — this source has no `fetch`.

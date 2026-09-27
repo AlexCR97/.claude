@@ -24,7 +24,7 @@ from ticketlib.errors import EXIT_ERROR, EXIT_NOT_FOUND, TicketError
 # this module's own template shape, not an externally authored format.
 REFINEMENT_HEADING_PATTERN = re.compile(r"^#### +(.+?) *$", re.MULTILINE)
 
-# A "TODO — ..." marker sentence, as `new()`'s stubs and `/ticket-new`'s
+# A "TODO — ..." marker sentence, as `new()`'s stubs and `/ticket-create`'s
 # type-seeded stub lines both phrase it — up to the first sentence-ending
 # punctuation, so a bolded question or a "Provisionally: ..." guess sitting
 # next to the marker on the same line survives untouched.
@@ -52,7 +52,7 @@ def require_ticket_file(ctx: dict) -> Path:
         raise TicketError(
             f"no ticket body at {path}",
             EXIT_NOT_FOUND,
-            "Run `/ticket-new` to create it.",
+            "Run `/ticket-create` to create it.",
         )
     return path
 

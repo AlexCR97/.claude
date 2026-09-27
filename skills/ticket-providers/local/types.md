@@ -1,6 +1,6 @@
 # local — types
 
-Read by `ticket-new`. Maps this source's own vocabulary onto one of the canonical types in `ticket-types/`. **It is a mapping and nothing else** — what a type then means is the type file's business, never this file's.
+Read by `ticket-create`. Maps this source's own vocabulary onto one of the canonical types in `ticket-types/`. **It is a mapping and nothing else** — what a type then means is the type file's business, never this file's.
 
 ## The frontmatter key, directly
 

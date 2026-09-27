@@ -146,7 +146,7 @@ python "{skills}/ticket-common/ticket.py" scan-roots [--in "{namespace}[/{produc
 
 ### Step 8 — Report the result
 
-On a binding, report that `{source}` is bound under `{product}`, and name the coordinates and the `namespace_config` and `product_config` they were written to. Point at `/ticket-fetch` as the next step, or at `/ticket-new` where the source offers `new` rather than `fetch` — Step 1's capabilities say which. Also report:
+On a binding, report that `{source}` is bound under `{product}`, and name the coordinates and the `namespace_config` and `product_config` they were written to. Point at `/ticket-fetch` as the next step, or at `/ticket-create` where the source offers `new` rather than `fetch` — Step 1's capabilities say which. Also report:
 
 - **Which values were used, and which came from a default or were inherited** — so a default is never applied silently. Both lists are in the init's own output.
 - **Whether `default_source` was set**, and to what. The front door sets it only when the root had none; an init for a second source **never silently repoints it**. Where a default already existed, say which source it is and that bare ids not on disk still resolve there.

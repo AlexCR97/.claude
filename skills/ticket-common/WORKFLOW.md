@@ -4,7 +4,7 @@
 
 ```mermaid
 flowchart LR
-    INIT[ticket-setup] --> NEW[ticket-new]
+    INIT[ticket-setup] --> NEW[ticket-create]
     INIT --> FETCH[ticket-fetch]
     NEW --> REFINE[ticket-refine]
     FETCH --> REFINE
@@ -24,7 +24,7 @@ flowchart LR
 | ------------------- | ------------------------------------------------------ | ---------------- |
 | `ticket-setup`      | Once per binding, or to create a namespace or product  | None             |
 | `ticket-context`    | Optional; once per session, to work in one product     | a product        |
-| `ticket-new`        | To create a ticket in a local store                    | `init`           |
+| `ticket-create`     | To create a ticket in a local store                    | `init`           |
 | `ticket-fetch`      | Once per ticket; always re-run after `refine`          | `init`           |
 | `ticket-refine` ⚠️   | Optional; followed by `fetch` where the source has one | `fetch` or `new` |
 | `ticket-digest`     | Once per ticket                                        | `fetch` or `new` |
@@ -70,7 +70,7 @@ Every driver invokes exactly one command — `ticket-common/ticket.py` — so a 
 
 `local` has no `fetch.md`, and its `capabilities.fetch` is `false` — so `/ticket-fetch local:x` refuses, structurally, with no `if source == "local"` anywhere in any driver. There is nothing upstream to fetch from: a local ticket's `raw/ticket.md` *is* the source of truth.
 
-Neither remote source has a `new.md` — so `/ticket-new` refuses them, and the absence documents that creating an upstream ticket is out of scope rather than forgotten.
+Neither remote source has a `new.md` — so `/ticket-create` refuses them, and the absence documents that creating an upstream ticket is out of scope rather than forgotten.
 
 A missing role file is always a **reported gap**, never a licence to substitute another source's.
 
@@ -200,7 +200,7 @@ flowchart TD
     ORIGIN -->|"Yes — remote source"| FETCH
     ORIGIN -->|"No — my own work"| NEW
 
-    NEW["/ticket-new #quot;title#quot; --type {type}\n────────────────\nCreates raw/ticket.md + ticket.json\nSeeds the body from ticket-types/{type}.md\nChains straight into refine\n\nLocal stores only"]
+    NEW["/ticket-create #quot;title#quot; --type {type}\n────────────────\nCreates raw/ticket.md + ticket.json\nSeeds the body from ticket-types/{type}.md\nChains straight into refine\n\nLocal stores only"]
 
     FETCH["/ticket-fetch {ref}\n────────────────\nDownloads the snapshot to raw/\nKeeps attachments already on disk\nRefreshes ticket.json incl. the resolved type\n\nRemote sources only"]
 

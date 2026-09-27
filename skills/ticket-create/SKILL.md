@@ -1,5 +1,5 @@
 ---
-name: ticket-new
+name: ticket-create
 description: Creates a ticket in a store that supports it, seeded from its type so the body starts with the right questions, then chains into ticket-refine. For local tickets that have no upstream system to fetch from.
 argument-hint: "<title> [--source source] [--type type] [--in namespace[/product]] [--parent ref]"
 allowed-tools: Read Edit Skill Bash(python *ticket.py:*)

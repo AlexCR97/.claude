@@ -569,7 +569,7 @@ def requirement_hint(location: Location, unmet: list[str]) -> str:
     Name the skill that would satisfy each unmet requirement.
 
     Which skill that is depends on the source: a store that cannot fetch is
-    populated by `/ticket-new`, and pointing it at `/ticket-fetch` would send
+    populated by `/ticket-create`, and pointing it at `/ticket-fetch` would send
     the user to a verb that structurally refuses.
     """
     source = location.source
@@ -577,7 +577,7 @@ def requirement_hint(location: Location, unmet: list[str]) -> str:
     populate = (
         f"Run `/ticket-fetch {ref}`."
         if providers.has_capability(source, "fetch")
-        else f"Run `/ticket-new` to create it — `{source}` has no fetch."
+        else f"Run `/ticket-create` to create it — `{source}` has no fetch."
     )
     steps = {
         "config": f"Run `/ticket-setup {source} --in {location.product.ref}` to bind it there.",

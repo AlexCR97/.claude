@@ -4,7 +4,7 @@ Read by `ticket-refine`.
 
 ## Applied in place, not posted as a comment
 
-There is no discussion thread here that means anything — `raw/ticket.md` *is* the ticket, not a copy of one — so a refinement's conclusions are written directly into the two sections `/ticket-new` left as `TODO` stubs for exactly this:
+There is no discussion thread here that means anything — `raw/ticket.md` *is* the ticket, not a copy of one — so a refinement's conclusions are written directly into the two sections `/ticket-create` left as `TODO` stubs for exactly this:
 
 | Template section                                                      | Lands in                                                                |
 | --------------------------------------------------------------------- | ----------------------------------------------------------------------- |
@@ -15,7 +15,7 @@ There is no discussion thread here that means anything — `raw/ticket.md` *is* 
 
 **A section still holding its original stub is replaced outright.** A section a person has already written into is grown instead — the new content is appended after what is there, never overwriting hand-written prose. This is why a ticket refined more than once keeps every pass's conclusions rather than only the latest.
 
-**Every leftover `TODO — ...` marker in that section is stripped first**, whichever section it grows onto. `/ticket-new`'s type-seeded stubs routinely leave more than one — a bolded question per "what refine must establish" item, each ending in its own `TODO — run /ticket-refine to establish this.` — and a refinement pass answering one is exactly the moment its marker stops being true. Only the marker sentence goes; a bolded question or a "Provisionally: ..." guess sitting next to it survives as context. A line that was nothing but a marker (a bare paragraph, or a bullet with nothing else in it) is dropped entirely rather than left as a dangling `-`.
+**Every leftover `TODO — ...` marker in that section is stripped first**, whichever section it grows onto. `/ticket-create`'s type-seeded stubs routinely leave more than one — a bolded question per "what refine must establish" item, each ending in its own `TODO — run /ticket-refine to establish this.` — and a refinement pass answering one is exactly the moment its marker stops being true. Only the marker sentence goes; a bolded question or a "Provisionally: ..." guess sitting next to it survives as context. A line that was nothing but a marker (a bare paragraph, or a bullet with nothing else in it) is dropped entirely rather than left as a dangling `-`.
 
 Posted through:
 
