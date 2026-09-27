@@ -1,5 +1,5 @@
 ---
-name: ticket-init
+name: ticket-setup
 description: Binds a ticket source — an Azure DevOps organization and project, a GitHub owner and repository — under a namespace and product in ~/.tickets, or creates an unbound namespace or product. Also sets the default namespace, product and scan roots. Run once per binding, before any other ticket-* skill.
 argument-hint: "[source] [--in namespace[/product]] [provider-options]"
 allowed-tools: Read Bash(python *ticket.py:*)

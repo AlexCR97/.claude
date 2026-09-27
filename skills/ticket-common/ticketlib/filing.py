@@ -103,7 +103,7 @@ def choose(
         raise TicketError(
             f"'{source}' is not bound in any product{where}",
             EXIT_ERROR,
-            f"Run `/ticket-init {source}` to bind it, naming the product with --in.",
+            f"Run `/ticket-setup {source}` to bind it, naming the product with --in.",
         )
 
     if len(candidates) == 1:
@@ -166,7 +166,7 @@ def require_holds(product: Product, source: str, coordinates: dict) -> None:
         raise TicketError(
             f"{product.ref} has no {source} {', '.join(missing)} to fetch from",
             EXIT_ERROR,
-            f"Run `/ticket-init {source} --in {product.ref}` to bind it.",
+            f"Run `/ticket-setup {source} --in {product.ref}` to bind it.",
         )
 
 
@@ -208,7 +208,7 @@ def by_address(source: str, address: dict, restrict: Scope | None) -> Filing:
     raise TicketError(
         f"no namespace or product is bound to {source} {describe(address)}",
         EXIT_ERROR,
-        f"Run `/ticket-init {source}` with those coordinates to bind them.",
+        f"Run `/ticket-setup {source}` with those coordinates to bind them.",
     )
 
 

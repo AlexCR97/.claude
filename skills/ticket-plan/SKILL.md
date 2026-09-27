@@ -1,6 +1,6 @@
 ---
 name: ticket-plan
-description: Follow-up to ticket-digest. Reads the digest.md for a ticket, discovers its workspace — the repositories, worktrees and projects the work spans — from its scan roots (the default scan roots saved by ticket-init, plus the directories the user gives or else the invocation directory; it asks when there are none), and produces a phased, file-level implementation plan written to plan.md. Researches unknowns that would change the plan, storing scripts and findings under artifacts/planning/, and asking first before running any script. On subsequent runs, shows progress and updates step status. Makes NO code changes.
+description: Follow-up to ticket-digest. Reads the digest.md for a ticket, discovers its workspace — the repositories, worktrees and projects the work spans — from its scan roots (the default scan roots saved by ticket-setup, plus the directories the user gives or else the invocation directory; it asks when there are none), and produces a phased, file-level implementation plan written to plan.md. Researches unknowns that would change the plan, storing scripts and findings under artifacts/planning/, and asking first before running any script. On subsequent runs, shows progress and updates step status. Makes NO code changes.
 argument-hint: "<[namespace/product/][source:]id> [--type T] [dir ...]"
 ---
 
@@ -100,7 +100,7 @@ Anything measured or established there is **evidence, and outranks assumption**.
 
 Discovery always begins from scan roots. They come from the three sources below, combined into one list in which each directory appears once; compare resolved absolute paths, case-insensitively on Windows. The glossary says how far each kind is trusted: a directory the user gave and the invocation directory are facts about this ticket, while a default scan root, or one found by search, says only where to look.
 
-**The default scan roots, always.** Read the list the ticket's own product uses — `/ticket-init` saves one at the root, on a namespace or on a product, and the nearest level that sets one wins:
+**The default scan roots, always.** Read the list the ticket's own product uses — `/ticket-setup` saves one at the root, on a namespace or on a product, and the nearest level that sets one wins:
 
 ```bash
 python "{skills}/ticket-common/ticket.py" scan-roots --in "{product}"
@@ -121,7 +121,7 @@ python "{skills}/ticket-common/ticket.py" scan-roots --in "{product}"
 
 > I have no code to plan this ticket against: {no default scan roots are saved, and `{invocation directory}` holds none | nothing beneath the default scan roots matches it}. Which directories hold it? Name a repository's worktree, or a directory holding several repositories. If you are not sure, say so and I will search for it.
 
-Where no default scan roots are saved, add that `/ticket-init` can save them — for this ticket's namespace or product — so the question does not come up again. Wait for the answer. Any directory it names counts as a directory the user gave.
+Where no default scan roots are saved, add that `/ticket-setup` can save them — for this ticket's namespace or product — so the question does not come up again. Wait for the answer. Any directory it names counts as a directory the user gave.
 
 **If the user cannot name one, search.** Keep the search bounded: never walk the whole home directory or a drive.
 

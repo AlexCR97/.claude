@@ -62,7 +62,7 @@ def repository(ctx: dict) -> str:
         raise TicketError(
             f"no GitHub owner and repository are bound for {where}",
             EXIT_ERROR,
-            f"Run `/ticket-init github --in {where} --repo owner/name` first.",
+            f"Run `/ticket-setup github --in {where} --repo owner/name` first.",
         )
     return f"{owner}/{name}"
 

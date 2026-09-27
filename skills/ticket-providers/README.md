@@ -38,7 +38,7 @@ A provider directory is trusted **code**, not configuration. `provider.py` is im
 | Role file                         | Answers                                                                                          | Read by                                             | Gates capability |
 | --------------------------------- | ------------------------------------------------------------------------------------------------ | --------------------------------------------------- | ---------------- |
 | `provider.json`                   | capabilities, prefixes, coordinates, address patterns, id shape, nouns, comment format           | all, via `resolve`                                  | —                |
-| `config.md`                       | what a binding holds and at which level, how credentials are acquired and validated              | `ticket-init`                                       | —                |
+| `config.md`                       | what a binding holds and at which level, how credentials are acquired and validated              | `ticket-setup`                                      | —                |
 | `fetch.md`                        | how raw data lands in `raw/`, traversal policy, attachment rules, how `ticket.json` is refreshed | `ticket-fetch`                                      | `fetch`          |
 | `new.md`                          | how a ticket is created here                                                                     | `ticket-new`                                        | `new`            |
 | `schema.md`                       | where the content is on disk and the logical→physical field map                                  | `ticket-digest`, `ticket-refine`                    | —                |

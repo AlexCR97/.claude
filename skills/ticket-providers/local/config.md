@@ -1,6 +1,6 @@
 # local — config
 
-Read by `ticket-init`.
+Read by `ticket-setup`.
 
 ## What a local binding holds
 

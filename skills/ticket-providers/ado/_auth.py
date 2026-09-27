@@ -91,6 +91,6 @@ def coordinates(ctx: dict) -> tuple[str, str]:
         raise TicketError(
             f"no Azure DevOps organization and project are bound for {where}",
             EXIT_ERROR,
-            f"Run `/ticket-init ado --in {where}` first.",
+            f"Run `/ticket-setup ado --in {where}` first.",
         )
     return str(org), str(project)

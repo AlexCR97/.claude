@@ -1,6 +1,6 @@
 # ado — config
 
-Read by `ticket-init`.
+Read by `ticket-setup`.
 
 ## What an ado binding holds
 

@@ -89,7 +89,7 @@ Then ask the front door where it would be filed, creating nothing:
 python "{skills}/ticket-common/ticket.py" new --source {source} --title "{title}" --id {slug} --propose [--in {in}] [--context {context}]
 ```
 
-`product` and `filing` say where it would go and which rule chose it; `exists` says whether that slug is already taken there, and `elsewhere` lists a ticket of the same slug in another product. **Exit 3** means more than one product could hold it and nothing prefers one: list the candidates from the hint and ask which. **Exit 5** means the `--in` or the session context names a namespace or product that does not exist: say so, and offer `/ticket-init --in {scope}` to create it rather than filing into a misspelling.
+`product` and `filing` say where it would go and which rule chose it; `exists` says whether that slug is already taken there, and `elsewhere` lists a ticket of the same slug in another product. **Exit 3** means more than one product could hold it and nothing prefers one: list the candidates from the hint and ask which. **Exit 5** means the `--in` or the session context names a namespace or product that does not exist: say so, and offer `/ticket-setup --in {scope}` to create it rather than filing into a misspelling.
 
 Show both the slug and the product, and let the user override either before creating anything — they have to live with both, and each is a directory name:
 

@@ -38,7 +38,7 @@ Raw tickets often under-specify what "done" looks like. This skill reads the fet
 **Recommended skill order:**
 
 ```
-ticket-init → ticket-fetch → ticket-refine → [fetch → refine → …] → ticket-digest → ticket-plan → ticket-implement
+ticket-setup → ticket-fetch → ticket-refine → [fetch → refine → …] → ticket-digest → ticket-plan → ticket-implement
 ```
 
 You may loop fetch and refine as the ticket evolves and its discussion grows.

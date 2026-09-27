@@ -1,6 +1,6 @@
 # github — config
 
-Read by `ticket-init`.
+Read by `ticket-setup`.
 
 ## What a github binding holds
 

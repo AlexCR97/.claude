@@ -153,7 +153,7 @@ def require_exists(scope: Scope, what: str) -> None:
         raise TicketError(
             f"{what} names namespace '{scope.namespace}', which does not exist",
             EXIT_NOT_FOUND,
-            f"Create it with `/ticket-init --in {scope.ref}`, or check the spelling.",
+            f"Create it with `/ticket-setup --in {scope.ref}`, or check the spelling.",
         )
     if (
         scope.product
@@ -163,7 +163,7 @@ def require_exists(scope: Scope, what: str) -> None:
         raise TicketError(
             f"{what} names product '{scope.ref}', which does not exist",
             EXIT_NOT_FOUND,
-            f"Create it with `/ticket-init --in {scope.ref}`, or check the spelling.",
+            f"Create it with `/ticket-setup --in {scope.ref}`, or check the spelling.",
         )
 
 

@@ -253,7 +253,7 @@ def verb_namespaces(args: argparse.Namespace) -> int:
             raise TicketError(
                 f"{scope.ref} does not exist",
                 EXIT_NOT_FOUND,
-                f"Create it with `/ticket-init --in {scope.ref}`, or run "
+                f"Create it with `/ticket-setup --in {scope.ref}`, or run "
                 "`ticket.py namespaces` to see what exists.",
             )
         merged, origins = config.effective(scope.namespace, scope.product)
@@ -325,7 +325,7 @@ def verb_defaults(args: argparse.Namespace) -> int:
             raise TicketError(
                 f"no namespace '{name}'",
                 EXIT_NOT_FOUND,
-                f"Create it with `/ticket-init --in {name}` first.",
+                f"Create it with `/ticket-setup --in {name}` first.",
             )
         # `default` is what an unset key already means, so it is stored as unset.
         config.update_level(
@@ -340,7 +340,7 @@ def verb_defaults(args: argparse.Namespace) -> int:
             raise TicketError(
                 f"no product '{product.ref}'",
                 EXIT_NOT_FOUND,
-                f"Create it with `/ticket-init --in {product.ref}` first.",
+                f"Create it with `/ticket-setup --in {product.ref}` first.",
             )
         config.update_level(
             {"default_product": None if product.is_default else product.name},
@@ -485,7 +485,7 @@ def verb_fetch(args: argparse.Namespace) -> int:
         raise TicketError(
             f"'{location.source}' is not bound for {location.product.ref}",
             EXIT_ERROR,
-            f"Run `/ticket-init {location.source} --in {location.product.ref}` first.",
+            f"Run `/ticket-setup {location.source} --in {location.product.ref}` first.",
         )
 
     (location.dir / "raw").mkdir(parents=True, exist_ok=True)
@@ -645,7 +645,7 @@ def verb_auth_status(args: argparse.Namespace) -> int:
                 {
                     "source": source,
                     "initialized": False,
-                    "hint": f"Run `/ticket-init {source}` to bind it.",
+                    "hint": f"Run `/ticket-setup {source}` to bind it.",
                 }
             )
             continue
@@ -676,7 +676,7 @@ def verb_scan_roots(args: argparse.Namespace) -> int:
                 raise TicketError(
                     f"{scope.ref} does not exist",
                     EXIT_NOT_FOUND,
-                    f"Create it with `/ticket-init --in {scope.ref}` first.",
+                    f"Create it with `/ticket-setup --in {scope.ref}` first.",
                 )
         config.set_scan_roots(normalize_directories(args.set), namespace, product)
 

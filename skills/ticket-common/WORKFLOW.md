@@ -4,7 +4,7 @@
 
 ```mermaid
 flowchart LR
-    INIT[ticket-init] --> NEW[ticket-new]
+    INIT[ticket-setup] --> NEW[ticket-new]
     INIT --> FETCH[ticket-fetch]
     NEW --> REFINE[ticket-refine]
     FETCH --> REFINE
@@ -22,7 +22,7 @@ flowchart LR
 
 | Skill               | Runs                                                   | Prerequisite     |
 | ------------------- | ------------------------------------------------------ | ---------------- |
-| `ticket-init`       | Once per binding, or to create a namespace or product  | None             |
+| `ticket-setup`      | Once per binding, or to create a namespace or product  | None             |
 | `ticket-context`    | Optional; once per session, to work in one product     | a product        |
 | `ticket-new`        | To create a ticket in a local store                    | `init`           |
 | `ticket-fetch`      | Once per ticket; always re-run after `refine`          | `init`           |
@@ -193,7 +193,7 @@ flowchart TD
     INIT_CHECK -->|No| INIT
     INIT_CHECK -->|"Yes — skip"| ORIGIN
 
-    INIT["/ticket-init [source] [--in ns/product]\n────────────────\nBinds a source under a namespace and product\nRuns that source's own connection setup\nSets the default namespace and product\nSaves the default scan roots\n\nRun once per binding"]
+    INIT["/ticket-setup [source] [--in ns/product]\n────────────────\nBinds a source under a namespace and product\nRuns that source's own connection setup\nSets the default namespace and product\nSaves the default scan roots\n\nRun once per binding"]
 
     INIT --> ORIGIN{"Does the ticket\nexist upstream?"}
 

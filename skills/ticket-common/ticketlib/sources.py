@@ -334,7 +334,7 @@ def default_source_for(restrict: Scope | None, context: Scope | None) -> str:
         raise TicketError(
             "the id names no source, it is on disk nowhere, and no default_source is configured",
             EXIT_ERROR,
-            "Prefix the id with a source, or run `/ticket-init`. "
+            "Prefix the id with a source, or run `/ticket-setup`. "
             + known_sources_hint(),
         )
     require_installed(value, "default_source is")
@@ -580,7 +580,7 @@ def requirement_hint(location: Location, unmet: list[str]) -> str:
         else f"Run `/ticket-new` to create it — `{source}` has no fetch."
     )
     steps = {
-        "config": f"Run `/ticket-init {source} --in {location.product.ref}` to bind it there.",
+        "config": f"Run `/ticket-setup {source} --in {location.product.ref}` to bind it there.",
         "raw": populate,
         "ticket_dir": populate,
         "ticket_json": populate,

@@ -65,7 +65,7 @@ python "{skills}/ticket-common/ticket.py" namespaces --in "{namespace}[/{product
 
 **Exit 5 means it does not exist.** Do not set it. Run `ticket.py namespaces`, list what does exist, and offer the way to create it:
 
-> `{scope}` does not exist. Existing: `edwire/ew-educate`, `personal/notes-app`. Run `/ticket-init --in {scope}` to create it.
+> `{scope}` does not exist. Existing: `edwire/ew-educate`, `personal/notes-app`. Run `/ticket-setup --in {scope}` to create it.
 
 On success, print the context on its own line, then one line summarizing what it holds, from the output:
 
@@ -106,6 +106,6 @@ This is the contract every other `ticket-*` skill follows, restated here so the 
 ## Constraints
 
 - **Write nothing.** The context lives in this conversation; never save it to a file, a config, or an environment variable
-- Never set a context that does not exist — report it and point at `/ticket-init --in`
+- Never set a context that does not exist — report it and point at `/ticket-setup --in`
 - Never infer a context from the branch name or the invocation directory — it is set by this skill, or adopted by `/ticket-resume` from a ticket the user chose
 - Never let a context change anything about a ticket already filed
