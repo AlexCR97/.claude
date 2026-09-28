@@ -1,17 +1,17 @@
-# Implementation Plan — [#{id}: {title}]({ticket-url})
+# Implementation Plan — [#{id}: {title}]({ticketUrl})
 
-> Generated on {YYYY-MM-DD} at {HH:MM} UTC Based on [digest.md](digest.md)
+> Generated on {date} at {time} UTC Based on [digest.md](digest.md)
 > Session history: [journal.md](journal.md)
 
 ## Progress
 
-| Phase                                  | Activity   | Estimate     | Status      |
-| -------------------------------------- | ---------- | ------------ | ----------- |
-| [Prerequisites](#prerequisites)        | —          | —            | [ ] Pending |
-| [Phase 1: {name}](#phase-1-name-x-hrs) | {Activity} | ~{X} hrs     | [ ] Pending |
-| [Phase 2: {name}](#phase-2-name-x-hrs) | {Activity} | ~{X} hrs     | [ ] Pending |
-| ...                                    |            |              |             |
-| **Total**                              |            | **~{X} hrs** |             |
+| Phase                                  | Activity   | Estimate              | Status      |
+| -------------------------------------- | ---------- | --------------------- | ----------- |
+| [Prerequisites](#prerequisites)        | —          | —                     | [ ] Pending |
+| [Phase 1: {phaseName}](#{phaseAnchor}) | {activity} | ~{phaseHours} hrs     | [ ] Pending |
+| [Phase 2: {phaseName}](#{phaseAnchor}) | {activity} | ~{phaseHours} hrs     | [ ] Pending |
+| ...                                    |            |                       |             |
+| **Total**                              |            | **~{totalHours} hrs** |             |
 
 ---
 
@@ -19,63 +19,67 @@
 
 ### Scan roots
 
-- `{absolute path}` — {default scan root | given by the user | invocation directory | found by search}
+<!-- One line per scan root. Its origin is one of: default scan root, given by the user, invocation directory, found by search. -->
+
+- `{scanRootPath}` — {scanRootOrigin}
 
 ### Worktrees
 
-| Repository | Branch   | Kind             | Path              |
-| ---------- | -------- | ---------------- | ----------------- |
-| {name}     | {branch} | {main \| linked} | `{absolute path}` |
+<!-- One row per worktree in the workspace. Kind is main or linked. -->
+
+| Repository   | Branch   | Kind           | Path             |
+| ------------ | -------- | -------------- | ---------------- |
+| {repository} | {branch} | {worktreeKind} | `{worktreePath}` |
 
 ### Plain directories
 
 | Plain directory | Path              |
 | --------------- | ----------------- |
-| {name}          | `{absolute path}` |
+| {directoryName} | `{directoryPath}` |
 
 ### Projects
 
-| Project | Lives in                                             | Path                              | Technology |
-| ------- | ---------------------------------------------------- | --------------------------------- | ---------- |
-| {name}  | {repository \| repository@branch \| plain directory} | {path relative to where it lives} | {stack}    |
+<!-- One row per project. Lives in is its repository, repository@branch where the workspace holds more than one worktree of it, or its plain directory; the path is relative to there. -->
+
+| Project       | Lives in  | Path          | Technology   |
+| ------------- | --------- | ------------- | ------------ |
+| {projectName} | {livesIn} | {projectPath} | {technology} |
 
 ## Prerequisites
 
 Before any phase begins, ensure the following are in place:
 
-- [ ] {prerequisite — e.g. environment variable X is set in all target environments}
-- [ ] {prerequisite — e.g. feature flag Y exists in the flag management system}
-- [ ] {prerequisite — e.g. NuGet package Z is available in the internal feed}
+- [ ] <!-- a prerequisite, e.g. an environment variable set in every target environment, a feature flag in the flag management system, a package in the internal feed -->
 
 ---
 
-## Phase 1: {name} (~{X} hrs)
+## Phase 1: {phaseName} (~{phaseHours} hrs)
 
-**Scope:** {one sentence describing what this phase achieves}
+**Scope:** <!-- one sentence describing what this phase achieves -->
 
-**Activity:** {Development | Testing | Design | Deployment | Documentation | Human Review}
+**Activity:** {activity} <!-- exactly one value from Step 10's Activity set -->
 
-**Projects touched:** {comma-separated list}
+**Projects touched:** {projectsTouched}
 
 ### Step 1.1
 
-**Status:** Pending | In Progress — {what is done, what remains} | Blocked — {what is blocking, what would clear it} | Done
+**Status:** {status} <!-- Pending or Done on a first run; ticket-common/STATUS.md has the vocabulary and the note rules -->
 
-**Target:** `{File/Class}`
+**Target:** `{target}`
 
 **Artifacts:** —
 
-{what to do and why, specific enough to act on}
+<!-- what to do and why, specific enough to act on -->
 
 ### Step 1.2
 
-**Status:** Pending
+**Status:** {status}
 
-**Target:** `{File/Class}`
+**Target:** `{target}`
 
 **Artifacts:** —
 
-{what to do and why, specific enough to act on}
+<!-- what to do and why, specific enough to act on -->
 
 ### Step 1.M
 
@@ -83,6 +87,6 @@ Before any phase begins, ensure the following are in place:
 
 ---
 
-## Phase N: {name} (~{X} hrs)
+## Phase N: {phaseName} (~{phaseHours} hrs)
 
 ...
