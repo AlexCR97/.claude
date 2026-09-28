@@ -1,50 +1,47 @@
-# Ticket Digest — [#{id}: {title}]({ticket-url})
+# Ticket Digest — [#{id}: {title}]({ticketUrl})
 
-> Generated on {YYYY-MM-DD} at {HH:MM} UTC
+> Generated on {date} at {time} UTC
 
 ## Metadata
 
-| Field       | Value                    |
-| ----------- | ------------------------ |
-| ID          | {id}                     |
-| Type        | {type}                   |
-| State       | {state}                  |
-| Component   | {component}              |
-| Milestone   | {milestone}              |
-| Assigned To | {assignee or Unassigned} |
-| Labels      | {labels or —}            |
+| Field       | Value       |
+| ----------- | ----------- |
+| ID          | {id}        |
+| Type        | {type}      |
+| State       | {state}     |
+| Component   | {component} |
+| Milestone   | {milestone} |
+| Assigned To | {assignee}  |
+| Labels      | {labels}    |
 
 ## Description
 
-{Summarized TL;DR of what the ticket is about. Capture the core problem or goal — do not copy the description verbatim. If empty, write "No description provided."}
+<!-- Summarize what the ticket is about in a short TL;DR: the core problem or goal. Do not copy the description verbatim. If it is empty, write "No description provided." -->
 
 ## Acceptance Criteria
 
-{Bulleted list of the key conditions that must be met, distilled from the full acceptance criteria. Omit redundant or obvious items. If empty, write "No acceptance criteria defined."}
+<!-- A bulleted list of the key conditions that must be met, distilled from the full acceptance criteria. Omit redundant or obvious items. If there are none, write "No acceptance criteria defined." -->
 
 ## Related Tickets
 
 ### Parent
 
-- [#{id} — {title}]({ticket-url}) [{type}] ({state})
+- [#{relatedId} — {relatedTitle}]({relatedUrl}) [{relatedType}] ({relatedState})
 
 ### Children
 
-- [#{id} — {title}]({ticket-url}) [{type}] ({state})
+- [#{relatedId} — {relatedTitle}]({relatedUrl}) [{relatedType}] ({relatedState})
 
 ### Related
 
-- [#{id} — {title}]({ticket-url}) [{type}] ({state})
+- [#{relatedId} — {relatedTitle}]({relatedUrl}) [{relatedType}] ({relatedState})
 
 ## Attachments
 
-### [{filename}](raw/{local_filename})
+### [{filename}](raw/{localFilename})
 
-{Visual description for images, or content summary for documents. If download failed, note it as unavailable.}
+<!-- A visual description for an image, or a content summary for a document. If the download failed, note it as unavailable. -->
 
 ## Discussion
 
-{Summary of the entire discussion thread. Capture the key decisions made, problems identified,
-people involved, and the current status or next agreed action. Synthesize — do not list comments one by one.
-Incorporate what inline images showed where relevant. Link to particularly significant comments using the
-comment URL pattern. Omit this section if there are no comments.}
+<!-- Summarize the whole discussion thread: the key decisions, the problems identified, the people involved, and the current status or next agreed action. Synthesize — do not list comments one by one. Fold in what inline images showed where relevant. Link to especially significant comments using the comment URL pattern. Omit this section if there are no comments. -->
