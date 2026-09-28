@@ -1,10 +1,15 @@
 ---
 name: ticket-checkpoint
-description: Records the current session's state on a ticket as an entry in journal.md — where the code is, what was done, what was decided and why, what is blocking, and the single next action. Run it before switching away from a ticket so a later /ticket-resume can pick the work up. Makes NO code changes.
-argument-hint: "<[namespace/product/][source:]id> [note]"
+description: Records the current session's state on a ticket as an entry in journal.md — where the code is, what was done, what was decided and why, what is blocking, and the single next action. Run it before switching away from a ticket so a later /ticket-resume can pick the work up.
+argument-hint: "[ref] [note]"
+allowed-tools: Read Write Edit Bash(python *ticket.py:*) Bash(python *collect-git-state.py:*)
 ---
 
-This skill is a **driver**: it contains no field names, URLs, API versions, credential commands, markup dialects, or type-specific rules of its own. Everything specific lives alongside it in three directories, and every step below just says which file to read.
+Records the current session's state on a ticket as a new entry at the top of its `journal.md` — where the code is, what was done, what was decided and why, what is blocking, and the single next action — so a later `/ticket-resume` can pick the work up. `plan.md` records what the work is; it cannot record what a session learned, and that dies with the session unless this skill writes it down. It is the only skill that writes `journal.md`, so an unrecorded session leaves nothing behind but its step statuses.
+
+End state: one new entry at the top of `journal.md`, every existing entry untouched, any stale `**Status:**` line in `plan.md` corrected, and nothing else changed.
+
+This skill is a **driver**: it contains no field names, URLs, API versions, credential commands, markup dialects, or type-specific rules of its own. Everything specific lives alongside it in three directories, and each step names the file to read.
 
 | Directory                    | Contains                                                                                                          | Read                                                                          |
 | ---------------------------- | ----------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
@@ -12,64 +17,47 @@ This skill is a **driver**: it contains no field names, URLs, API versions, cred
 | `ticket-providers/{source}/` | everything specific to where the ticket came from                                                                 | only the **resolved** source's directory, and only the role file a step names |
 | `ticket-types/{type}.md`     | everything specific to what shape the work is                                                                     | only the **resolved** type's file                                             |
 
-Never let a source-specific or type-specific fact creep back into this file — a field key, a URL, an API version, a script name, a credential command, an HTML-vs-markdown decision, or a rule that only holds for bugs or only for spikes. **If a step cannot be written without naming a particular ticket system, it belongs in `ticket-providers/{source}/`; if it cannot be written without naming a ticket type, it belongs in `ticket-types/{type}.md`. This file should only name the file to read.** A source directory may hold only some of the role files; treat each as present-or-absent independently, and never substitute another source's or another type's module for a missing one.
-
-No `allowed-tools` here: this skill writes `journal.md` and edits `plan.md` status lines, so an allowlist narrow enough to be meaningful would also block the work.
+A fact that needs a particular ticket system belongs in `ticket-providers/{source}/`, and one that needs a ticket type belongs in `ticket-types/{type}.md` — never in this file.
 
 ---
 
-## Purpose
+## Parameters
 
-`plan.md` records what the work *is*. It cannot record what a session *learned*, e.g. that one of two approaches was chosen and why, that a step turned out to be shaped differently than planned, that the branch is three commits in with an uncommitted edit that half-finishes Step X.Y. That context lives only in the conversation, and it dies with the session.
-
-This skill writes it down. One entry per session, added to the ticket's `journal.md`, so a new session later can read the top of one file and know where to start.
-
-**It is the only skill that writes `journal.md`**, and `ticket-resume` is the only one that reads it. No other skill touches the file: they work from `plan.md` and from what is already in the conversation, which keeps the journal out of their context entirely. The consequence is that this skill has to run — an unrecorded session leaves nothing behind but its step statuses.
-
-So run it whenever attention leaves a ticket: end of day, an interrupt, a context switch to something unrelated. It is cheap, and it is the last chance to keep what the session learned.
-
-**Makes no code changes.** It writes exactly one file, `journal.md`, plus the `**Status:**` lines in `plan.md` that step 6 corrects.
+- **`[ref]`** — the ticket, as `ticket-common/RESOLUTION.md` → *How a reference resolves* defines it. Step 1 settles `{ref}` from it, from this session's ticket, or by asking.
+- **`[note]`** — free text, quoted, the user wants recorded (e.g. `"stopping to review the PR for 18201"`). Fold it into the entry; never let it replace the entry's own content.
 
 ---
 
-## Input
+## Ground rules
 
-```
-/ticket-checkpoint <[source:]id> [{note}]
-```
-
-- `{ref}` — the ticket, optionally prefixed with its source. When omitted, **ask** — see step 1.
-- `{note}` — optional free text the user wants recorded (e.g. `"stopping to review the PR for 18201"`). Fold it into the entry; never let it replace the entry's own content.
+1. **Record state; change no code.** Never create, edit or delete a source code file.
+2. **Write only `journal.md`**, plus the `**Status:**` lines and Progress rows in `plan.md` that Step 6 corrects. Never touch `digest.md`, `raw/` or anything under `artifacts/`.
+3. **Run only read-only commands.** `collect-git-state.py` and `ticket.py` are read-only; never run `git fetch`, `pull`, `add`, `stash` or any other command that changes repository state — the developer decides when to commit, stash or push.
+4. **Record local state only.** Never re-fetch the ticket or check its source; `/ticket-resume` is what checks for drift.
 
 ---
 
 ## Execution Steps
 
-Run the following steps **in order**. Do not skip any step.
+### Step 1 — Resolve the ticket
 
-### 1. Resolve the ticket
+With a session context, pass `--context {context}` on every `ticket.py` call below that takes one and open the first output line with `Ticket context: {context}` — `ticket-common/RESOLUTION.md` → *The session context* covers overrides.
 
-When this session has a session context, pass `--context {context}` on every `ticket.py` call below that takes one, and start your first output line with `Ticket context: {context}`. An explicit qualified reference overrides it for that one call. `ticket-common/RESOLUTION.md` → *The session context* has the rule.
+Take `[ref]` from the invocation, or else the ticket this session has been working on — a `/ticket-implement` or `/ticket-resume` run earlier in the conversation, or a `plan.md` already read. Never infer it from the branch name: a wrong guess attaches a session's account of itself to the wrong ticket, and `journal.md` is the one file nothing can regenerate.
+
+**Failing both, ask. Never guess.** Run `python "{skills}/ticket-common/ticket.py" list [--context {context}]` and print the candidates as a table with **Product** and **Source** columns, each with its title and the modification times of its `journal.md` and `plan.md`, newest first. With a session context, print only the tickets whose `in_context` is true, and say how many are outside it with an offer to show them all. Then ask which to checkpoint.
 
 ```bash
 python "{skills}/ticket-common/ticket.py" resolve "{ref}" --require ticket_dir [--context {context}]
 ```
 
-Everything below uses the paths, type and `ticket.json` it returns; **every path it prints is absolute**, so nothing here needs expanding. On a non-zero exit, report the message and its hint verbatim and stop. `ticket-common/RESOLUTION.md` carries the full contract — open it only when the output is disputed.
+- **Exit 0, and `outside_context` is true** → ask whether to checkpoint it anyway, naming its product and the session context, defaulting to no. On yes, continue; on no, stop. A session working in one product while checkpointing a ticket in another is exactly how an entry lands on the wrong ticket.
+- **Exit 0** → continue with the paths, type and `ticket.json` it returns. Every path is absolute.
+- **Any non-zero exit** → report the message and its hint verbatim, and stop.
 
-Take the ref from the invocation, or from the ticket this session has been working on — a `/ticket-implement` or `/ticket-resume` run earlier in the conversation, or a `plan.md` already read.
+Open `ticket-common/RESOLUTION.md` only when the output is disputed.
 
-**Failing both, ask. Never guess.** Run `ticket.py list [--context {context}]` and print the candidates as a table with **Product** and **Source** columns, each with its title and the modification times of its `journal.md` and `plan.md`, newest first. With a session context, print only the tickets whose `in_context` is true, and say how many are outside it with an offer to show them all. Then ask which to checkpoint.
-
-**Confirm a ticket outside the session context.** When `outside_context` is true, stop and ask before anything else:
-
-> {qualified_ref} is filed under `{product}`, outside the session context `{context}`. Checkpoint it anyway? [y/N]
-
-`journal.md` is the one file nothing can regenerate, and a session working in one product while checkpointing a ticket in another is exactly how an entry lands on the wrong ticket. On no, stop.
-
-There is no inference from the branch name, and there must not be. A wrong guess here attaches a session's account of itself to the wrong ticket, and `journal.md` is the one file in this system that nothing can regenerate.
-
-### 2. Collect the git state
+### Step 2 — Collect the git state
 
 Run the shared collector from the worktree the work is being done in:
 
@@ -81,7 +69,7 @@ It reports the repository and the path of its worktree, the branch, HEAD, the ba
 
 If `is_repository` is `false`, record `**Where:** not in a repository` and carry on — an entry without git coordinates is still worth far more than no entry.
 
-### 3. Reconstruct what this session did
+### Step 3 — Reconstruct what this session did
 
 This is the step that carries the skill. Everything else on disk is already recoverable; this is not.
 
@@ -99,11 +87,11 @@ Continue collecting:
 - **Blockers** — what is preventing progress, and what would clear it.
 - **Stopped at** — the step in flight and its honest state: what works, what does not, what is half-done. A step that is 80% finished must not read as complete.
 
-Cross-check against `plan.md`: name the phase and step each item belongs to, so a later reader can jump straight to it. If the session's work has left a step's `**Status:**` line wrong, note it in step 6.
+Cross-check against `plan.md`: name the phase and step each item belongs to, so a later reader can jump straight to it. If the session's work has left a step's `**Status:**` line wrong, note it for Step 6.
 
 Where the resolved type's file in `ticket-types/` names something the run had to produce or report — a repro that was re-run, a test suite that must pass unmodified, a written finding — record what actually happened to it. That is the fact a later session cannot reconstruct.
 
-### 4. Establish the next action
+### Step 4 — Establish the next action
 
 The `**Next:**` line is the highest-value line in the entry, and the one a resume reads first. It must be specific enough to act on without re-reading the plan — a file and an action, not a phase name.
 
@@ -115,34 +103,30 @@ Not good:
 
 > **Next:** Continue Phase 2.
 
-Derive it from the session where the session makes it obvious. Where it does not — the session ended on an open question, or several things could reasonably come next — **ask the user** rather than guessing:
-
-> What is the next action on {ref}? I have it as "{best inference}" — correct it or confirm.
-
-Wait for the answer. A wrong `**Next:**` line is worse than an absent one, because it will be trusted.
+Derive it from the session where the session makes it obvious. Where it does not — the session ended on an open question, or several things could reasonably come next — ask the user rather than guessing: give the best inference, and ask them to correct or accept it. Wait for the answer. A wrong `**Next:**` line is worse than an absent one, because it will be trusted.
 
 When nothing is pending — every phase done — write that plainly: `**Next:** Nothing pending; all phases complete. Awaiting review.`
 
-### 5. Write the entry
+### Step 5 — Write the entry
 
-Read the template at `{skills}/ticket-checkpoint/journal-template.md` and follow its structure.
+Read [`journal-template.md`](./journal-template.md) and follow its structure: fill every `{camelCase}` placeholder, and replace every `<!-- guidance -->` comment with the content it asks for.
 
-**If `journal.md` does not exist**, create it with the header from the template — the title line and the note about entry ordering — then write this entry as the first one. Link the title to `ticket.json`'s `url`; where it is `null`, write the title as plain text rather than a broken link.
+**If `journal.md` does not exist**, create it with the header from the template — the title line and the note about entry ordering — then write this entry as the first one. `{ticketUrl}` is `ticket.json`'s `url`; where it is `null`, write the title as plain text rather than a broken link.
 
-**If it exists**, insert the new entry **immediately after the header block, above the existing newest entry**, separated by `---`. Entries run newest first so the current state is the top of the file rather than the end of a growing scroll.
+**If it exists**, insert the new entry immediately after the header block, above the existing newest entry, separated by `---`. Entries run newest first so the current state is the top of the file rather than the end of a growing scroll.
 
 Rules for an entry:
 
-- Timestamp the heading in **UTC**, matching the `> Generated on` convention in `digest.md` and `plan.md`.
+- Timestamp the heading in **UTC** as `YYYY-MM-DD HH:MM` — `{timestamp}` — matching the `> Generated on` convention in `digest.md` and `plan.md`.
 - Name the phase and step the session was in, so the heading alone locates the work.
 - `**Where:**`, `**Worktree state:**`, `**Stopped at:**` and `**Next:**` are always present. Where a fact is unavailable, say so explicitly rather than omitting the line.
 - Omit any of the `### Done`, `### Decisions`, `### Inferences`, `### Open questions` and `### Blockers` sections that would be empty. Do not pad an entry with a heading over nothing.
 - **Never edit or delete an existing entry.** A session's account of itself is not regenerable — the one thing here that no later run can reconstruct. A correction is a new entry saying what it corrects.
-- **Write a reference to another ticket the way a stored one is written**: short (`{source}:{id}`) when it is filed in the same product as this ticket, qualified (`{namespace}/{product}/{source}:{id}`) when it is not. A short reference is read from this ticket's product, so a qualified one is what keeps a cross-product mention resolvable.
+- **Write a reference to another ticket the way a stored one is written**: short (`{source}:{id}`) when it is filed in the same product as this ticket, qualified (`{namespace}/{product}/{source}:{id}`) when it is not — `ticket-common/RESOLUTION.md` → *How a reference resolves*.
 - **Do not record where this ticket is filed.** Its directory already says so, and an entry that did would go stale on the first `/ticket-move` with no way to correct it.
 - Keep it factual and short. An entry is read in a hurry, by someone who has forgotten everything.
 
-### 6. Reconcile plan.md status lines
+### Step 6 — Reconcile plan.md status lines
 
 If the session left a step's status stale, correct only the `**Status:**` lines and the affected Progress table rows in `plan.md` — nothing else:
 
@@ -154,25 +138,6 @@ The vocabulary, the note rules and the phase-derivation table are in `ticket-com
 
 If no status line needs changing, leave `plan.md` untouched.
 
-### 7. Report
+### Step 7 — Report
 
-Confirm in **two lines at most**. Do not print the entry body in chat — it was just written to a file the user can open.
-
-> Checkpointed {ref} to `{journal path}` — {phase/step}, next: {the Next line, condensed}.
-> {Updated Step {N}.{M} to {status} in plan.md. | plan.md unchanged.}
-
----
-
-## Constraints
-
-- **Never create, edit, or delete any source code file** — this skill only records state
-- Write only `journal.md`, plus `**Status:**` lines and Progress table rows in `plan.md` when step 6 applies. Never touch `digest.md`, `raw/`, or anything under `artifacts/`
-- Never edit or delete an existing journal entry — add a correcting entry instead
-- Run only read-only commands. `collect-git-state.py` and `ticket.py resolve` are read-only; do not run `git fetch`, `git pull`, `git add`, `git stash`, or any other command that changes repository state
-- Never run a git operation that writes — the developer decides when to commit, stash or push
-- **Never infer the ticket from the branch name or from anything else.** Use the argument, or the ticket this session was working on, or ask
-- Never write an entry on a ticket outside the session context without asking first
-- Never invent a `**Next:**` line — derive it from the session, or ask
-- Never record a decision without its rationale; the *why* is the reason the entry exists
-- Do not print the entry body in chat — the report is two lines
-- **Do not re-fetch the ticket or check the source** — this skill records local state; `/ticket-resume` is what checks for drift
+Report in two lines at most. Do not print the entry body in chat — it was just written to a file the user can open. The first line names the ticket, the `journal.md` path, the phase and step, and the Next line condensed; the second names each step Step 6 changed and its new status, or says `plan.md` is unchanged.
