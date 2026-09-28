@@ -1,11 +1,15 @@
 ---
 name: ticket-resume
-description: Rebuilds the context for a ticket in a fresh session — reads journal.md, plan.md, digest.md and prior artifacts, inspects the live git state, and checks whether the ticket changed since it was last fetched. Outputs a briefing ending in the single next action. Read-only; makes NO changes.
-argument-hint: "<[namespace/product/][source:]id>"
-allowed-tools: Read Grep Glob Bash(python:*)
+description: Rebuilds the context for a ticket in a fresh session — reads journal.md, plan.md, digest.md and prior artifacts, inspects the live git state, and checks whether the ticket changed since it was last fetched. Outputs a briefing ending in the single next action.
+argument-hint: "[ref]"
+allowed-tools: Read Grep Glob Bash(python *ticket.py:*) Bash(python *collect-git-state.py:*)
 ---
 
-This skill is a **driver**: it contains no field names, URLs, API versions, credential commands, markup dialects, or type-specific rules of its own. Everything specific lives alongside it in three directories, and every step below just says which file to read.
+Rebuilds a ticket's context in a fresh session. Everything needed is on disk — the digest, the plan, the artifacts, the journal — but two things no file holds have usually drifted since: the state of the worktree, and the ticket itself. This skill reads it all back and prints one briefing: what the work is, where it stopped, the next action, what the code looks like now, and what changed at the source while attention was elsewhere.
+
+End state: one briefing that ends by offering the next action, nothing on disk changed, and — where no session context was set — the ticket's product adopted as the session context.
+
+This skill is a **driver**: it contains no field names, URLs, API versions, credential commands, markup dialects, or type-specific rules of its own. Everything specific lives alongside it in three directories, and each step names the file to read.
 
 | Directory                    | Contains                                                                                                          | Read                                                                          |
 | ---------------------------- | ----------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
@@ -13,63 +17,53 @@ This skill is a **driver**: it contains no field names, URLs, API versions, cred
 | `ticket-providers/{source}/` | everything specific to where the ticket came from                                                                 | only the **resolved** source's directory, and only the role file a step names |
 | `ticket-types/{type}.md`     | everything specific to what shape the work is                                                                     | only the **resolved** type's file                                             |
 
-Never let a source-specific or type-specific fact creep back into this file — a field key, a URL, an API version, a script name, a credential command, an HTML-vs-markdown decision, or a rule that only holds for bugs or only for spikes. **If a step cannot be written without naming a particular ticket system, it belongs in `ticket-providers/{source}/`; if it cannot be written without naming a ticket type, it belongs in `ticket-types/{type}.md`. This file should only name the file to read.** A source directory may hold only some of the role files; treat each as present-or-absent independently, and never substitute another source's or another type's module for a missing one.
-
-**`allowed-tools` is set on this skill deliberately.** Its headline promise is that it makes no changes, and its first constraint is "write nothing". An allowlist is the only thing that makes that mechanically true rather than merely stated.
+A fact that needs a particular ticket system belongs in `ticket-providers/{source}/`, and one that needs a ticket type belongs in `ticket-types/{type}.md` — never in this file.
 
 ---
 
-## Purpose
+## Parameters
 
-A ticket gets put down and picked up days later in a new session that knows nothing about it. Everything needed is already on disk — the digest, the plan, the artifacts, the journal — but reading it back into context by hand is slow and easy to do incompletely, and two things no file can hold have usually drifted in the meantime: the state of the worktree, and the ticket itself.
-
-This skill assembles all of it into one briefing: what the work is, where it stopped, what the next action is, what the code looks like right now, and what changed at the source while attention was elsewhere.
-
-**Read-only.** It writes nothing, changes no code, and starts no work — it ends by offering the next action, and waits.
+- **`[ref]`** — the ticket, as `ticket-common/RESOLUTION.md` → *How a reference resolves* defines it. Absent, Step 1 lists the tickets on disk and asks; `{ref}` is the one it settles on.
 
 ---
 
-## Input
+## Ground rules
 
-```
-/ticket-resume <[source:]id>
-```
-
-`{ref}` — the ticket, optionally prefixed with its source (`ado:18159`, `gh:42`, `local:auth-fix`) or qualified with its namespace and product (`edwire/ew-educate/ado:18159`). A bare id resolves against what is on disk, nearest the session context first. When omitted, **ask** — see step 1.
+1. **Write nothing.** No code, no `journal.md`, no `plan.md`, no artifacts — `/ticket-checkpoint` records state and `/ticket-implement` changes code.
+2. **Run only read-only commands:** `collect-git-state.py`, `ticket.py` `resolve`, `list` and `drift`, and reads of the files the steps name. Never `git fetch`, `pull`, `checkout`, `stash` or any command that changes repository state.
+3. **Never run a script under `artifacts/`.** A captured output already on disk is the answer; re-running a probe against a live system needs the user's approval in the session that needs it.
+4. **Never read the source's raw data for ticket content.** `digest.md` is the source of truth; the drift check reads the snapshot for comparison only.
+5. **Never correct `plan.md`, even when it is visibly stale.** Report the discrepancy and let `/ticket-checkpoint` or `/ticket-plan` fix it.
+6. **Never chain into another skill.** Step 5 recommends and Step 7 offers; the user chooses.
+7. **Label every reconstruction.** Never present an inference as a record.
 
 ---
 
 ## Execution Steps
 
-Run the following steps **in order**. Do not skip any step.
+### Step 1 — Resolve the ticket
 
-### 1. Resolve the ticket
+With a session context, pass `--context {context}` on every `ticket.py` call below that takes one — `ticket-common/RESOLUTION.md` → *The session context* covers overrides.
 
-When this session has a session context, pass `--context {context}` on every `ticket.py` call below that takes one. An explicit qualified reference overrides it for that one call; say so in one line. `ticket-common/RESOLUTION.md` → *The session context* has the rule.
+**When no `[ref]` was given, ask. Never guess, and never infer it from the branch name** — a guess that attaches a session to the wrong ticket is silent, and it is the journal, the one unregenerable file here, that it would corrupt. Run `python "{skills}/ticket-common/ticket.py" list [--context {context}]` and print the candidates as a table with **Product** and **Source** columns, each with its title, type, the date of its newest journal entry, its phase progress from `plan.md`, and when it was last touched — most recently touched first. With a session context, print only the tickets whose `in_context` is true, and say how many are outside it (`outside_context`) with an offer to show them all. Then ask which to resume. The listing is half the problem this skill solves: "which one was I in the middle of".
 
 ```bash
 python "{skills}/ticket-common/ticket.py" resolve "{ref}" --require ticket_dir [--context {context}]
 ```
 
-Everything below uses the paths, capabilities, type and `ticket.json` it returns — and its `qualified_ref` for every later `ticket.py` call; **every path it prints is absolute**, so nothing here needs expanding. On a non-zero exit, report the message and its hint verbatim and stop. `ticket-common/RESOLUTION.md` carries the full contract — open it only when the output is disputed.
+- **Exit 0** → continue with the paths, capabilities, type and `ticket.json` it returns, and its `qualified_ref` for every later `ticket.py` call. Every path is absolute.
+- **Any non-zero exit** → report the message and its hint verbatim, and stop.
 
-**When no ref was given, ask. Never guess.** Run `ticket.py list [--context {context}]` and print the candidates as a table with **Product** and **Source** columns, each with its title, type, the date of its newest journal entry, its phase progress from `plan.md`, and when it was last touched — most recently touched first. With a session context, print only the tickets whose `in_context` is true, and say how many are outside it (`outside_context`) with an offer to show them all. Then ask which to resume.
+Open `ticket-common/RESOLUTION.md` only when the output is disputed. Then settle the briefing's first line:
 
-That listing is worth printing whenever the user does not name a ticket, because "which one was I in the middle of" is half the problem this skill solves.
+- **No session context is set** → adopt the ticket's product: resuming a ticket is the user choosing where this session works. The first line is `Ticket context:`, the product in backticks, then `(adopted from` and the qualified reference `)`. Every later skill in this session uses it exactly as if `/ticket-context` had been run with that product.
+- **A session context is set** → never replace it. The first line is `Ticket context: {context}` as usual; where the ticket is outside it (`outside_context`), say in the briefing that it is filed under its own product.
 
-**Adopt the ticket's product as the session context when none is set.** Resuming a ticket is the user choosing where this session works, so make the briefing's first line:
+### Step 2 — Read what past sessions recorded
 
-> Ticket context: `{product}` (adopted from {qualified_ref})
+Read, in this order, and stop reading a file once the briefing has what it needs:
 
-Every later skill in this session then uses it exactly as if `/ticket-context {product}` had been run. **Never replace a context that is set.** Where the resolved ticket is outside it (`outside_context`), keep the context, make the first line `Ticket context: {context}` as usual, and say in the briefing that this ticket is filed under `{product}`.
-
-There is no inference from the branch name, and there must not be: a guess that attaches a session to the wrong ticket is silent, and it is the journal — the one unregenerable file here — that it would corrupt.
-
-### 2. Read what past sessions recorded
-
-Read, in this order, and stop reading any file as soon as you have what the briefing needs:
-
-**`journal.md`** — the newest entry in full, and enough of the two before it to see decisions and blockers that are still open. This is the primary source: it is the only file that records *why* things are the way they are. If it does not exist, note that and continue — step 3 reconstructs what it can, and the briefing says the reconstruction is partial.
+**`journal.md`** — the newest entry in full, and enough of the two before it to see decisions and blockers that are still open. This is the primary source: it is the only file that records *why* things are the way they are. If it does not exist, note that and continue — Step 3 reconstructs what it can, and the briefing says the reconstruction is partial.
 
 **`plan.md`** — the Progress table, the Workspace section, and every step whose `**Status:**` is `In Progress` or `Blocked`, in full including its note. Then the first `Pending` step after them, since that is where work resumes if nothing is in flight. Do not read every phase. The status vocabulary is in `ticket-common/STATUS.md` if a line needs interpreting.
 
@@ -77,7 +71,7 @@ Read, in this order, and stop reading any file as soon as you have what the brie
 
 **`artifacts/`** — the `README.md` of the in-flight step, of the next step, of `shared/`, and of `planning/` where they exist. These hold measurements taken against live systems, which are the one thing here that cannot be regenerated. **Never re-run a probe whose captured output is already on disk**; a resume that re-measures what a prior session already established has failed at its job. `ticket-common/ARTIFACTS.md` has the layout.
 
-### 3. Establish where the work stopped
+### Step 3 — Establish where the work stopped
 
 Prefer the journal's `**Stopped at:**` and `**Next:**` lines. They were written by the session that was there.
 
@@ -89,7 +83,7 @@ When `journal.md` is absent or its newest entry predates later work, reconstruct
 
 If no journal exists at all, say so plainly in the briefing and recommend `/ticket-checkpoint {ref}` at the end of this session, so the next resume does not have to guess again.
 
-### 4. Read the live git state
+### Step 4 — Read the live git state
 
 Run the shared collector from the worktree the work is being done in. It writes nothing. Its terms are the ones in `ticket-common/GLOSSARY.md`.
 
@@ -99,17 +93,15 @@ python "{skills}/ticket-common/collect-git-state.py"
 
 Two comparisons matter more than the raw output:
 
-- **Is this even the right worktree?** Compare `repository`, `worktree` and `branch` against the journal's `**Where:**` line, and check that the worktree is one the Workspace section of `plan.md` lists. A mismatch is the most likely reason a resume goes wrong, because every `**Target:**` in `plan.md` is relative to a worktree the Workspace section names, and resolves silently against whichever one is current. Say so at the top of the briefing rather than burying it:
-
-  > You are in `{repository}` on `{branch}` at `{worktree}`, but {ref} was last worked on in `{recorded repository}` on `{recorded branch}` at `{recorded worktree}`. Switch before continuing.
+- **Is this even the right worktree?** Compare `repository`, `worktree` and `branch` against the journal's `**Where:**` line, and check that the worktree is one the Workspace section of `plan.md` lists. A mismatch is the most likely reason a resume goes wrong, because every `**Target:**` in `plan.md` is relative to a worktree the Workspace section names, and resolves silently against whichever one is current. Say so at the top of the briefing rather than burying it: name the current repository, branch and worktree and the recorded ones, and tell the user to switch before continuing.
 
 - **How far has the base moved?** `base_commits_not_merged` is how many commits the base branch gained while this branch sat idle. After days away it is often large, and it is the reason a plan written against an older base may no longer apply cleanly. Report it; do not act on it.
 
 If `is_repository` is `false`, report that the invocation directory is outside every repository and brief from the files alone.
 
-### 5. Check whether the ticket drifted
+### Step 5 — Check whether the ticket drifted
 
-Where the resolver reported `capabilities.drift` is **false**, skip this step and say so in one line in the briefing — that source cannot tell you whether the ticket moved, and a gap reported is worth more than a check silently omitted.
+Where the resolver reported `capabilities.drift` is **false**, skip this step and say so in one line in the briefing — that source cannot tell whether the ticket moved, and a gap reported is worth more than a check silently omitted.
 
 Otherwise run:
 
@@ -122,88 +114,26 @@ It is read-only against both the source and the local snapshot. What it compares
 Interpret the exit code:
 
 - **0** — the local copy is current. Say nothing beyond one line confirming it.
-- **2** — the ticket changed. Report each field change, and each new comment with its author, age, and snippet. Then recommend, without running either:
+- **2** — the ticket changed. Report each field change, and each new comment with its author, age, and snippet. Then recommend, without running either, `/ticket-fetch` and then `/ticket-digest` on the ticket: `digest.md` predates these changes.
 
-  > `digest.md` predates these changes. Run `/ticket-fetch {ref}` and then `/ticket-digest {ref}` to fold them in before continuing.
-
-  **A new comment answering an open question from the journal is the single most valuable thing this check can surface — call that out explicitly when it happens.**
+  A new comment answering an open question from the journal is the single most valuable thing this check can surface — call that out explicitly when it happens.
 
 - **1** — the check could not be made. Report the reason in one line and continue with the rest of the briefing. A failed drift check does not block a resume.
 
-### 6. Print the briefing
+### Step 6 — Print the briefing
 
-One message, in this shape. Omit any section that has no content — an empty heading is noise. Keep it scannable: this is read by someone who has forgotten everything and wants to start working.
-
-```
-Ticket context: {context} {(adopted from {qualified_ref})}
-Resuming {ref} — {title}
-{product} · {type} · {state} · last touched {N} days ago ({date of newest journal entry or file})
-
-The work
-  {2–3 sentences from digest.md: the goal, and what done looks like}
-
-Where you stopped
-  Phase {N} ({name}) · Step {N}.{M} — {status}
-  {the Stopped at line, or the reconstruction}
-
-Next
-  {the Next line, verbatim from the journal where there is one}
-
-Progress
-  [x] Phase 1  {name}
-  [~] Phase 2  {name}   ← here
-  [ ] Phase 3  {name}
-  {N} / {N} phases done · ~{X} hrs estimated remaining
-
-Code
-  {repository} @ {branch} in {worktree} · HEAD {sha} · {N} commits ahead of {base}
-  Worktree state: {clean | N modified, N untracked — uncommitted}
-  {base} has moved {N} commits since you branched
-  {N} stash(es): {subject}
-
-Carried forward
-  • {decision} — {why} (Step {N}.{M})
-  • Blocker: {what} — {what would clear it} (Step {N}.{M})
-  • Question: {what} — {who can answer} (Step {N}.{M})
-
-Changed while you were away
-  • {field}: {before} → {after}
-  • {N} new comments — {author}, {N} days ago: "{snippet}"
-  → {the fetch/digest recommendation}
-```
+One message, filled from [`briefing.md`](./briefing.md): fill every `{camelCase}` placeholder, and replace every `<!-- guidance -->` comment with the content it asks for. Omit any section that has no content — an empty heading is noise. Keep it scannable: this is read by someone who has forgotten everything and wants to start working.
 
 Rules:
 
-- Link the title to `ticket.json`'s `url`. Where it is `null`, print the title as plain text — this source has no web address, and a broken link is worse than none.
+- Link `{title}` to `ticket.json`'s `url`. Where it is `null`, print the title as plain text — this source has no web address, and a broken link is worse than none.
 - Collapse a long Progress table: every `Done` and `Blocked` phase, the in-flight phase, and the next two `Pending` ones. Summarize the rest as `… {N} more phases pending`.
 - Quote the journal's `**Next:**` line verbatim. Do not improve it — it was written with context this session does not have.
 - Mark reconstructed facts as reconstructed. Never present an inference as a record.
 - Do not print the plan, the digest, or a file's contents wholesale. This is a briefing, not a dump.
 
-### 7. Offer the next action, then stop
+### Step 7 — Offer the next action, then stop
 
-Close with the options that fit what was found, and **wait**. Offer the fetch option only where the source can fetch:
-
-> Ready to continue. I can:
-> • `/ticket-implement {ref} {N}` — pick up Phase {N} where it stopped
-> • `/ticket-fetch {ref}` then `/ticket-digest {ref}` — fold in the {N} changes first
-> • `/ticket-plan {ref}` — review or revise the plan before continuing
->
-> Or tell me what you would rather do.
+The briefing closes with `briefing.md`'s offer. Keep only the options that fit what was found — the fetch option only where the source can fetch and Step 5 found changes — and wait.
 
 Do not start implementing, fetching, or planning. Resuming is about restoring context; the decision about what to do with it is the user's.
-
----
-
-## Constraints
-
-- **Read-only. Write nothing** — no code, no `journal.md`, no `plan.md`, no artifacts. Use `/ticket-checkpoint` to record state and `/ticket-implement` to change code
-- Run only read-only commands: `collect-git-state.py`, `ticket.py resolve` / `list` / `drift`, and reads of the files named above. Never `git fetch`, `git pull`, `git checkout`, `git stash`, or any command that changes repository state
-- Never run a script under `artifacts/` — a captured output already on disk is the answer, and re-running a probe against a live system needs the user's approval in the session that needs it
-- **Never read the source's raw data for ticket content** — `digest.md` is the source of truth. The drift check reads the snapshot for comparison only, which is not the same thing
-- **Never infer the ticket from the branch name or from anything else.** Use the argument, or ask
-- Adopt the resumed ticket's product as the session context only when none is set, and say so in the first line; never replace one that is set
-- Never chain into another skill automatically — step 7 offers, the user chooses
-- Never present a reconstruction as a record; label it
-- Do not correct `plan.md` even when it is visibly stale — report the discrepancy and let `/ticket-checkpoint` or `/ticket-plan` fix it
-- Keep the briefing to one message; a resume that takes as long to read as the plan itself has failed
