@@ -16,7 +16,7 @@ because those do not change when it is filed somewhere else.
 from datetime import datetime, timezone
 from pathlib import Path
 
-from . import config, layout
+from . import config, layout, paths
 from .layout import Location, Scope
 
 FILENAME = "ticket.json"
@@ -69,12 +69,28 @@ def on_disk(location: Location, usable: bool) -> dict:
         "ticket_dir": root.is_dir(),
         "ticket_json": (root / FILENAME).is_file(),
         "digest": (root / "digest.md").is_file(),
-        "plan": (root / "plan.md").is_file(),
+        "plan": plan_index(root).is_file(),
+        # MIGRATION: removed with ticket-plan/MIGRATION.md.
+        "legacy_plan": is_legacy_plan(root),
         "journal": (root / "journal.md").is_file(),
         "raw": raw_dir.is_dir() and any(raw_dir.iterdir()),
         "artifacts": (root / "artifacts").is_dir(),
         "config": usable,
     }
+
+
+def plan_index(root: Path) -> Path:
+    return root / paths.PLAN_DIRNAME / paths.PLAN_INDEX
+
+
+def is_legacy_plan(root: Path) -> bool:
+    """
+    A single-file `plan.md` at the ticket root, from before plans became a directory.
+
+    MIGRATION: `/ticket-plan` converts it; remove this once none is left —
+    see ticket-plan/MIGRATION.md.
+    """
+    return (root / paths.PLAN_INDEX).is_file() and not plan_index(root).is_file()
 
 
 def list_all(scope: Scope | None = None) -> list[dict]:
@@ -103,7 +119,7 @@ def list_all(scope: Scope | None = None) -> list[dict]:
                 "parent": record.get("parent"),
                 "path": str(root),
                 "last_touched": newest_mtime(root),
-                "has_plan": (root / "plan.md").is_file(),
+                "has_plan": plan_index(root).is_file(),
                 "has_journal": (root / "journal.md").is_file(),
                 "has_digest": (root / "digest.md").is_file(),
             }
@@ -115,8 +131,12 @@ def list_all(scope: Scope | None = None) -> list[dict]:
 
 def newest_mtime(directory: Path) -> str | None:
     newest = 0.0
-    for candidate in ("journal.md", "plan.md", "digest.md", FILENAME):
-        path = directory / candidate
+    for path in (
+        directory / "journal.md",
+        plan_index(directory),
+        directory / "digest.md",
+        directory / FILENAME,
+    ):
         try:
             newest = max(newest, path.stat().st_mtime)
         except OSError:

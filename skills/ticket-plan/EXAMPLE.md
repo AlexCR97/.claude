@@ -10,4 +10,4 @@
 | `/ticket-plan ado:18585 C:\src\billing-api` | with that worktree as a scan root                        |
 | `/ticket-plan ado:18585 --type spike`       | in a spike's shape, recorded in `ticket.json`            |
 
-**Refuses:** a ticket with no `digest.md` yet.
+**Refuses:** a ticket with no `digest.md` yet; and regenerating or renumbering while any phase is `In Progress`.

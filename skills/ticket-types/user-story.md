@@ -46,7 +46,7 @@ Fold these into the driver's rounds; they are the ones that cannot be skipped fo
 
 **Deliverable kind:** working code, plus the tests that show it works.
 
-**Required:** each phase must end in something shippable. A phase that leaves the system in a state no one could demonstrate has been cut in the wrong place — prefer fewer, wider phases over a chain of phases that only mean something together.
+**Required:** each phase must end in something shippable. A phase that leaves the system in a state no one could demonstrate has been cut in the wrong place — prefer fewer, wider phases over a chain of phases that only mean something together. Two shippable slices that share no code need no dependency between them, and can be built in parallel.
 
 **Forbidden:** none specific to this type. **Where a child task already exists as its own tracked ticket, this story's plan must not re-plan its work** — reference the child by id instead of duplicating its steps here; planning the same work twice is how the two drift apart.
 

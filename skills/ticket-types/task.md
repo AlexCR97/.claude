@@ -40,7 +40,7 @@ Where `ticket.json` carries a `parent`, surface it under Related Tickets → Par
 
 **Required:** nothing beyond the driver's defaults.
 
-**Forbidden:** **do not invent phases to fill a template.** One phase is the normal answer for a task. Split into a second only when there is a genuine dependency — something that must be true before the rest can be written — not because a plan with one phase looks thin.
+**Forbidden:** **do not invent phases to fill a template.** One phase is the normal answer for a task. Split into a second only when there is a genuine dependency — something that must be true before the rest can be written, recorded as the second phase's `depends_on` — not because a plan with one phase looks thin.
 
 **Activity mix:** whatever the work actually is. A task is as likely to be Deployment or Documentation as Development.
 

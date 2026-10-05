@@ -17,7 +17,7 @@ Nothing here belongs in the workspace. An artifact is a record of how this ticke
 
 ## Placement
 
-- A file belongs to the step that produced it: `artifacts/step-{N}.{M}/`, where `{N}.{M}` matches the `### Step {N}.{M}` heading in `plan.md` exactly.
+- A file belongs to the step that produced it: `artifacts/step-{N}.{M}/`, where `{N}.{M}` matches the `### Step {N}.{M}` heading in its phase file exactly.
 - A file produced while researching the plan itself — before the steps it informs exist — goes in `artifacts/planning/`.
 - A file that more than one step reads, or that applies to the plan as a whole (a findings document, a data extract several steps consult), goes in `artifacts/shared/`.
 - The captured output of running a script is written beside it as `{name}.output.{ext}`, where `{ext}` is the format the output actually is — `.json` for a JSON document, `.csv`, `.tsv`, `.jsonl`, `.md`, `.sql`, `.xml`, and so on. **Default to `.txt`**, and reach for a structured extension only when the whole file parses as that format: console output that mixes a table, a log line and a summary is `.txt`, however much JSON it happens to contain. Naming a capture for what it holds is what lets a later run parse it instead of re-running the script to get the data in a usable shape.
@@ -46,24 +46,30 @@ Never re-run a probe whose captured output is already on disk.
 
 ## Renumbering is a rename
 
-Plans change shape: research reorders phases, one step splits into two, a phase turns out to belong earlier. **Renumber whenever the plan reads better for it.** A step number is also a directory name, though, so renumbering is a rename — and it is finished only when nothing still points at the old number:
+Phases are numbered in topological order — a phase comes after everything it depends on — so when the graph changes, the numbers may have to. A phase number is also part of a file name, every step heading, every `depends_on`, and every `artifacts/step-{N}.{M}/` directory, so renumbering is a rename, finished only when nothing still points at an old number.
 
-1. Rename each affected `artifacts/step-{old}/` to `artifacts/step-{new}/`.
-2. Update the `## Phase {N}` and `### Step {N}.{M}` headings in `plan.md`.
-3. Update every `**Artifacts:**` line that named a renamed directory.
-4. Search `plan.md` and every file under `artifacts/` — `planning/`, `shared/`, and each step's `README.md` included — for the old identifiers (`step-1.1`, `Step 1.1`, `Phase 3`) and update each occurrence.
-5. Tell the user what moved and why.
+**Never do it by hand.** `ticket.py plan-renumber` does the whole rename in one pass:
 
-Do all five in one pass. A half-renumbered plan, where an `**Artifacts:**` line points at a directory that no longer exists, is worse than one that was never renumbered at all.
+1. Renames each moved phase file, `plan/{old}-{slug}.md` → `plan/{new}-{slug}.md`.
+2. Rewrites each phase's `number` and `depends_on`.
+3. Renames each affected `artifacts/step-{old}.{M}/` to `artifacts/step-{new}.{M}/`.
+4. Rewrites every `Step {old}.{M}`, `step-{old}.{M}`, `Phase {old}` and phase file name in `plan/` and under `artifacts/` — except captured outputs, `*.output.*` and `*.stderr.*`, which are measurements and never rewritten.
+5. Runs `plan-sync`.
+
+Then tell the user what moved and why — its output lists every rename and edited file.
+
+Only `ticket-plan` renumbers, and **never while any phase is `In Progress`**: another session may be writing into the very `artifacts/step-{N}.{M}/` directory the rename would move. The script refuses on its own; keep the current numbers until no phase is in flight. Gaps and out-of-order numbers are tolerated until then. Phase `0`, shared prerequisites, is never renumbered.
+
+A half-renumbered plan, where an `**Artifacts:**` line points at a directory that no longer exists, is worse than one that was never renumbered at all — which is why a script does it.
 
 ---
 
 ## The `**Artifacts:**` line
 
-Every step carries one. It names every file the step **produced or rests on**, as paths relative to `plan.md`:
+Every step carries one. It names every file the step **produced or rests on**, as paths relative to the phase file that holds it — one level below the ticket directory, so every path starts `../artifacts/`:
 
 ```
-**Artifacts:** [artifacts/planning/count-authorizations.output.json](artifacts/planning/count-authorizations.output.json)
+**Artifacts:** [../artifacts/planning/count-authorizations.output.json](../artifacts/planning/count-authorizations.output.json)
 ```
 
 It reads `—` only when a step neither produced anything nor depends on prior research. A step that produced files must name them, and a path it names must exist.

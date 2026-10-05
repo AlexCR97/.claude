@@ -18,15 +18,21 @@ from pathlib import Path
 # the real one.
 HOME_ENV_VAR = "TICKETS_HOME"
 
-# The six entries a ticket directory may hold; anything else is a stray.
+# The entries a ticket directory may hold; anything else is a stray.
+# MIGRATION: `plan.md` is the single-file plan `/ticket-plan` converts into
+# `plan/`. Drop it once no ticket holds one — see ticket-plan/MIGRATION.md.
 TICKET_ENTRIES = (
     "ticket.json",
     "digest.md",
     "journal.md",
+    "plan",
     "plan.md",
     "raw",
     "artifacts",
 )
+
+PLAN_DIRNAME = "plan"
+PLAN_INDEX = "plan.md"
 
 CONFIG_FILENAME = "config.json"
 
@@ -113,7 +119,10 @@ def ticket_paths(
         "ticket_dir": str(root),
         "ticket_json": str(root / "ticket.json"),
         "digest": str(root / "digest.md"),
-        "plan": str(root / "plan.md"),
+        "plan": str(root / PLAN_DIRNAME / PLAN_INDEX),
+        "plan_dir": str(root / PLAN_DIRNAME),
+        # MIGRATION: removed with ticket-plan/MIGRATION.md.
+        "legacy_plan": str(root / PLAN_INDEX),
         "journal": str(root / "journal.md"),
         "raw_dir": str(root / "raw"),
         "artifacts_dir": str(root / "artifacts"),

@@ -1,6 +1,6 @@
 # Spec — ticket-plan: phases as files, joined by a dependency graph
 
-Status: agreed, not yet implemented · 2026-10-05
+Status: implemented · 2026-10-05
 
 ## Goal
 
@@ -151,3 +151,19 @@ Existing tickets have a phased `plan.md` at the ticket root. They are converted 
 | Providers | `ticket-providers/ado/links.md`, `ticket-providers/local/links.md` |
 | Resolver | `ticketlib/paths.py`, `ticketlib/tickets.py`, `ticket.py` — `plan/` paths, `plan_dir`, old-format check, `plan-sync`, `plan-renumber` |
 | Memory | follow-up to remove the migration |
+
+---
+
+## Implementation notes
+
+Where the implementation settled something the decisions above left open:
+
+- **Tie-breaks are the planner's judgment, not the script's.** The script cannot tell a Database phase from a Backend one — both are Development — so `plan-renumber --order N,N,…` takes the order `ticket-plan` decided and checks it against the graph. Without `--order`, it keeps the current relative order wherever the graph allows.
+- **`plan-renumber` itself refuses** while a phase is `In Progress`, not only `ticket-plan`'s instructions.
+- **A `Blocked` phase is never Ready**, even with every dependency `Done`: what blocks it lies outside the graph.
+- **Overlap is detected from `**Target:**` lines.** `plan-sync` warns when two phases with no path between them share one, so targets must name a file the same way everywhere.
+- **A phase file's body carries no Activity or estimate** — both live only in frontmatter, so they cannot drift apart. The `# Phase {N}: {title}` heading carries the number, which `plan-renumber` rewrites.
+- **`plan-renumber` never rewrites a captured output** (`*.output.*`, `*.stderr.*`) — measurements stay as recorded.
+- **A build failure only in files a phase did not touch** sets that phase's last step `Blocked`, with a note naming the file, rather than leaving it `In Progress`.
+- **The frontmatter parser moved to `ticketlib/frontmatter.py`**; the local provider's `_store.py` now imports it instead of keeping its own copy.
+- **The glossary retires "task"** for a unit of planned work, and **"blocked"** for a phase merely waiting on a dependency.

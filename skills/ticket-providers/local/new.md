@@ -9,7 +9,7 @@ Read by `ticket-create`. **This is the only source that has this file**, which i
 {ticket-dir}/ticket.json       identity, with url: null
 ```
 
-Nothing else. `digest.md`, `plan.md`, `journal.md` and `artifacts/` are each written by the skill that owns them, when it runs.
+Nothing else. `digest.md`, `plan/`, `journal.md` and `artifacts/` are each written by the skill that owns them, when it runs.
 
 ## The body's shape
 

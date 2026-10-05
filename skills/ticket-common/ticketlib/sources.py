@@ -585,7 +585,12 @@ def requirement_hint(location: Location, unmet: list[str]) -> str:
         "ticket_dir": populate,
         "ticket_json": populate,
         "digest": f"Run `/ticket-digest {ref}`.",
-        "plan": f"Run `/ticket-plan {ref}`.",
+        "plan": (
+            # MIGRATION: removed with ticket-plan/MIGRATION.md.
+            f"Its plan.md is in the old single-file format. Run `/ticket-plan {ref}` to convert it."
+            if tickets.is_legacy_plan(location.dir)
+            else f"Run `/ticket-plan {ref}`."
+        ),
         "journal": f"Run `/ticket-checkpoint {ref}` to start one.",
     }
     # One populate hint is enough however many of its requirements were unmet.

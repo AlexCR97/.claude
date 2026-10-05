@@ -1,12 +1,12 @@
 ---
 name: ticket-implement
-description: Implements one, several or all phases of a ticket's plan.md by making the code changes each step names, then builds the affected projects. Tracks step status in plan.md as it goes, and reports what the run produced, decided and inferred.
+description: Implements one, several or all phases of a ticket's plan by making the code changes each step names, then builds the affected projects. Tracks step status in the phase files as it goes, checks each phase's dependencies and prerequisites first, and reports what the run produced, decided and inferred.
 argument-hint: "<ref> [phases | all]"
 ---
 
-Implements one, several or all phases of a ticket's `plan.md`: makes the code changes each step names, in the worktrees the plan's Workspace section confirms, builds each affected project, and keeps every step's status in `plan.md` current as it goes. What this run has to show before a phase is done — and whether a phase with no code change is complete — comes from the ticket's type.
+Implements one, several or all phases of a ticket's plan: makes the code changes each step names, in the worktrees the plan's Workspace section confirms, builds each affected project, and keeps every step's status in its phase file current as it goes. The plan's graph says which phases are Ready; several sessions can each take one and run side by side, so this skill checks a phase's dependencies, prerequisites and status before starting it, and never mistakes another session's half-finished work for its own. What this run has to show before a phase is done — and whether a phase with no code change is complete — comes from the ticket's type.
 
-End state: each selected phase's steps done and marked `Done`, or stopped with an accurate status and note; the affected projects building; `plan.md` and `artifacts/` matching what the run produced; no git operation run; and a report of what the run produced, decided and inferred.
+End state: each selected phase's steps done and marked `Done`, or stopped with an accurate status and note; the affected projects building; the phase files, the generated block in `plan/plan.md` and `artifacts/` matching what the run produced; no git operation run; and a report of what the run produced, decided and inferred.
 
 This skill is a **driver**: it contains no field names, URLs, API versions, credential commands, markup dialects, or type-specific rules of its own. Everything specific lives alongside it in three directories, and each step names the file to read.
 
@@ -25,24 +25,25 @@ No `allowed-tools` here: this skill's whole purpose is to change code and build 
 ## Parameters
 
 - **`<ref>`** — the ticket, as `ticket-common/RESOLUTION.md` → *How a reference resolves* defines it. Ask for one when it is absent.
-- **`[phases | all]`** — a comma-separated list of phase numbers (`1`, `1,3`, `2,3,4`), or `all` for every phase not yet done, in order. Absent, Step 3 shows the progress table and asks.
+- **`[phases | all]`** — a comma-separated list of phase numbers (`1`, `1,3`, `2,3,4`), or `all` for every phase not yet done. Either way they run one after another in this session, in number order — which is dependency order, so each runs after what it depends on. Absent, Step 3 shows the Progress table and asks.
 
 ---
 
 ## Ground rules
 
 1. **Stay inside the selected phases.** Never implement beyond them, and never use `digest.md` to expand scope beyond the plan.
-2. **Never redo finished work.** Skip a phase marked `[x] Done` or a step marked `Done`, with a warning; resume a step marked `In Progress` rather than restarting it.
+2. **Never redo finished work, and never take over another session's.** Skip a `Done` phase or step, with a warning. A phase already `In Progress` when this run reaches it may belong to another session: ask before resuming it, then resume its in-flight step rather than restarting it.
 3. **Run only read-only and build commands.** Never install a package or global tool, change the environment, or alter state outside the project being built. Run tests only where the type's file makes them its completion test.
 4. **Never run a git operation** — commit, push, pull, rebase, merge, reset, stash or any other. The developer reviews the diff and decides when to commit.
 5. **Never run a script artifact without approval of that run.** Write it, show it, ask, then run.
 6. **Never read or write `journal.md`.** It belongs to `ticket-checkpoint` and `ticket-resume`, and `ticket-resume` has already brought what matters into the session.
-7. **Never read a provider file.** By now `digest.md` holds what the ticket said and `plan.md` what the work is; needing a provider file means the abstraction leaked — report it as a bug.
-8. **Keep `plan.md` honest.** Mark a step `In Progress` before its first edit — only what is on disk survives an interrupted session. Never write a bare `In Progress` or `Blocked` status, keep every `**Artifacts:**` line accurate, and never mark a phase `[x] Done` while a step is not `Done`. `ticket-common/STATUS.md` has the vocabulary and the note rules.
+7. **Never read a provider file.** By now `digest.md` holds what the ticket said and the plan what the work is; needing a provider file means the abstraction leaked — report it as a bug.
+8. **Keep the plan honest.** Mark a step `In Progress` in its phase file before its first edit — only what is on disk survives an interrupted session. Never write a bare `In Progress` or `Blocked` status, keep every `**Artifacts:**` line accurate, and run `ticket.py plan-sync` after every status change. Never edit the generated block in `plan.md`, and never edit the phase file of a phase this run did not select. `ticket-common/STATUS.md` has the vocabulary and the note rules.
 9. **Write non-code files only under `artifacts/step-{N}.{M}/` or `artifacts/shared/`.** Never into `artifacts/planning/`, which belongs to `ticket-plan`, the ticket directory or the workspace; never delete or overwrite an existing artifact. `ticket-common/ARTIFACTS.md` has the layout.
 10. **State every decision and inference in chat as it is made.** The report is the only record this skill produces, and `ticket-checkpoint` builds its entry from the conversation.
 11. **Honour the type's completion rule both ways.** Never report a document-only run as incomplete where the type's deliverable is a written finding, and never report a violated type invariant as progress — stop and report it.
-12. **Renumber in one pass.** When the plan's shape changes, finish the rename so nothing points at an old number — `ticket-common/ARTIFACTS.md` → *Renumbering is a rename*.
+12. **Never fix what this phase did not touch.** A build error in a file outside this phase's changes is most likely another session's work in flight; report it rather than editing it.
+13. **Never renumber.** Renumbering renames artifact directories other sessions may be writing into; only `ticket-plan` does it. Where the plan's shape needs to change, say so and point at `/ticket-plan`.
 
 ---
 
@@ -58,51 +59,55 @@ python "{skills}/ticket-common/ticket.py" resolve "<ref>" --require plan [--cont
 
 Everything below uses the paths and type it returns; **every path it prints is absolute**, so nothing here needs expanding. On a non-zero exit, report the message and its hint verbatim and stop. `ticket-common/RESOLUTION.md` carries the full contract — open it only when the output is disputed.
 
-An unmet `plan` requirement means there is nothing to implement; the hint names the skill that fixes it.
+An unmet `plan` requirement means there is nothing to implement, or that the plan is in an old format; the hint names the skill that fixes it.
 
 ### Step 2 — Read the type's completion rule, then the plan
 
 Read `ticket-types/{type}.md`, specifically its *"What done means"* and *"What implement must produce"* sections. They define what this run has to show for itself before any phase may be reported complete, and they are the only thing that varies here by type. Take them seriously in both directions: a type whose deliverable is a document is not an incomplete run, and a type whose invariant was broken is not a run that merely needs a note.
 
-Then parse `plan.md` and extract:
+Then sync the plan and read what it reports:
 
-- The **Progress table** — phase names, estimates, and current status (`[ ] Pending`, `[~] In Progress`, `[!] Blocked`, `[x] Done`)
-- Each **Phase section** — its scope, projects touched, and step sub-sections (`### Step {N}.{M}`, each with a `**Status:**`, `**Target:**`, and `**Artifacts:**` line)
-- The **Workspace section** — each worktree and plain directory, by absolute path, and the projects inside them; used in Steps 6 and 9
+```bash
+python "{skills}/ticket-common/ticket.py" plan-sync "<ref>" [--context {context}]
+```
 
-The terms in that section, and throughout this skill, mean exactly what **`ticket-common/GLOSSARY.md`** says. The workspace is where this run works: never read or change a worktree it does not list, even one of a repository it holds, and never rediscover it.
+Its output lists every phase — number, title, file, `depends_on`, derived status, whether it is Ready and why not, its open prerequisites, and each step's status, note and target. Another session may have changed a phase file since this one last looked, so this is the plan's current state, and the run trusts it over anything remembered.
 
-Then list the ticket's `artifacts/`. Every `**Artifacts:**` line that names a directory should have one on disk, and every directory on disk should be named by some step's `**Artifacts:**` line. Where they disagree, trust the disk and correct `plan.md`.
+Read the **Workspace section** of `plan.md` — each worktree and plain directory, by absolute path, and the projects inside them; used in Steps 6 and 9. The terms in that section, and throughout this skill, mean exactly what **`ticket-common/GLOSSARY.md`** says. The workspace is where this run works: never read or change a worktree it does not list, even one of a repository it holds, and never rediscover it.
 
-A step marked `In Progress` or `Blocked` was left mid-flight by an earlier session. Its `**Status:**` note is what this skill goes on, together with anything about that session already in this conversation — `ticket-resume` puts it there when it briefs the session. Do not open `journal.md` to look for more.
+A step marked `In Progress` or `Blocked` was left mid-flight — by an earlier session, or by one still running. Its `**Status:**` note is what this skill goes on, together with anything about that session already in this conversation — `ticket-resume` puts it there when it briefs the session. Do not open `journal.md` to look for more.
 
 ### Step 3 — Resolve which phases to implement
 
-- **`all`** → collect every phase whose status is not `[x] Done`.
-- **A list of phase numbers** → collect those phases, but skip any that are already `[x] Done`, and warn the user for each skipped one, naming the phase.
-- **Absent** → print the current progress table and ask:
+- **`all`** → collect every phase whose status is not `[x] Done`, in number order.
+- **A list of phase numbers** → collect those phases in number order, but skip any that are already `[x] Done`, and warn the user for each skipped one, naming the phase.
+- **Absent** → print the Progress table from the sync — with its Depends on and Ready columns — name the Ready phases not yet started, and ask:
 
-  > Which phases would you like to implement? Enter phase numbers separated by commas, or "all" for all pending phases.
+  > Which phases would you like to implement? Enter phase numbers separated by commas, or "all" for every phase not done. Ready phases can each run in a session of its own, in parallel with this one.
 
   Wait for the response, then resolve as above.
-
-A phase whose status is `[!] Blocked` is **not** skipped automatically, but it is not run silently either. Report the blocking step and its note, and ask whether it has been resolved — offering to implement the phase's other steps, or to wait. Implementing straight through a blocker usually produces work that has to be redone once the real answer arrives.
-
-- **Resolved** → implement the phase, starting at the blocked step.
-- **The other steps** → implement every step of the phase except the blocked one, which stays `Blocked`.
-- **Wait** → leave the phase out of this run.
-
-A phase holding an `In Progress` step resumes at that step rather than restarting the phase — its `**Status:**` note says what is already done.
 
 If no phases remain after filtering out done ones, stop:
 
 > All specified phases are already complete. Nothing to implement.
 
-### Step 4 — Read the phase steps
+### Step 4 — Check the phase can start
 
-Run Steps 4–8 once for each resolved phase, in ascending order.
+Run Steps 4–8 once for each resolved phase, in number order. Before touching anything, re-run `plan-sync` and check the phase against what it reports now — a phase earlier in this run may have just finished, and another session may have moved since Step 2.
 
-Re-read the phase section from `plan.md`. Extract each step sub-section (`### Step {N}.{M}`), its `**Status:**`, `**Target:**`, and `**Artifacts:**`.
+- **A dependency is not `Done`** → name each phase it depends on that is not, with its status, and ask whether to go ahead anyway — the developer may know it is finished elsewhere — or leave the phase out of this run. Building on an unfinished dependency usually means redoing the work once it lands.
+- **The phase is `In Progress`** → it may belong to another session. Say so, with the in-flight step's note — "Phase 3 is In Progress (Step 3.2 — repository written, mapping remains); another session may own it. Resume here?" — and wait. On a yes, resume at that step; otherwise leave the phase out.
+- **The phase is `Blocked`** → report the blocking step and its note, and ask whether it has been resolved — offering to implement the phase's other steps, or to wait. Implementing straight through a blocker usually produces work that has to be redone once the real answer arrives.
+  - **Resolved** → implement the phase, starting at the blocked step.
+  - **The other steps** → implement every step of the phase except the blocked one, which stays `Blocked`.
+  - **Wait** → leave the phase out of this run.
+- **A prerequisite is unchecked** → list each one in the phase's `## Prerequisites`, and ask whether it is in place. Check the box, `- [x]`, for each the user confirms, then sync. Where one is not in place, the phase is not Ready: leave it out, unless the user chooses to go ahead.
+
+A phase left out is named in the report, with why.
+
+### Step 5 — Read the phase steps
+
+Re-read the phase file. Extract each step sub-section (`### Step {N}.{M}`), its `**Status:**`, `**Target:**`, and `**Artifacts:**`.
 
 Skip any step already marked `Done`. Resume — do not restart — any step marked `In Progress`: read its `**Status:**` note first and take what it says was already done as done. Re-doing a completed half of a step is how a resumed session quietly reverts a decision the previous one made.
 
@@ -113,9 +118,7 @@ If any step references a file or class that does not exist yet, note it as a new
 1. First consult `digest.md` — the **Acceptance Criteria**, **Description**, and **Discussion** sections often resolve ambiguity.
 2. If still unclear, use best judgment based on the patterns already established in the relevant project. Record what was inferred — it will be included in the completion report.
 
-### Step 5 — Load coding standards
-
-Before writing any code, `Glob` `../../rules/*.md` and read each file that applies to the projects being modified — the conventions for their language, and the language-neutral ones. They apply unless a local convention overrides them.
+Before writing any code, take the coding rules already loaded into this session that apply to the projects being modified — the conventions for their language, and the language-neutral ones. They apply unless a local convention overrides them.
 
 For each project being modified, also read enough of the existing code to identify:
 
@@ -139,7 +142,7 @@ A `**Target:**` path is relative to its project's worktree or plain directory, n
 
 #### Creating a new file
 
-1. Check `plan.md` for the specified path. Use it if given.
+1. Check the step for the specified path. Use it if given.
 2. If no path is specified, infer placement from the project's directory structure (e.g. a new repository class goes where other repository classes live). Ask the user only when both signals are absent.
 3. Write the file using the conventions established in Step 5.
 
@@ -152,18 +155,18 @@ Follow `ticket-common/ARTIFACTS.md` for placement, naming and the run-approval r
 1. Create `artifacts/step-{N}.{M}/` for the step being implemented, or `artifacts/shared/` when the file serves more than one step.
 2. Write the script there. Ask the user before running it — show what it does, what it reads, and that it writes nothing outside `artifacts/`. On approval, run it and capture its output beside it.
 3. If the artifacts would not explain themselves to a later reader — what was run, against what, when, and what it showed — add a `README.md` to that directory saying so.
-4. Set the step's `**Artifacts:**` line in `plan.md` to the paths just created.
+4. Set the step's `**Artifacts:**` line in the phase file to the paths just created, relative to the phase file, as `ticket-common/ARTIFACTS.md` → *The `**Artifacts:**` line* shows.
 
 The approval in point 2 is required for every run of every script artifact, and a contradicting artifact stops the step — both per `ticket-common/ARTIFACTS.md` → *Running a script is always a separate permission*.
 
 #### Keeping the step's status current
 
-Set the step's `**Status:**` to `In Progress` before making its first edit, with a note saying the work has just begun, and keep that note current as the step's state materially changes.
+Set the step's `**Status:**` to `In Progress` before making its first edit, with a note saying the work has just begun, and keep that note current as the step's state materially changes. Run `plan-sync` after each status change, so the Progress table every other session sees stays true.
 
 Where a step cannot be completed, do not leave it reading `In Progress`:
 
 - **Blocked on an answer** — something outside the workspace must be decided or confirmed. Set `Blocked` with a note naming what is blocking and what would clear it, tell the user, and move to the next step in the phase if one is independent of it.
-- **Blocked on a contradiction** — an artifact or the workspace contradicts what the step assumes. Follow `ticket-common/ARTIFACTS.md`: record it, tell the user, and ask whether to revise the plan. Do not implement the step as written.
+- **Blocked on a contradiction** — an artifact or the workspace contradicts what the step assumes. Follow `ticket-common/ARTIFACTS.md`: record it, tell the user, and ask whether to revise the plan — through `/ticket-plan`, since this skill never renumbers. Do not implement the step as written.
 - **Blocked on a violated invariant** — the type file names something this kind of work must not do, and doing the step as written would do it. That is a **stop-and-report**, not a note to leave behind. Step 8 will not mark the phase done.
 
 #### Noting decisions as they are made
@@ -188,27 +191,25 @@ Detect the build tool from the project's files, per [`BUILD-COMMANDS.md`](./BUIL
 
 **If the build succeeds:** proceed to Step 8.
 
-**If the build fails:**
+**If the build fails**, read the compiler output and see where each error is:
 
-1. Read the compiler output and diagnose the error.
-2. Attempt to fix the issue — it is most likely caused by the changes just made.
-3. Re-run the build. If it succeeds, proceed.
-4. If the build still fails after one fix attempt, stop: report which project failed after which phase, with the compiler output, and ask the user to review it before continuing. Do not mark the phase complete or continue to the next phase until the build passes.
+- **In a file this phase changed** → it is most likely caused by the changes just made. Fix it and re-run the build. If it still fails after one fix attempt, stop: report which project failed after which phase, with the compiler output, and ask the user to review it before continuing.
+- **Only in files this phase did not touch** → another session working a parallel phase in the same project is the likely cause: its edits are on disk, half-finished. **Do not fix them.** Set the phase's last step `Blocked` — "build fails in `{file}`, outside this phase — likely another session's work in flight; re-build once it settles" — sync, report it with the compiler output, and do not continue to the next phase.
 
-### Step 8 — Update the phase's status in plan.md
+Either way, do not mark the phase complete or continue to the next phase until the build passes.
+
+### Step 8 — Update the phase's status
 
 First, check the phase against the type's completion rule from Step 2. Where the rule is not satisfied — a required test was not run, an invariant the type protects was broken, a deliverable the type demands was not produced — the phase is **not** done. Report what is missing, set the step's status accordingly, and stop rather than continuing to the next phase.
 
-Then, once the build passes for all affected projects:
+Then, once the build passes for all affected projects, edit the phase file:
 
-1. Set `**Status:** Done` on every step sub-section that was actually completed. Leave a step that could not be completed as `Blocked` or `In Progress` with its note intact
-2. Set the `**Artifacts:**` line of every step that produced files to the paths under `artifacts/`, relative to `plan.md`; leave it `—` for steps that produced none
-3. Derive the phase row in the Progress table from its steps, using the table in `ticket-common/STATUS.md`. Add a short parenthetical where the status alone misleads — `[~] In Progress (2.7 blocked on the claim name)`
-4. If all phases in the table are now `[x] Done`, update the overall summary line if present.
+1. Set `**Status:** Done` on every step that was actually completed. Leave a step that could not be completed as `Blocked` or `In Progress` with its note intact.
+2. Set the `**Artifacts:**` line of every step that produced files to the paths under `artifacts/`, relative to the phase file; leave it `—` for steps that produced none.
 
-A phase whose steps are not all `Done` is not marked `[x] Done`, however much of it ran. The point of the derivation is that the table cannot claim more than the steps support.
+Then run `plan-sync`. It derives the phase's status and every phase's readiness from the steps — a phase whose steps are not all `Done` is not `[x] Done`, however much of it ran — and its output names the phases this one just made Ready.
 
-Then continue with the next selected phase at Step 4 — do not ask. After the last one, continue to Step 9.
+Then continue with the next selected phase at Step 4 — do not ask unless Step 4 must. After the last one, continue to Step 9.
 
 ### Step 9 — Report what the run produced
 
@@ -225,4 +226,4 @@ Start with whatever the type file's *"What implement must produce"* section requ
 
 Then report what this run decided and assumed, each naming the step it affects. This report is the only place either list is written down, so state it even when it feels obvious — `ticket-checkpoint` builds the session's journal entry from this conversation, and what was never said cannot be recorded.
 
-Fill [`run-report.md`](./run-report.md): `{location}` is the worktree or plain directory, named as the glossary says, and `{filePath}` is relative to it. Omit Decisions or Inferences when it is empty. `Left in flight` reads `Nothing in flight.` when no step is left mid-way.
+Fill [`run-report.md`](./run-report.md): `{location}` is the worktree or plain directory, named as the glossary says, and `{filePath}` is relative to it. Omit Decisions or Inferences when it is empty. `Left in flight` reads `Nothing in flight.` when no step is left mid-way. `Now Ready` comes from the last sync: the phases not started whose dependencies and prerequisites are all met — each can be taken up in a session of its own.

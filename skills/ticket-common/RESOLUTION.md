@@ -28,6 +28,8 @@ python "{skills}/ticket-common/ticket.py" <verb> [<ref>] [--source S] [--in X] [
 | `move <ref> --to NS/PRODUCT [--dry-run]`                         | Re-files a ticket: renames its directory, rewrites every `parent` that would stop resolving, reports the links the move breaks. See [Moving](#moving).                                             |
 | `auth-status [--source S]`                                       | Each source's credential state, once per credential, never the credential.                                                                                                                         |
 | `scan-roots [--in NS[/PRODUCT]] [--set [DIR ...]]`               | One level's scan roots and the effective list with where it came from. `--set` replaces that level's list with the given directories, each checked to exist; with none it empties it.              |
+| `plan-sync <ref> [--dry-run]`                                    | Reads every phase file, checks the graph, rewrites `plan/plan.md`'s generated block, and reports each phase's derived status, readiness and steps. `--dry-run` reports, and whether the block is stale, without writing. |
+| `plan-renumber <ref> [--order N,N,...] [--dry-run]`              | Numbers the phases in topological order — the given one, or the current one kept where the graph allows — and finishes the whole rename per `ARTIFACTS.md`. Refuses while a phase is `In Progress`. |
 
 **`--in` restricts; `--context` prefers.** `--in {namespace}[/{product}]` narrows what a reference can mean and where a new ticket can be filed. `--context` is how a driver passes the session context: it wins a tie and decides filing, but it never hides a ticket filed elsewhere. They are separate flags so a preference can never act as a restriction.
 
@@ -108,7 +110,10 @@ Every result names the product, the rule that chose it — `named`, `address`, `
 
 Exit 3 on an absent capability is structural, not advisory: the verb refuses before any provider code loads. Report it as a gap. Never substitute another source's behaviour for it, and never hand-roll the call the provider declined to make.
 
-`--require` takes a comma-separated subset of `config, ticket_dir, ticket_json, raw, digest, plan, journal`. `config` means the source is bound where the ticket is filed: every coordinate its manifest declares is known. An unmet requirement exits 2 with a hint naming the skill that would satisfy it.
+`--require` takes a comma-separated subset of `config, ticket_dir, ticket_json, raw, digest, plan, journal`. `config` means the source is bound where the ticket is filed: every coordinate its manifest declares is known. `plan` means `plan/plan.md` exists. An unmet requirement exits 2 with a hint naming the skill that would satisfy it.
+
+<!-- MIGRATION: remove this paragraph with ticket-plan/MIGRATION.md. -->
+A `plan.md` at the ticket root is a plan in the old single-file format, reported as `on_disk.legacy_plan`. It does not satisfy `plan`: the hint says to run `/ticket-plan`, which converts it.
 
 ---
 
@@ -129,7 +134,7 @@ Exit 3 on an absent capability is structural, not advisory: the verb refuses bef
                 ├── ticket.json  source, id, title, type, native_type, state, url, last_fetched_at, coordinates
                 ├── digest.md    ← ticket-digest
                 ├── journal.md   ← ticket-checkpoint only; read only by ticket-resume
-                ├── plan.md      ← ticket-plan
+                ├── plan/        ← ticket-plan: plan.md, the index, and one {N}-{slug}.md per phase
                 ├── raw/         ← ticket-fetch, or the source of truth for a local store
                 └── artifacts/   ← ticket-plan and ticket-implement (see ARTIFACTS.md)
 ```

@@ -13,7 +13,7 @@ The defining constraint is the one that makes this type hard to verify: **succes
 - **The current structure.** What is there now, concretely: the classes, the flow, the duplication, the coupling. Named, not characterised.
 - **The target structure.** What it should look like afterwards, in the same terms, so the difference is inspectable rather than a matter of taste.
 - **The blast radius.** Everything that calls into what is being restructured — including anything outside the workspace that depends on a signature, a contract, or a wire format. A refactor whose radius was underestimated is the most common way this type goes wrong.
-- **What proves behaviour is unchanged.** The single most important answer in the interview. Which tests, which characterization, which measurement. **Where the answer is "nothing covers this today", that is the first phase of the plan**, not a caveat.
+- **What proves behaviour is unchanged.** The single most important answer in the interview. Which tests, which characterization, which measurement. **Where the answer is "nothing covers this today", that is the characterization phase every restructuring depends on**, not a caveat.
 
 Ask also: what is explicitly *not* being changed? Tech debt tickets attract passengers, and every functional change bundled into one destroys the property that makes it verifiable.
 
@@ -32,13 +32,13 @@ Ask also: what is explicitly *not* being changed? Tech debt tickets attract pass
 
 **Deliverable kind:** a code change with no behavioural difference, plus whatever test coverage was needed to prove that.
 
-**Required — the first phase captures the existing behaviour under test.** Before anything is restructured. Where coverage already exists and is adequate, the phase confirms it runs green and records what it covers; where it does not, the phase writes it. Either way the baseline exists before the first structural edit, because after that edit there is no way to establish what the old behaviour was.
+**Required — a characterization phase captures the existing behaviour under test**, and **every restructuring phase depends on it**. Nothing is restructured before it is done. Where coverage already exists and is adequate, the phase confirms it runs green and records what it covers; where it does not, the phase writes it. Either way the baseline exists before the first structural edit, because after that edit there is no way to establish what the old behaviour was.
 
-**Required:** phases sequenced so the system is working at the end of each. A refactor left half-applied across a session is worse than one not started.
+**Required:** phases cut so the system is working at the end of each. A refactor left half-applied across a session is worse than one not started. Two restructuring phases with no dependency between them may run in parallel, so each must leave the system working on its own — where one only works after the other, draw the dependency.
 
 **Forbidden — no functional change may be bundled in.** Not a fix noticed along the way, not a small improvement, not a rename that alters a public contract. Each of those is a separate ticket. If one turns out to be unavoidable, stop and say so rather than folding it in.
 
-**Activity mix:** Testing for the characterization phase, then Development for the restructuring, then Testing again where coverage needed to move with the code.
+**Activity mix:** Testing for the characterization phase, Development for the restructuring, and Testing again where coverage needed to move with the code.
 
 **Estimate adjustment:** scale with the blast radius, not with the size of the thing being restructured. Ten call sites in three projects costs more than a thousand lines in one file.
 
@@ -58,7 +58,7 @@ A test may legitimately be edited for structural reasons alone: a renamed type, 
 
 ## What implement must produce
 
-The restructuring, the baseline test run from the first phase, and the same run afterwards.
+The restructuring, the baseline test run from the characterization phase, and the same run afterwards.
 
 **A behaviour change is a failure to report and stop on, not a side effect to accept.** Where the tests do not pass unmodified after the restructuring:
 

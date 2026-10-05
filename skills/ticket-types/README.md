@@ -23,7 +23,7 @@ Every type file answers the same six questions, in this order, under these headi
 1. **What this type is** — one paragraph. What distinguishes it from its nearest neighbour.
 2. **What refine must establish** — the questions that are non-negotiable for this type, folded into the driver's own rounds.
 3. **What digest must surface** — which sections matter, and which source field to prefer when several could fill one.
-4. **What shape the plan takes** — required phases, forbidden phases, the kind of thing a step delivers, the activity mix, and any estimate adjustment.
+4. **What shape the plan takes** — required phases, forbidden phases, the dependencies between them, the kind of thing a step delivers, the activity mix, and any estimate adjustment. Phases form a graph, not a sequence: a phase that must come before others is stated as one they depend on, never as "the first phase".
 5. **What done means** — the completion test, stated so it can be checked rather than asserted.
 6. **What implement must produce** — what the run has to show for itself before a phase may be reported complete.
 

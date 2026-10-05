@@ -1,6 +1,6 @@
 # Glossary
 
-The words every `ticket-*` skill uses for where tickets are kept and for the code a ticket's work reads and changes. Use each term exactly as defined here, and never a synonym. Two words for one thing read as two things, and the next reader has to work out whether they are.
+The words every `ticket-*` skill uses for where tickets are kept, for the code a ticket's work reads and changes, and for the plan that work follows. Use each term exactly as defined here, and never a synonym. Two words for one thing read as two things, and the next reader has to work out whether they are.
 
 ---
 
@@ -21,7 +21,7 @@ The words every `ticket-*` skill uses for where tickets are kept and for the cod
 | **Binding**             | The coordinates a namespace or product records for one source, under `sources.{source}` in its `config.json`. New tickets are fetched with them, and a pasted address is filed by them.                                                                                                                                      |
 | **Effective config**    | The root, namespace and product `config.json` merged, the inner level winning. Every skill reads this, never one file alone.                                                                                                                                                                                                 |
 | **Filing**              | Choosing the product a ticket not yet on disk is placed under, by the rules in `RESOLUTION.md`: first which products can hold it, then which of them the session context, the invocation directory or the default product prefers. Moving it later with `/ticket-move` is re-filing.                                         |
-| **Ticket directory**    | One ticket's directory, at `{namespace}/{product}/{source}/{id}` in the tickets home: `ticket.json`, `digest.md`, `plan.md`, `journal.md`, `raw/` and `artifacts/`.                                                                                                                                                          |
+| **Ticket directory**    | One ticket's directory, at `{namespace}/{product}/{source}/{id}` in the tickets home: `ticket.json`, `digest.md`, `plan/`, `journal.md`, `raw/` and `artifacts/`.                                                                                                                                                             |
 | **Qualified reference** | `{namespace}/{product}/{source}:{id}` — names one ticket on the machine without ambiguity.                                                                                                                                                                                                                                   |
 
 ### The code a ticket touches
@@ -40,6 +40,18 @@ The words every `ticket-*` skill uses for where tickets are kept and for the cod
 | **Project**              | A directory holding one unit that is built and changed together, detected by a build or deployment file (`ticket-plan`'s signal table). It lives in one worktree or plain directory, and it is where code changes happen.                                                                                                                    |
 | **Workspace**            | Everything a ticket's code work happens in: its repositories with the worktrees the work happens in, its plain directories, and the projects inside them, plus the scan roots it was found from.                                                                                                                                             |
 
+### The plan
+
+| Term              | Meaning                                                                                                                                                                                       |
+| ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Plan**          | A ticket's `plan/` directory: the index `plan.md` and one phase file per phase.                                                                                                               |
+| **Phase**         | A unit of work that can be implemented, built and verified on its own, with its own steps, estimate and Activity. Numbered `{N}`; phase `0` is reserved for prerequisites several phases share. |
+| **Phase file**    | `plan/{N}-{slug}.md` — one phase, and the source of truth for it: its dependencies in frontmatter, its prerequisites, its steps and their status.                                            |
+| **Step**          | One change inside a phase, `### Step {N}.{M}`, with a `**Status:**`, a `**Target:**` and an `**Artifacts:**` line.                                                                            |
+| **Dependency**    | Phase B depends on phase A when B cannot be written or built without A's output. Recorded in B's `depends_on`.                                                                               |
+| **Ready**         | A phase whose dependencies are all `Done` and whose prerequisites are all checked. Derived, never written down; Ready phases can be worked on in parallel, one session each.                 |
+| **Critical path** | The longest chain of dependencies by estimate — the shortest the plan can take, however many phases run in parallel.                                                                        |
+
 ---
 
 ## Rules the terms carry
@@ -50,11 +62,11 @@ The words every `ticket-*` skill uses for where tickets are kept and for the cod
 - **The default product and the session context never file a ticket against its coordinates, and the default product never decides which existing ticket a reference means.** A wrong filing is visible and one `/ticket-move` from fixed; a wrong resolution attaches a session's work to the wrong ticket.
 - **A reference stored in a ticket is short within its own product and qualified across products**, because it is resolved from its own ticket's product first.
 - **A directory is the thing; a path is its name.** Say _directory_ for the location, and _path_ only for the string, stating what it is relative to. A `**Target:**` line holds a path; the argument naming where code lives takes directories.
-- **A plan has exactly one workspace**, recorded in the Workspace section of `plan.md`. The skills after `ticket-plan` work in that workspace; they do not rediscover it.
+- **A plan has exactly one workspace**, recorded in the Workspace section of `plan/plan.md`. The skills after `ticket-plan` work in that workspace; they do not rediscover it.
 - **A workspace holds only the worktrees the work happens in**, one or several per repository. Worktrees of one repository can sit on different branches with different code, so each is listed on its own, and a worktree the workspace does not list is never read or changed.
 - **The workspace excludes the tickets home and every ticket directory.** Planning notes and artifacts are the ticket's record, not part of the code it changes, and neither is ever a scan root.
 - **Scan roots differ in how far they are trusted.** A directory the user gave and the invocation directory are facts about this ticket: what they hold is in the workspace. A default scan root, or one found by search, says only where to look: what it holds is in the workspace when it matches the ticket.
-- **Paths in `plan.md` are absolute in the Workspace section**, since that is how a later session finds the code. Everywhere else, a path is relative to its project's worktree or plain directory, and names that worktree or plain directory whenever the workspace holds more than one.
+- **Paths in the plan are absolute in the Workspace section of `plan/plan.md`**, since that is how a later session finds the code. Everywhere else, a path is relative to its project's worktree or plain directory, and names that worktree or plain directory whenever the workspace holds more than one.
 
 ---
 
@@ -68,6 +80,8 @@ The words every `ticket-*` skill uses for where tickets are kept and for the cod
 | project, board, space — as a name for a group of tickets               | product         |
 | organization, owner, account — as a name for a namespace               | namespace       |
 | context, on its own, for the session's namespace and product           | session context |
+| task — as a name for a unit of planned work                            | phase           |
+| blocked — for a phase waiting on an unfinished dependency              | not Ready       |
 
 A retired word keeps its ordinary meaning where it names something else: the `git checkout` command, a network service to connect to, a user role such as an integrating service, a frontend UI component, a Python module, a C# or XML namespace, a MIME type, a ticket's _Component_ field, a directory literally named `repos`, the context a session has loaded.
 

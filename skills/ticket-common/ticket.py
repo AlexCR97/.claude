@@ -26,6 +26,8 @@ Usage:
     python ticket.py move <ref> --to NS/PRODUCT [--dry-run]
     python ticket.py auth-status [--source S] [--in X]
     python ticket.py scan-roots [--in NS[/PRODUCT]] [--set [DIR ...]]
+    python ticket.py plan-sync <ref> [--dry-run]
+    python ticket.py plan-renumber <ref> [--order N,N,...] [--dry-run]
 
 `--in` restricts to a namespace or product; `--context` only prefers one — it
 is how a driver passes the session context, which must never hide a ticket
@@ -61,6 +63,7 @@ from ticketlib import (
     layout,
     moves,
     paths,
+    plans,
     providers,
     sources,
     tickets,
@@ -693,6 +696,45 @@ def verb_scan_roots(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def plan_dir_of(args: argparse.Namespace) -> tuple[Path, Location]:
+    location = require_filed(locate(args))
+    plan_dir = Path(location.paths()["plan_dir"])
+    if not (plan_dir / paths.PLAN_INDEX).is_file():
+        raise TicketError(
+            f"{location.qualified} has no plan",
+            EXIT_NOT_FOUND,
+            sources.requirement_hint(location, ["plan"]),
+        )
+    return plan_dir, location
+
+
+def verb_plan_sync(args: argparse.Namespace) -> int:
+    plan_dir, location = plan_dir_of(args)
+    result = plans.sync(plan_dir, dry_run=args.dry_run)
+    result["qualified_ref"] = location.qualified
+    emit(result)
+    return EXIT_OK
+
+
+def verb_plan_renumber(args: argparse.Namespace) -> int:
+    plan_dir, location = plan_dir_of(args)
+    requested = None
+    if args.order:
+        items = [item.strip() for item in args.order.split(",") if item.strip()]
+        if not all(item.isdigit() for item in items):
+            raise TicketError(
+                "--order takes phase numbers separated by commas", EXIT_ERROR
+            )
+        requested = [int(item) for item in items]
+
+    result = plans.renumber(
+        plan_dir, Path(location.paths()["artifacts_dir"]), requested, args.dry_run
+    )
+    result["qualified_ref"] = location.qualified
+    emit(result)
+    return EXIT_OK
+
+
 def normalize_directories(raw: list[str]) -> list[str]:
     """
     Absolute, existing, and each listed once, in the order given.
@@ -751,6 +793,8 @@ VERBS = {
     "move": verb_move,
     "auth-status": verb_auth_status,
     "scan-roots": verb_scan_roots,
+    "plan-sync": verb_plan_sync,
+    "plan-renumber": verb_plan_renumber,
 }
 
 
@@ -891,6 +935,39 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="DIR",
         help="replace the list with these directories; none empties it",
     )
+
+    p = sub.add_parser(
+        "plan-sync",
+        help="rewrite plan.md's Progress table and graph from the phase files, and report the plan",
+    )
+    p.add_argument("ref")
+    p.add_argument("--source")
+    p.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="report the plan and whether plan.md is stale; write nothing",
+    )
+    add_restrict(p, "only look in this namespace or product")
+    add_context(p)
+
+    p = sub.add_parser(
+        "plan-renumber",
+        help="number the phases in topological order, renaming files, steps and artifacts in one pass",
+    )
+    p.add_argument("ref")
+    p.add_argument("--source")
+    p.add_argument(
+        "--order",
+        metavar="N,N,...",
+        help="the current numbers of every phase after 0, in their new order; checked against the graph",
+    )
+    p.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="report what would be renamed and edited; change nothing",
+    )
+    add_restrict(p, "only look in this namespace or product")
+    add_context(p)
 
     return parser
 

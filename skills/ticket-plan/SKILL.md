@@ -1,12 +1,12 @@
 ---
 name: ticket-plan
-description: Turns a ticket's digest.md into a phased, file-level implementation plan in plan.md, discovering the repositories, worktrees and projects the work spans from its scan roots. Researches unknowns under artifacts/planning/, asking before running any script. Re-run, it updates step status.
+description: Turns a ticket's digest.md into a plan — one file per phase under plan/, joined by a dependency graph showing which phases can run in parallel. Discovers repositories, worktrees and projects from its scan roots, and researches unknowns under artifacts/planning/. Re-run, it updates step status.
 argument-hint: "<ref> [dir ...] [--type type]"
 ---
 
-Turns a ticket's `digest.md` into a phased, file-level implementation plan in `plan.md`. It discovers the workspace — the repositories, worktrees and projects the work spans — from the ticket's scan roots, researches the facts the plan's shape rests on, and shapes the phases by the ticket's type. Run again on a ticket that has a plan, it shows progress and updates step status. It plans only: research artifacts under `artifacts/planning/` are part of planning — a plan built on an unverified assumption is worth less than the hour spent verifying it — but no change to the workspace is. The terms for code mean what `ticket-common/GLOSSARY.md` says; read it before discovering anything.
+Turns a ticket's `digest.md` into a plan: one file per phase under `plan/`, each naming the phases it depends on, and an index, `plan/plan.md`, whose generated Progress table and graph show which phases are Ready — so that phases with no path between them can be worked on in parallel, one session each. It discovers the workspace — the repositories, worktrees and projects the work spans — from the ticket's scan roots, researches the facts the plan's shape rests on, and shapes the phases and their dependencies by the ticket's type. Run again on a ticket that has a plan, it shows progress and updates step status. It plans only: research artifacts under `artifacts/planning/` are part of planning — a plan built on an unverified assumption is worth less than the hour spent verifying it — but no change to the workspace is. The terms for code and for the plan mean what `ticket-common/GLOSSARY.md` says; read it before discovering anything.
 
-End state: `plan.md` written from `digest.md` and the confirmed workspace, every research artifact under `artifacts/planning/` cited by the steps that rest on it, and the workspace unchanged — or, on a later run, `plan.md` updated as the user asked.
+End state: `plan/` written from `digest.md` and the confirmed workspace — `plan.md` indexing it and one phase file per phase, the graph acyclic and the generated block synced — every research artifact under `artifacts/planning/` cited by the steps that rest on it, and the workspace unchanged; or, on a later run, the phase files updated as the user asked and the block re-synced.
 
 This skill is a **driver**: it contains no field names, URLs, API versions, credential commands, markup dialects, or type-specific rules of its own. Everything specific lives alongside it in three directories, and each step names the file to read.
 
@@ -36,11 +36,13 @@ No `allowed-tools`: Step 8 runs user-approved probe scripts whose commands canno
 2. **Run read-only git only.** Discovery uses `rev-parse`, `worktree list`, `remote get-url` and `branch --show-current` — never `fetch`, `checkout`, or `worktree add`, `remove` or `prune`.
 3. **Plan from `digest.md`, never from the raw data.** Derive content from `digest.md`, the attachments it references, `artifacts/`, the confirmed workspace and the type file; never fabricate a file or class name. Where `digest.md` lacks what the plan needs, ask, or point at `/ticket-refine` then `/ticket-digest`.
 4. **Never read or write `journal.md`.** It belongs to `ticket-checkpoint` and `ticket-resume`.
-5. **Use the glossary's terms exactly**, in `plan.md` and in chat — never a synonym it retires.
-6. **Write only `plan.md` and `artifacts/planning/`.** A renumbering pass is the one exception: it renames step directories and fixes references under `artifacts/`. `artifacts/step-{N}.{M}/` and `artifacts/shared/` belong to implementation.
+5. **Use the glossary's terms exactly**, in the plan and in chat — never a synonym it retires. A unit of planned work is a **phase**, never a task.
+6. **Write only `plan/` and `artifacts/planning/`.** `ticket.py plan-renumber` is the one exception: it renames step directories and fixes references under `artifacts/`. `artifacts/step-{N}.{M}/` and `artifacts/shared/` belong to implementation.
 7. **Never run a script without approval of that run.** Write it, show it, ask, then run; never run anything that writes to an external system.
-8. **Never break the type's rules.** A phase requirement, phase prohibition or Activity prohibition in the resolved type's file wins over this file.
-9. **Never write a bare `In Progress` or `Blocked` status.** Each needs a one-line note, and a phase's Progress row is always derived from its steps.
+8. **Never break the type's rules.** A required phase, a forbidden phase, a dependency rule or an Activity prohibition in the resolved type's file wins over this file.
+9. **Never write a bare `In Progress` or `Blocked` status.** Each needs a one-line note.
+10. **Never edit the generated block in `plan.md`.** Change the phase files, then run `ticket.py plan-sync`, which rewrites the block from them.
+11. **Never renumber or regenerate while any phase is `In Progress`.** Another session may be working that phase, and writing into the very `artifacts/step-{N}.{M}/` directory a rename would move.
 
 ---
 
@@ -62,10 +64,12 @@ The resolver's `artifacts_dir` may not exist yet — it is absent on a first run
 
 ### Step 2 — Read the type contract, then check for an existing plan
 
-Read `ticket-types/{type}.md`, specifically its *"What shape the plan takes"* and *"What done means"* sections. They supply this plan's required phases, its forbidden phases, the kind of thing a step delivers, the activity mix, and any estimate adjustment. Everything in Steps 3–11 is shaped by them.
+Read `ticket-types/{type}.md`, specifically its *"What shape the plan takes"* and *"What done means"* sections. They supply this plan's required phases, its forbidden phases, the dependencies between them, the kind of thing a step delivers, the activity mix, and any estimate adjustment. Everything in Steps 3–12 is shaped by them.
 
-- **No `plan.md` yet, or the user explicitly asked to regenerate it** ("regenerate the plan", "refresh the plan") → continue to Step 3.
-- **`plan.md` exists** → do not regenerate it. Skip to Step 12.
+- **`on_disk.legacy_plan` is true** — a `plan.md` at the ticket root, in the old single-file format → follow [`MIGRATION.md`](./MIGRATION.md), then continue as it says. <!-- MIGRATION: delete this line with MIGRATION.md. -->
+- **No plan yet** (`on_disk.plan` is false) → continue to Step 3.
+- **The user explicitly asked to regenerate it** ("regenerate the plan", "refresh the plan") → check first, with `python "{skills}/ticket-common/ticket.py" plan-sync "<ref>" --dry-run`. Where any phase is `In Progress`, refuse: name the phase and its step's note, and say regenerating must wait until no session is working it. Otherwise list every phase holding a `Done` step, whose status the new plan would lose, and ask before going on. On a yes, continue to Step 3; Step 12 replaces the phase files. Artifact directories are left alone.
+- **A plan exists** → do not regenerate it. Skip to Step 13.
 
 ### Step 3 — Read the digest and survey existing work
 
@@ -248,92 +252,98 @@ This set is this plan's own taxonomy — nothing is ever written back to any tic
 
 If a phase's work spans more than one activity, assign the activity that represents the majority of the effort. If the split is significant, divide the work into separate phases instead.
 
-### Step 11 — Write plan.md
+### Step 11 — Cut the phases and draw the graph
 
-Compose the plan using the template and write it to the resolved `plan` path.
+Read [`GRAPH-RULES.md`](./GRAPH-RULES.md) and apply it in full before writing anything: it says how to cut the work into phases, where each prerequisite goes, which dependencies to draw, and how to number the phases. A phase is the unit one session works, and the graph between phases is what lets several sessions work at once.
 
-Report in one line that the plan was written, with its path. Do not print the plan body in chat.
+### Step 12 — Write the plan
 
-#### Phase ordering
+Write `plan.md` and every phase file into the resolved `plan_dir`, creating it. On a regeneration, the phase files written replace every phase file already there; remove those no longer in the plan. Then sync:
 
-Order phases by logical dependency — each phase must be completable before the next begins. Within that dependency chain, also order phases by their Activity Type, following the natural execution lifecycle: Design → Development → Testing → Documentation → Deployment. A Human Review phase is a checkpoint, not a lifecycle stage — place it immediately after the phase(s) whose output it gates, wherever that falls in the sequence.
+```bash
+python "{skills}/ticket-common/ticket.py" plan-sync "<ref>" [--context {context}]
+```
 
-1. Prerequisites / environment setup
-2. Design — schema, API contracts, architecture decisions
-3. Database / schema changes
-4. Backend — data access layer
-5. Backend — business logic / domain
-6. Backend — API / contracts
-7. Shared libraries or contracts (if updated)
-8. Frontend
-9. Tests (unit, integration, E2E)
-10. Documentation
-11. DevOps / CI / deployment
+It reads every phase file, checks the graph, fills the generated block in `plan.md`, and reports each phase's derived status and readiness. On a non-zero exit, fix the phase files it names and run it again. Act on each of its `warnings` — a shared `**Target:**` means a missing dependency or two phases that should be one — and sync again.
 
-Omit any phase for which there is no work to do.
+Report in one line that the plan was written, with the path to `plan.md`, how many phases it has, which are Ready now, and the critical path. On a regeneration, also name every artifacts directory no step now points at — orphaned, never deleted. Do not print the plan body in chat.
 
-Where the type file requires a phase, it comes first regardless of this ordering — a characterization or a reproduction phase exists precisely to run before anything else. Where the type file forbids a phase or an Activity value, that prohibition wins over this list. And where the type file says a plan of this kind is normally a single phase, do not invent phases to fill the template.
-
-#### Plan template
-
-Read [`plan-template.md`](./plan-template.md) and use it as the structure for the output file. Fill every `{camelCase}` placeholder, and replace every `<!-- guidance -->` comment with the content it asks for.
-
-Rules for the template:
-
-- Every step is its own markdown sub-section under `## Phase {N}`, headed `### Step {N}.{M}` (the phase number, a dot, and the step number within that phase, starting at 1), followed by a `**Status:**` line, a `**Target:**` line naming the file/class or the artifact the step delivers, and an `**Artifacts:**` line
-- The Workspace section records the workspace confirmed in Step 6. **Scan roots** lists each one and where it came from. **Worktrees** has one row per worktree, so a repository appears once for each of its worktrees in the workspace: its repository, its branch, whether it is `main` or `linked`, and its absolute path. **Plain directories** has one row per plain directory, with its absolute path; omit it when there are none. **Projects** has one row per project in each worktree or plain directory it lives in: its name, where it lives, its path relative to there, and its technology. Worktrees and plain directories are referred to as the glossary says: a worktree by its repository's name, or as `{repository}@{branch}` where the workspace holds more than one worktree of that repository, and a plain directory by its directory name
-- A `**Target:**` path is relative to its project's worktree or plain directory. When the workspace holds more than one, name which after the path — `` `src/Invoices/InvoiceService.cs` in `billing-api@release/2.0` `` — since the path alone is ambiguous
-- The `**Artifacts:**` line follows `ticket-common/ARTIFACTS.md`. Planning fills it in with the artifacts from Step 8 and with any existing directory for that step; `ticket-implement` appends what it produces
-- The Progress table sits at the top, immediately after the header, so it is the first thing visible when opening the file; it is updated alongside the phase step statuses on subsequent runs
-- Every row's Phase cell links to that phase's own section — `{phaseAnchor}` in the template — `[Phase 1: Database migration](#phase-1-database-migration-05-hrs)`, and `[Prerequisites](#prerequisites)` for the prerequisites row. The anchor is the GitHub slug of the full `##` heading, estimate included: lowercase it, drop every character that is not a letter, digit, space or hyphen, then turn spaces into hyphens — `## Phase 1: Database migration (~0.5 hrs)` → `#phase-1-database-migration-05-hrs`. A phase renamed, renumbered, or re-estimated has its heading and its link changed together; drop the Prerequisites link where that section is omitted
-- Each phase's `**Activity:**` line must use exactly one value from the Activity Type set defined in Step 10; the Progress table's Activity column for that phase must match
-- `{ticketUrl}` is `ticket.json`'s `url`. **Where it is `null`, write the title as plain text rather than a broken link.** For any other reference, use the patterns in `ticket-providers/{source}/links.md`
-- Omit the Prerequisites section if it has no content
-
-#### Step status
-
-The four-value vocabulary, the note rules, and the table deriving a phase's Progress row from its steps are in `ticket-common/STATUS.md`. Read it rather than restating it.
-
-`Pending` and `Done` are the only two statuses a freshly generated plan may use — nothing has been started yet, so nothing can be in progress or blocked.
+`Pending` and `Done` are the only two statuses a freshly generated plan may use — nothing has been started yet, so nothing can be in progress or blocked. `ticket-common/STATUS.md` has the vocabulary and the note rules.
 
 Stop.
 
-### Step 12 — Read and summarize current progress
+#### The index — `plan.md`
 
-Read `plan.md` and list the ticket's `artifacts/`. Reconcile the two: if a step has an artifacts directory but its `**Artifacts:**` line still reads `—`, fill the line in. Then recompute each phase's Progress table row from its steps' `**Status:**` lines, using the derivation table in `ticket-common/STATUS.md`, and repair any Phase cell whose link is missing or no longer matches its heading.
+Read [`templates/plan.md`](./templates/plan.md) and use it as the structure. Fill every `{camelCase}` placeholder, and replace every `<!-- guidance -->` comment with the content it asks for.
 
-Print a compact summary table in chat. Head it with the ticket's qualified reference and title:
+- Leave the generated block's two marker lines exactly as the template has them, with nothing between them: `plan-sync` fills it with the Progress table — each phase linked to its file — the dependency graph, the total estimate and the critical path.
+- The Workspace section records the workspace confirmed in Step 6. **Scan roots** lists each one and where it came from. **Worktrees** has one row per worktree, so a repository appears once for each of its worktrees in the workspace: its repository, its branch, whether it is `main` or `linked`, and its absolute path. **Plain directories** has one row per plain directory, with its absolute path; omit it when there are none. **Projects** has one row per project in each worktree or plain directory it lives in: its name, where it lives, its path relative to there, and its technology. Worktrees and plain directories are referred to as the glossary says: a worktree by its repository's name, or as `{repository}@{branch}` where the workspace holds more than one worktree of that repository, and a plain directory by its directory name.
+- `{ticketUrl}` is `ticket.json`'s `url`. **Where it is `null`, write the title as plain text rather than a broken link.** For any other reference, use the patterns in `ticket-providers/{source}/links.md` — `plan.md` sits one level below the ticket directory.
+
+#### A phase file — `{N}-{slug}.md`
+
+Read [`templates/phase.md`](./templates/phase.md) and use it as the structure for each phase, with the same placeholder rules.
+
+- The file is named `{N}-{slug}.md`: the phase number, then a short lowercase hyphenated slug of its title — `2-repository-layer.md`.
+- The frontmatter is the phase's record, in the suite's flat `key: value` subset: `number`, matching the file name; `title`; `activity`, exactly one value from Step 10's set; `estimate`, a number of hours with no `~`; `depends_on`, the numbers of the phases it depends on — `[]` for a root; `projects`, the names of the projects it touches, as the Workspace section's Projects table names them. **No status**: a phase's status is derived from its steps.
+- `## Prerequisites` holds only what this phase alone needs, as a `- [ ]` checklist. Omit the section when there is none.
+- Every step is its own sub-section, headed `### Step {N}.{M}` — the phase number, a dot, and the step number within that phase, starting at 1 — followed by a `**Status:**` line, a `**Target:**` line naming the file/class or the artifact the step delivers, and an `**Artifacts:**` line.
+- A `**Target:**` path is relative to its project's worktree or plain directory. When the workspace holds more than one, name which after the path — `` `src/Invoices/InvoiceService.cs` in `billing-api@release/2.0` `` — since the path alone is ambiguous. Write the same file the same way in every phase that targets it: that is how `plan-sync` spots two phases sharing one.
+- The `**Artifacts:**` line follows `ticket-common/ARTIFACTS.md`, its paths relative to the phase file as that file's *The `**Artifacts:**` line* shows. Planning fills it in with the artifacts from Step 8 and with any existing directory for that step; `ticket-implement` appends what it produces.
+
+### Step 13 — Read and summarize current progress
+
+Sync, which re-derives every phase's status and readiness from the phase files and rewrites the block in `plan.md` where it is stale:
+
+```bash
+python "{skills}/ticket-common/ticket.py" plan-sync "<ref>" [--context {context}]
+```
+
+Then list the ticket's `artifacts/` and reconcile it with the phase files: where a step has an artifacts directory but its `**Artifacts:**` line still reads `—`, fill the line in. Where `plan-sync` reported `warnings`, show them.
+
+Print a compact summary table in chat, from the sync's output. Head it with the ticket's qualified reference and title:
 
 ```
-| Phase                       | Activity    | Estimate   | Status            |
-| --------------------------- | ----------- | ---------- | ----------------- |
-| Prerequisites               | —           | —          | [x] Done          |
-| Phase 1: Database migration | Development | ~0.5 hrs   | [x] Done          |
-| Phase 2: Repository layer   | Development | ~1.5 hrs   | [~] In Progress   |
-| Phase 3: API endpoint       | Development | ~1.5 hrs   | [!] Blocked       |
-| Phase 4: Tests              | Testing     | ~1.5 hrs   | [ ] Pending       |
-| **Total**                   |             | **~5 hrs** | 2 / 5 phases done |
+| Phase                       | Depends on | Activity    | Estimate   | Status            | Ready        |
+| --------------------------- | ---------- | ----------- | ---------- | ----------------- | ------------ |
+| Phase 0: Prerequisites      | —          | Deployment  | ~0.5 hrs   | [x] Done          | —            |
+| Phase 1: Database migration | 0          | Development | ~0.5 hrs   | [x] Done          | —            |
+| Phase 2: Repository layer   | 1          | Development | ~1.5 hrs   | [~] In Progress   | ✅            |
+| Phase 3: Portal export page | 0          | Development | ~2 hrs     | [ ] Pending       | ✅            |
+| Phase 4: API endpoint       | 2          | Development | ~1.5 hrs   | [ ] Pending       | waiting on 2 |
+| **Total**                   |            |             | **~6 hrs** | 2 / 5 phases done | 2 ready      |
+
+Critical path: 0 → 1 → 2 → 4 (~4 hrs)
 ```
 
-Under the table, list every `In Progress` and `Blocked` step with its note, so the reason a phase is not moving is visible without opening the file.
+Under the table, list every `In Progress` and `Blocked` step with its note, so the reason a phase is not moving is visible without opening its file — then name the Ready phases not yet started: each can be taken up now, in a session of its own.
 
-### Step 13 — Ask which phase to update
+### Step 14 — Ask what to update
 
 Ask the user:
 
-> Which phase or step would you like to update? Name a phase or step (e.g. "Step 2.1") and its new status — done, in progress, or blocked — or ask me to research an open question, or say "none" to exit.
+> Which phase, step or prerequisite would you like to update? Name a phase or a step (e.g. "Step 2.1") and its new status — done, in progress, or blocked — or a prerequisite now in place; or ask me to research an open question; or say "none" to exit.
 
 Wait for the response.
 
-### Step 14 — Update plan.md
+### Step 15 — Update the phase files
 
-Based on the user's answer:
+Based on the user's answer, edit the phase files — never the generated block in `plan.md`:
 
-- If they name a **phase** with no status, or say it is complete: set `**Status:** Done` on every step sub-section within that phase section and update the Progress table row to `[x] Done`
-- If they name a **specific step**: set its `**Status:**` to the status they gave, defaulting to `Done` when they gave none, then recompute the phase's Progress table row from the derivation table in `ticket-common/STATUS.md`
+- If they name a **phase** with no status, or say it is complete: set `**Status:** Done` on every step in that phase's file.
+- If they name a **specific step**: set its `**Status:**` to the status they gave, defaulting to `Done` when they gave none.
 - If the new status is `In Progress` or `Blocked`, a note is required. Take it from what the user said; where they gave none, ask for the step's one-line note rather than writing a bare status: for `In Progress`, what is done and what remains; for `Blocked`, what is blocking and what would clear it.
-- If they ask to **research** something (e.g. "find out whether that index exists"): run Step 8 for that question alone, store what it produces under `artifacts/planning/`, then revise only the steps the finding actually affects — their prose, their estimate, and their `**Artifacts:**` line. Leave every other step's content as it is. If the finding changes the plan's shape, renumber and complete the rename in one pass (see `ticket-common/ARTIFACTS.md`). Report what changed and what it displaced
-- Update the Progress table to reflect the new state — the status column, plus the Phase cell's link wherever a heading was renamed, renumbered, or re-estimated
-- If they say "none" or similar, exit without changes
+- If they name a **prerequisite** now in place: check its box, `- [x]`, in the phase that lists it.
+- If they ask to **research** something (e.g. "find out whether that index exists"): run Step 8 for that question alone, store what it produces under `artifacts/planning/`, then revise only the steps the finding actually affects — their prose, their phase's estimate, and their `**Artifacts:**` line. Leave every other step's content as it is. Report what changed and what it displaced.
+- If the finding changes the plan's **shape** — a phase splits, merges, or gains or loses a dependency — apply `GRAPH-RULES.md` to the phases it touches and edit their files, then renumber where the order no longer holds, as below.
+- If they say "none" or similar, exit without changes.
 
-Report in one line that `plan.md` was updated, with its path.
+**Renumbering.** Once every phase file is edited, check whether the numbers still run in topological order, and decide the order `GRAPH-RULES.md` → *Numbering* gives. Show the user what would move:
+
+```bash
+python "{skills}/ticket-common/ticket.py" plan-renumber "<ref>" --order {N,N,...} --dry-run [--context {context}]
+```
+
+`--order` lists the current numbers of every phase after `0`, in their new order; the script checks it against the graph. Without `--order`, it keeps the current order wherever the graph allows. On a yes, run it again without `--dry-run`: it renames the phase files and `artifacts/step-*` directories and rewrites every reference in one pass, as `ticket-common/ARTIFACTS.md` → *Renumbering is a rename* describes. Where it refuses because a phase is `In Progress`, keep the current numbers — gaps and out-of-order numbers are tolerated until a later run — and say so.
+
+Then sync, as Step 13 does, and report in one line that the plan was updated, with the path to `plan.md` and every phase whose readiness changed.

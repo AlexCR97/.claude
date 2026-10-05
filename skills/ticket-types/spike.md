@@ -36,13 +36,13 @@ Acceptance criteria on a spike, where the source has such a field at all, usuall
 
 **Deliverable kind: a written finding under `artifacts/`.** Every phase's output is a file, not a source change. A step whose target is a path in the repository has misread the type.
 
-**Required:** each phase is an investigation with a stated question of its own and a named artifact that answers it. The final phase writes the recommendation — including the case where the recommendation is "do not do this".
+**Required:** each phase is an investigation with a stated question of its own and a named artifact that answers it. A recommendation phase writes the recommendation — including the case where the recommendation is "do not do this" — and depends on every investigation phase whose finding it weighs. Investigations with no dependency between them can run in parallel.
 
-**Required:** the plan's total estimate must fit inside the timebox. Where the phases do not fit, say so and cut scope before writing the plan, rather than producing a plan that was over budget the moment it was written.
+**Required:** the plan's total estimate — the effort, not the critical path — must fit inside the timebox. Where the phases do not fit, say so and cut scope before writing the plan, rather than producing a plan that was over budget the moment it was written.
 
 **Forbidden:** production code changes. **Forbidden: an Activity of Development on any phase** — the activity mix is Design and Documentation, and nothing else. A prototype written to answer the question is an artifact, and it lives under `artifacts/`, so its phase is still Design.
 
-**Estimate adjustment:** the timebox is the cap. Where an investigation is open-ended, phase it so the most decisive evidence is gathered first — a spike that runs out of time having answered the main question beats one that ran out having prepared to answer it.
+**Estimate adjustment:** the timebox is the cap. Where an investigation is open-ended, make the phase gathering the most decisive evidence a root, and let an investigation depend on it where its question only matters once that one is answered — a spike that runs out of time having answered the main question beats one that ran out having prepared to answer it.
 
 ---
 

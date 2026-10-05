@@ -7,14 +7,17 @@ The work
 
 Where you stopped
   Phase {phaseNumber} ({phaseName}) · Step {stepId} — {stepStatus}
-  <!-- the Stopped at line, or the reconstruction, labelled as one -->
+  <!-- the Stopped at line, or the reconstruction, labelled as one; one block per phase in flight -->
+
+Ready now
+  <!-- one line per Ready phase not yet started: "Phase N  name · ~H hrs"; each can run in a session of its own -->
 
 Next
   {nextLine}
 
 Progress
-  <!-- one line per phase, "[x] Phase 1  name", "← here" on the in-flight one; collapsed per Step 6 -->
-  {phasesDone} / {phaseCount} phases done · ~{hoursRemaining} hrs estimated remaining
+  <!-- one line per phase, "[x] Phase 1  name", "← in flight" on each in-flight one, "waiting on N" on the rest; collapsed per Step 6 -->
+  {phasesDone} / {phaseCount} phases done · ~{hoursRemaining} hrs estimated remaining · critical path {criticalPath}
 
 Code
   {repository} @ {branch} in {worktree} · HEAD {headSha} · {commitsAhead} commits ahead of {baseBranch}
@@ -31,6 +34,7 @@ Changed while you were away
 
 Ready to continue. I can:
   • `/ticket-implement {qualifiedRef} {phaseNumber}` — pick up Phase {phaseNumber} where it stopped
+  • `/ticket-implement {qualifiedRef} {readyPhaseNumber}` — start Ready Phase {readyPhaseNumber}, here or in a session of its own
   • `/ticket-fetch {qualifiedRef}` then `/ticket-digest {qualifiedRef}` — fold in the changes first
   • `/ticket-plan {qualifiedRef}` — review or revise the plan before continuing
 

@@ -29,7 +29,7 @@ flowchart LR
 | `ticket-refine` ⚠️   | Optional; followed by `fetch` where the source has one | `fetch` or `new` |
 | `ticket-digest`     | Once per ticket                                        | `fetch` or `new` |
 | `ticket-plan`       | Once to generate; re-run to view/update progress       | `digest`         |
-| `ticket-implement`  | Once or multiple times for specific phases             | `plan`           |
+| `ticket-implement`  | Once per phase, or several; one session per Ready phase | `plan`           |
 | `ticket-checkpoint` | Whenever attention leaves the ticket                   | a ticket on disk |
 | `ticket-resume`     | First thing in a new session on an existing ticket     | a ticket on disk |
 | `ticket-move`       | To re-file a ticket under another product              | a ticket on disk |
@@ -115,11 +115,13 @@ A product can be bound to several sources or to none: EW.Educate holds its ADO w
 Work gets put down. An interrupt arrives, the day ends, another ticket takes priority — and the session that held all the context is gone. Two skills exist for that boundary:
 
 - **`ticket-checkpoint`** runs when attention leaves — end of day, an interrupt, a switch to something unrelated. It records the session in `journal.md`: where the code is, what was done, what was decided **and why**, what is blocking, and the single next action.
-- **`ticket-resume`** runs first in the new session. It reads `journal.md`, `plan.md`, `digest.md` and the prior artifacts, inspects the live git state, checks whether the ticket drifted since it was last fetched, and prints one briefing ending in the next action. It is read-only and starts nothing.
+- **`ticket-resume`** runs first in the new session. It reads `journal.md`, the plan, `digest.md` and the prior artifacts, inspects the live git state, checks whether the ticket drifted since it was last fetched, and prints one briefing ending in the next action. It is read-only and starts nothing.
 
-What makes this work is that the two halves record different things. `plan.md` says what state the work is in — that is what the `In Progress` and `Blocked` statuses are for. `journal.md` says *why* it is in that state, which is the half that only exists in a live session and is otherwise lost the moment it ends.
+What makes this work is that the two halves record different things. The phase files say what state the work is in — that is what the `In Progress` and `Blocked` statuses are for. `journal.md` says *why* it is in that state, which is the half that only exists in a live session and is otherwise lost the moment it ends.
 
 **`journal.md` belongs to these two skills alone.** `checkpoint` is the only writer, `resume` the only reader; `plan` and `implement` never open it. That boundary is deliberate: once `resume` has briefed a session, the journal's contents are already in the conversation, so a later skill re-reading the file would only spend its context on what it already has. The trade is that `checkpoint` has to actually run — it is what converts a session's reasoning into something the next one can read, and nothing else does it.
+
+**Several sessions can work one ticket.** Each takes a Ready phase — the plan's graph says which can run side by side — and each checkpoints into the same `journal.md`, its entry naming the phases it worked. `resume` briefs every phase in flight and offers the Ready ones as next actions.
 
 **Neither infers the ticket from the branch name.** Both take the reference or ask, listing what is on disk — the session context's product first, every product on request. A guess that attached a session's journal entry to the wrong ticket would corrupt the one file here that nothing can regenerate, which is also why `checkpoint` asks before writing to a ticket outside the session context.
 
@@ -142,7 +144,11 @@ Four levels, always: namespace, product, source, ticket.
 │           ├── ticket.json               source, id, title, type, native_type, state, url, last_fetched_at, coordinates
 │           ├── digest.md                 ← ticket-digest
 │           ├── journal.md                ← ticket-checkpoint only (newest entry first)
-│           ├── plan.md                   ← ticket-plan (the index: each step names its artifacts)
+│           ├── plan/                     ← ticket-plan
+│           │   ├── plan.md               ← the index: workspace, and the Progress table and graph plan-sync generates
+│           │   ├── 0-prerequisites.md    ← only when several phases share a prerequisite
+│           │   ├── 1-database-migration.md   ← one file per phase: depends_on, prerequisites, steps and their status
+│           │   └── 2-repository-layer.md
 │           ├── raw/                      ← ticket-fetch, or the source of truth for a local store
 │           └── artifacts/                ← ticket-plan and ticket-implement
 │               ├── planning/             ← research the plan was built on
@@ -165,11 +171,11 @@ A reference resolves to the nearest ticket directory of that name — in the ses
 
 Each of the two writers owns one part of it. `ticket-plan` writes only to `planning/`, where it stores the research that settles a fact the plan's shape depends on; it must ask before running any script it writes, since no approved step authorizes execution. `ticket-implement` writes only to `step-{N}.{M}/` and `shared/`, and reads `planning/` to see why a step is shaped the way it is.
 
-A step directory is named after the `### Step {N}.{M}` heading it belongs to, and the step's `**Artifacts:**` line in `plan.md` points back at it. That back-link is what makes the evidence findable in a later session: `plan.md` is already the first thing `ticket-plan` and `ticket-implement` read, so a step's prior measurements are read before it is re-planned or re-run, rather than being silently re-derived.
+A step directory is named after the `### Step {N}.{M}` heading it belongs to, and the step's `**Artifacts:**` line in its phase file points back at it. That back-link is what makes the evidence findable in a later session: the phase file is already the first thing `ticket-plan` and `ticket-implement` read, so a step's prior measurements are read before it is re-planned or re-run, rather than being silently re-derived.
 
 Three consequences worth knowing:
 
-- **Renumbering is a rename.** Steps are renumbered whenever the plan's shape calls for it, but a step number is also a directory name, so the same pass renames the directories and updates every reference to the old numbers.
+- **Renumbering is a rename.** Phases are numbered in dependency order, so a changed graph can renumber them — but a phase number is also part of a file name and every step directory's name. `ticket.py plan-renumber` renames the files and directories and updates every reference in one pass, and refuses while any phase is in progress.
 - **Artifacts are append-only.** A measurement taken against a live system is the one thing in here that cannot be regenerated, so a later run writes a new file alongside an existing one rather than replacing it.
 - **Scripts need permission to run.** Both skills write script artifacts freely and execute none of them until the user approves that specific script.
 
@@ -182,7 +188,7 @@ flowchart TD
     PICKUP -->|Yes| RESUME
     PICKUP -->|"No — new ticket"| INIT_CHECK
 
-    RESUME["/ticket-resume {ref}\n────────────────\nReads journal.md + plan.md + digest.md\nInspects live git state\nChecks the source for drift since last fetch\nPrints a briefing ending in the next action\n\nRead-only; starts nothing"]
+    RESUME["/ticket-resume {ref}\n────────────────\nReads journal.md + plan/ + digest.md\nInspects live git state\nChecks the source for drift since last fetch\nPrints a briefing ending in the next action\n\nRead-only; starts nothing"]
 
     RESUME --> RESUME_STALE{"Ticket changed\nwhile away?"}
     RESUME_STALE -->|"Yes — fold it in"| FETCH
@@ -224,11 +230,11 @@ flowchart TD
 
     DIGEST --> PLAN
 
-    PLAN["/ticket-plan {ref}\n────────────────\nReads digest.md + artifacts/ + the type file\nDiscovers the workspace from its scan roots:\nrepositories, worktrees & projects\nResearches unknowns → artifacts/planning/\nApplies the type's phase shape & activity mix\nWrites phased plan.md\n\nRe-running shows progress & updates"]
+    PLAN["/ticket-plan {ref}\n────────────────\nReads digest.md + artifacts/ + the type file\nDiscovers the workspace from its scan roots:\nrepositories, worktrees & projects\nResearches unknowns → artifacts/planning/\nApplies the type's phase shape & activity mix\nWrites one file per phase + their dependency graph\n\nRe-running shows progress & updates"]
 
     PLAN --> IMPLEMENT
 
-    IMPLEMENT["/ticket-implement {ref} [phases|all]\n────────────────\nReads plan.md + digest.md + artifacts/\nImplements one, several, or all phases\nProbes, outputs & notes → artifacts/step-N.M/\nBuilds affected projects after each phase\nChecks the type's completion rule\n\nSource-agnostic; never touches journal.md"]
+    IMPLEMENT["/ticket-implement {ref} [phases|all]\n────────────────\nReads plan/ + digest.md + artifacts/\nImplements one, several, or all phases\nOne session per Ready phase runs in parallel\nProbes, outputs & notes → artifacts/step-N.M/\nBuilds affected projects after each phase\nChecks the type's completion rule\n\nSource-agnostic; never touches journal.md"]
 
     IMPLEMENT --> PHASES_DONE{"All phases\ncomplete?"}
     PHASES_DONE -->|Yes| END([Done])

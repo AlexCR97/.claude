@@ -1,11 +1,11 @@
 ---
 name: ticket-resume
-description: Rebuilds the context for a ticket in a fresh session — reads journal.md, plan.md, digest.md and prior artifacts, inspects the live git state, and checks whether the ticket changed since it was last fetched. Outputs a briefing ending in the single next action.
+description: Rebuilds the context for a ticket in a fresh session — reads journal.md, the plan, digest.md and prior artifacts, inspects the live git state, and checks whether the ticket changed since it was last fetched. Outputs a briefing ending in the single next action.
 argument-hint: "[ref]"
 allowed-tools: Read Grep Glob Bash(python *ticket.py:*) Bash(python *collect-git-state.py:*)
 ---
 
-Rebuilds a ticket's context in a fresh session. Everything needed is on disk — the digest, the plan, the artifacts, the journal — but two things no file holds have usually drifted since: the state of the worktree, and the ticket itself. This skill reads it all back and prints one briefing: what the work is, where it stopped, the next action, what the code looks like now, and what changed at the source while attention was elsewhere.
+Rebuilds a ticket's context in a fresh session. Everything needed is on disk — the digest, the plan, the artifacts, the journal — but two things no file holds have usually drifted since: the state of the worktree, and the ticket itself. This skill reads it all back and prints one briefing: what the work is, where it stopped — in every phase in flight, since several sessions may work one ticket at once — which phases are Ready, the next action, what the code looks like now, and what changed at the source while attention was elsewhere.
 
 End state: one briefing that ends by offering the next action, nothing on disk changed, and — where no session context was set — the ticket's product adopted as the session context.
 
@@ -29,11 +29,11 @@ A fact that needs a particular ticket system belongs in `ticket-providers/{sourc
 
 ## Ground rules
 
-1. **Write nothing.** No code, no `journal.md`, no `plan.md`, no artifacts — `/ticket-checkpoint` records state and `/ticket-implement` changes code.
-2. **Run only read-only commands:** `collect-git-state.py`, `ticket.py` `resolve`, `list` and `drift`, and reads of the files the steps name. Never `git fetch`, `pull`, `checkout`, `stash` or any command that changes repository state.
+1. **Write nothing.** No code, no `journal.md`, no file under `plan/`, no artifacts — `/ticket-checkpoint` records state and `/ticket-implement` changes code.
+2. **Run only read-only commands:** `collect-git-state.py`, `ticket.py` `resolve`, `list`, `drift` and `plan-sync --dry-run`, and reads of the files the steps name. Never `plan-sync` without `--dry-run`. Never `git fetch`, `pull`, `checkout`, `stash` or any command that changes repository state.
 3. **Never run a script under `artifacts/`.** A captured output already on disk is the answer; re-running a probe against a live system needs the user's approval in the session that needs it.
 4. **Never read the source's raw data for ticket content.** `digest.md` is the source of truth; the drift check reads the snapshot for comparison only.
-5. **Never correct `plan.md`, even when it is visibly stale.** Report the discrepancy and let `/ticket-checkpoint` or `/ticket-plan` fix it.
+5. **Never correct the plan, even when it is visibly stale** — a status line, or a Progress table the phase files have moved past. Report the discrepancy and let `/ticket-checkpoint` or `/ticket-plan` fix it.
 6. **Never chain into another skill.** Step 5 recommends and Step 7 offers; the user chooses.
 7. **Label every reconstruction.** Never present an inference as a record.
 
@@ -45,7 +45,7 @@ A fact that needs a particular ticket system belongs in `ticket-providers/{sourc
 
 With a session context, pass `--context {context}` on every `ticket.py` call below that takes one — `ticket-common/RESOLUTION.md` → *The session context* covers overrides.
 
-**When no `[ref]` was given, ask. Never guess, and never infer it from the branch name** — a guess that attaches a session to the wrong ticket is silent, and it is the journal, the one unregenerable file here, that it would corrupt. Run `python "{skills}/ticket-common/ticket.py" list [--context {context}]` and print the candidates as a table with **Product** and **Source** columns, each with its title, type, the date of its newest journal entry, its phase progress from `plan.md`, and when it was last touched — most recently touched first. With a session context, print only the tickets whose `in_context` is true, and say how many are outside it (`outside_context`) with an offer to show them all. Then ask which to resume. The listing is half the problem this skill solves: "which one was I in the middle of".
+**When no `[ref]` was given, ask. Never guess, and never infer it from the branch name** — a guess that attaches a session to the wrong ticket is silent, and it is the journal, the one unregenerable file here, that it would corrupt. Run `python "{skills}/ticket-common/ticket.py" list [--context {context}]` and print the candidates as a table with **Product** and **Source** columns, each with its title, type, the date of its newest journal entry, its phase progress from the Progress table in `plan/plan.md`, and when it was last touched — most recently touched first. With a session context, print only the tickets whose `in_context` is true, and say how many are outside it (`outside_context`) with an offer to show them all. Then ask which to resume. The listing is half the problem this skill solves: "which one was I in the middle of".
 
 ```bash
 python "{skills}/ticket-common/ticket.py" resolve "{ref}" --require ticket_dir [--context {context}]
@@ -63,9 +63,15 @@ Open `ticket-common/RESOLUTION.md` only when the output is disputed. Then settle
 
 Read, in this order, and stop reading a file once the briefing has what it needs:
 
-**`journal.md`** — the newest entry in full, and enough of the two before it to see decisions and blockers that are still open. This is the primary source: it is the only file that records *why* things are the way they are. If it does not exist, note that and continue — Step 3 reconstructs what it can, and the briefing says the reconstruction is partial.
+**`journal.md`** — the newest entry in full, and enough of the two before it to see decisions and blockers that are still open. Several sessions may work one ticket, each on its own phase, and each entry names the phases it worked: read back until the newest entry for every phase in flight is found. This is the primary source: it is the only file that records *why* things are the way they are. If it does not exist, note that and continue — Step 3 reconstructs what it can, and the briefing says the reconstruction is partial.
 
-**`plan.md`** — the Progress table, the Workspace section, and every step whose `**Status:**` is `In Progress` or `Blocked`, in full including its note. Then the first `Pending` step after them, since that is where work resumes if nothing is in flight. Do not read every phase. The status vocabulary is in `ticket-common/STATUS.md` if a line needs interpreting.
+**The plan** — derive its current state from the phase files, without writing:
+
+```bash
+python "{skills}/ticket-common/ticket.py" plan-sync "{qualified_ref}" --dry-run
+```
+
+Its output gives every phase's derived status, whether it is Ready and why not, and each step's status and note. Where the ticket has no plan yet it exits 5; say so and brief from the rest. Where it reports `stale: true`, the Progress table in `plan.md` lags the phase files — say so in the briefing. Then read `plan.md`'s Workspace section, and in each phase file, every step whose `**Status:**` is `In Progress` or `Blocked`, in full. Do not read every phase. The status vocabulary is in `ticket-common/STATUS.md` if a line needs interpreting.
 
 **`digest.md`** — the Description and Acceptance Criteria, for the two or three sentences of the briefing that say what the work actually is. Skip the metadata table, the attachments and the discussion.
 
@@ -77,7 +83,7 @@ Prefer the journal's `**Stopped at:**` and `**Next:**` lines. They were written 
 
 When `journal.md` is absent or its newest entry predates later work, reconstruct instead, and say in the briefing that it is a reconstruction:
 
-- The in-flight step is the first step that is `In Progress` or `Blocked`; failing that, the first `Pending` step after the last `Done` one.
+- Every step that is `In Progress` or `Blocked` is in flight — one per phase being worked, and with several sessions there may be several. Failing any, work resumes at a Ready phase.
 - Modification times under `artifacts/` and the branch's recent commit subjects indicate what was most recently worked on.
 - Uncommitted changes in the worktree indicate what was in flight when the session ended.
 
@@ -93,7 +99,7 @@ python "{skills}/ticket-common/collect-git-state.py"
 
 Two comparisons matter more than the raw output:
 
-- **Is this even the right worktree?** Compare `repository`, `worktree` and `branch` against the journal's `**Where:**` line, and check that the worktree is one the Workspace section of `plan.md` lists. A mismatch is the most likely reason a resume goes wrong, because every `**Target:**` in `plan.md` is relative to a worktree the Workspace section names, and resolves silently against whichever one is current. Say so at the top of the briefing rather than burying it: name the current repository, branch and worktree and the recorded ones, and tell the user to switch before continuing.
+- **Is this even the right worktree?** Compare `repository`, `worktree` and `branch` against the journal's `**Where:**` line, and check that the worktree is one the Workspace section of `plan/plan.md` lists. A mismatch is the most likely reason a resume goes wrong, because every `**Target:**` in the phase files is relative to a worktree the Workspace section names, and resolves silently against whichever one is current. Say so at the top of the briefing rather than burying it: name the current repository, branch and worktree and the recorded ones, and tell the user to switch before continuing.
 
 - **How far has the base moved?** `base_commits_not_merged` is how many commits the base branch gained while this branch sat idle. After days away it is often large, and it is the reason a plan written against an older base may no longer apply cleanly. Report it; do not act on it.
 
@@ -127,13 +133,14 @@ One message, filled from [`briefing.md`](./briefing.md): fill every `{camelCase}
 Rules:
 
 - Link `{title}` to `ticket.json`'s `url`. Where it is `null`, print the title as plain text — this source has no web address, and a broken link is worse than none.
-- Collapse a long Progress table: every `Done` and `Blocked` phase, the in-flight phase, and the next two `Pending` ones. Summarize the rest as `… {N} more phases pending`.
+- Collapse a long Progress table: every `Done` and `Blocked` phase, every phase in flight, every Ready one, and the next two waiting. Summarize the rest as `… {N} more phases pending`.
+- Brief every phase in flight under *Where you stopped*, not only the one the newest entry names: another session may own it, and the user should know before starting there.
 - Quote the journal's `**Next:**` line verbatim. Do not improve it — it was written with context this session does not have.
 - Mark reconstructed facts as reconstructed. Never present an inference as a record.
 - Do not print the plan, the digest, or a file's contents wholesale. This is a briefing, not a dump.
 
 ### Step 7 — Offer the next action, then stop
 
-The briefing closes with `briefing.md`'s offer. Keep only the options that fit what was found — the fetch option only where the source can fetch and Step 5 found changes — and wait.
+The briefing closes with `briefing.md`'s offer. Keep only the options that fit what was found — resuming each phase in flight, starting each Ready phase, the fetch option only where the source can fetch and Step 5 found changes — and wait. Where several phases are Ready, say each can run in a session of its own.
 
 Do not start implementing, fetching, or planning. Resuming is about restoring context; the decision about what to do with it is the user's.

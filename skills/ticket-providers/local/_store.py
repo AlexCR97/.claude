@@ -2,68 +2,22 @@
 """
 Reading and writing `raw/ticket.md`, the local store's source of truth.
 
-The frontmatter subset is deliberately tiny — flat `key: value` pairs plus
-`[a, b]` lists — so it parses in about thirty lines of stdlib and needs no YAML
-dependency. That is the same rule that chose JSON for provider.json: a store
-format nobody can read without installing something is a store format that
-stops working.
+Its frontmatter is the suite's tiny subset, parsed by `ticketlib.frontmatter`.
 """
 
 import hashlib
 import re
 from pathlib import Path
 
-FRONTMATTER_FENCE = "---"
+from ticketlib.frontmatter import FENCE as FRONTMATTER_FENCE
+from ticketlib.frontmatter import parse as parse_frontmatter
+from ticketlib.frontmatter import render as render_frontmatter
 
 # The sections that carry meaning. Anything else a user writes is carried
 # through with its heading as a label rather than being silently dropped.
 KNOWN_SECTIONS = ("Description", "Acceptance Criteria", "Comments", "Links")
 
 SECTION_PATTERN = re.compile(r"^## +(.+?) *$", re.MULTILINE)
-
-
-def parse_frontmatter(text: str) -> tuple[dict, str]:
-    """Returns (frontmatter, body). Absent frontmatter reads as empty."""
-    lines = text.splitlines()
-    if not lines or lines[0].strip() != FRONTMATTER_FENCE:
-        return {}, text
-
-    try:
-        end = next(
-            index
-            for index, line in enumerate(lines[1:], start=1)
-            if line.strip() == FRONTMATTER_FENCE
-        )
-    except StopIteration:
-        return {}, text
-
-    data: dict = {}
-    for line in lines[1:end]:
-        if not line.strip() or line.lstrip().startswith("#") or ":" not in line:
-            continue
-        key, _, raw = line.partition(":")
-        value = raw.strip()
-        if value.startswith("[") and value.endswith("]"):
-            data[key.strip()] = [
-                item.strip().strip("\"'")
-                for item in value[1:-1].split(",")
-                if item.strip()
-            ]
-        else:
-            data[key.strip()] = value.strip("\"'")
-
-    return data, "\n".join(lines[end + 1 :]).lstrip("\n")
-
-
-def render_frontmatter(data: dict) -> str:
-    lines = [FRONTMATTER_FENCE]
-    for key, value in data.items():
-        if isinstance(value, list):
-            lines.append(f"{key}: [{', '.join(str(item) for item in value)}]")
-        else:
-            lines.append(f"{key}: {value}")
-    lines.append(FRONTMATTER_FENCE)
-    return "\n".join(lines)
 
 
 def parse_sections(body: str) -> list[dict]:
@@ -199,7 +153,9 @@ SKELETON = """{frontmatter}
 """
 
 
-def render_skeleton(frontmatter: dict, title: str, description: str, acceptance: str) -> str:
+def render_skeleton(
+    frontmatter: dict, title: str, description: str, acceptance: str
+) -> str:
     return SKELETON.format(
         frontmatter=render_frontmatter(frontmatter),
         title=title,

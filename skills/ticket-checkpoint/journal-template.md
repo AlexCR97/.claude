@@ -6,7 +6,7 @@
 
 ## {timestamp} UTC — {stage}
 
-<!-- stage: "Phase N, Step N.M", or Planning, Refinement or Review -->
+<!-- stage: "Phase N, Step N.M"; several phases as "Phases 2 and 3, stopped at Step 3.1"; or Planning, Refinement or Review -->
 
 **Where:** `{repository}` @ `{branch}` in `{worktree}` — HEAD `{headSha}` ({headSubject}), base `{baseBranch}` @ `{baseSha}`
 
