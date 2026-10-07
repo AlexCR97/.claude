@@ -8,6 +8,7 @@
 /ide
 /jobs
 /memory
+/paste-cache
 /plans
 /plugins
 /projects
@@ -21,6 +22,7 @@
 /statsig
 /tasks
 /telemetry
+/temp
 /todos
 .credentials.json
 .last-cleanup
@@ -34,3 +36,7 @@ remote-settings.json
 settings.json
 settings.local.json
 stats-cache.json
+
+# Python tooling caches, anywhere in the tree
+__pycache__/
+.ruff_cache/
