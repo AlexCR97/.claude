@@ -2,7 +2,7 @@
 """
 Re-filing a ticket under another product.
 
-The directory is renamed, never copied: `journal.md` cannot be regenerated,
+The directory is renamed, never copied: the journal cannot be regenerated,
 and a rename carries every byte of it or none. What a rename cannot carry is
 anything that pointed at the old place. A `parent` reference is data the suite
 resolves, so it is rewritten — on the moved ticket and on every child that

@@ -36,7 +36,7 @@ No `allowed-tools` here: this skill's whole purpose is to change code and build 
 3. **Run only read-only and build commands.** Never install a package or global tool, change the environment, or alter state outside the project being built. Run tests only where the type's file makes them its completion test.
 4. **Never run a git operation** — commit, push, pull, rebase, merge, reset, stash or any other. The developer reviews the diff and decides when to commit.
 5. **Never run a script artifact without approval of that run.** Write it, show it, ask, then run.
-6. **Never read or write `journal.md`.** It belongs to `ticket-checkpoint` and `ticket-resume`, and `ticket-resume` has already brought what matters into the session.
+6. **Never read or write the journal.** It belongs to `ticket-checkpoint` and `ticket-resume`, and `ticket-resume` has already brought what matters into the session.
 7. **Never read a provider file.** By now `digest.md` holds what the ticket said and `plan.md` what the work is; needing a provider file means the abstraction leaked — report it as a bug.
 8. **Keep `plan.md` honest.** Mark a step `In Progress` before its first edit — only what is on disk survives an interrupted session. Never write a bare `In Progress` or `Blocked` status, keep every `**Artifacts:**` line accurate, and never mark a phase `[x] Done` while a step is not `Done`. `ticket-common/STATUS.md` has the vocabulary and the note rules.
 9. **Write non-code files only under `artifacts/step-{N}.{M}/` or `artifacts/shared/`.** Never into `artifacts/planning/`, which belongs to `ticket-plan`, the ticket directory or the workspace; never delete or overwrite an existing artifact. `ticket-common/ARTIFACTS.md` has the layout.
@@ -74,7 +74,7 @@ The terms in that section, and throughout this skill, mean exactly what **`ticke
 
 Then list the ticket's `artifacts/`. Every `**Artifacts:**` line that names a directory should have one on disk, and every directory on disk should be named by some step's `**Artifacts:**` line. Where they disagree, trust the disk and correct `plan.md`.
 
-A step marked `In Progress` or `Blocked` was left mid-flight by an earlier session. Its `**Status:**` note is what this skill goes on, together with anything about that session already in this conversation — `ticket-resume` puts it there when it briefs the session. Do not open `journal.md` to look for more.
+A step marked `In Progress` or `Blocked` was left mid-flight by an earlier session. Its `**Status:**` note is what this skill goes on, together with anything about that session already in this conversation — `ticket-resume` puts it there when it briefs the session. Do not open the journal to look for more.
 
 ### Step 3 — Resolve which phases to implement
 

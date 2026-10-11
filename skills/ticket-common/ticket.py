@@ -24,6 +24,7 @@ Usage:
     python ticket.py publish <ref> --file F [--delete-after-post]
     python ticket.py drift <ref>
     python ticket.py move <ref> --to NS/PRODUCT [--dry-run]
+    python ticket.py journal write <ref> --file F [--at ISO] | latest <ref> | list <ref> | migrate <ref>
     python ticket.py auth-status [--source S] [--in X]
     python ticket.py scan-roots [--in NS[/PRODUCT]] [--set [DIR ...]]
 
@@ -58,6 +59,7 @@ from ticketlib import (
     bindings,
     config,
     filing,
+    journal,
     layout,
     moves,
     paths,
@@ -603,6 +605,38 @@ def verb_drift(args: argparse.Namespace) -> int:
     return EXIT_DRIFTED if result.get("is_stale") else EXIT_OK
 
 
+def verb_journal(args: argparse.Namespace) -> int:
+    location = require_filed(locate(args))
+    report = {"qualified_ref": location.qualified}
+
+    if args.action == "write":
+        entry_path = Path(args.file).expanduser()
+        if not entry_path.is_file():
+            raise TicketError(f"entry file not found: {entry_path}", EXIT_NOT_FOUND)
+        at = journal.parse_moment(args.at) if args.at else None
+        written = journal.write(location, entry_path.read_text(encoding="utf-8"), at)
+        report.update({"path": str(written), "name": written.name})
+    elif args.action == "latest":
+        newest = journal.latest(location)
+        report.update(
+            {
+                "path": str(newest) if newest else None,
+                "at": journal.timestamp_of(newest) if newest else None,
+                "entries": len(journal.entries(location)),
+            }
+        )
+    elif args.action == "list":
+        report["entries"] = [
+            {"path": str(path), "at": journal.timestamp_of(path)}
+            for path in reversed(journal.entries(location))
+        ]
+    else:
+        report.update(journal.migrate(location))
+
+    emit(report)
+    return EXIT_OK
+
+
 def verb_move(args: argparse.Namespace) -> int:
     location = require_filed(locate(args))
     emit(moves.move(location, layout.parse_product(args.to), args.dry_run))
@@ -749,6 +783,7 @@ VERBS = {
     "publish": verb_publish,
     "drift": verb_drift,
     "move": verb_move,
+    "journal": verb_journal,
     "auth-status": verb_auth_status,
     "scan-roots": verb_scan_roots,
 }
@@ -872,6 +907,15 @@ def build_parser() -> argparse.ArgumentParser:
         "--dry-run", action="store_true", help="report what would change, move nothing"
     )
     add_restrict(p, "only look in this namespace or product")
+    add_context(p)
+
+    p = sub.add_parser("journal", help="read or append a ticket's journal entries")
+    p.add_argument("action", choices=("write", "latest", "list", "migrate"))
+    p.add_argument("ref")
+    p.add_argument("--source")
+    p.add_argument("--file", help="write: the entry text")
+    p.add_argument("--at", help="write: the entry's UTC time, default now")
+    add_restrict(p, "restrict the lookup to a namespace or product")
     add_context(p)
 
     p = sub.add_parser("auth-status", help="report each source's credential state")

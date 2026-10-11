@@ -36,7 +36,7 @@ flowchart LR
 
 ⚠️ **`ticket-refine` is experimental** — under active development and not extensively tested. It is also the only skill in the suite that writes to a system outside this machine, so its confirmation gate is load-bearing: it never posts without an explicit yes. Prefer a scratch ticket while trying it out.
 
-`fetch` and `digest` each own one output. `plan` and `implement` additionally write any files their research or steps produce along the way. `checkpoint` owns `journal.md` outright — it is the only skill that writes it, and `resume` the only one that reads it. `resume` writes nothing at all. See [Data Layout](#data-layout).
+`fetch` and `digest` each own one output. `plan` and `implement` additionally write any files their research or steps produce along the way. `checkpoint` owns the `journal/` directory outright — it is the only skill that writes it, and `resume` the only one that reads it. `resume` writes nothing at all. See [Data Layout](#data-layout).
 
 ## Skills are drivers
 
@@ -114,12 +114,12 @@ A product can be bound to several sources or to none: EW.Educate holds its ADO w
 
 Work gets put down. An interrupt arrives, the day ends, another ticket takes priority — and the session that held all the context is gone. Two skills exist for that boundary:
 
-- **`ticket-checkpoint`** runs when attention leaves — end of day, an interrupt, a switch to something unrelated. It records the session in `journal.md`: where the code is, what was done, what was decided **and why**, what is blocking, and the single next action.
-- **`ticket-resume`** runs first in the new session. It reads `journal.md`, `plan.md`, `digest.md` and the prior artifacts, inspects the live git state, checks whether the ticket drifted since it was last fetched, and prints one briefing ending in the next action. It is read-only and starts nothing.
+- **`ticket-checkpoint`** runs when attention leaves — end of day, an interrupt, a switch to something unrelated. It records the session as a new entry in `journal/`: where the code is, what was done, what was decided **and why**, what is blocking, and the single next action.
+- **`ticket-resume`** runs first in the new session. It reads the latest journal entry, `plan.md`, `digest.md` and the prior artifacts, inspects the live git state, checks whether the ticket drifted since it was last fetched, and prints one briefing ending in the next action. It is read-only and starts nothing.
 
-What makes this work is that the two halves record different things. `plan.md` says what state the work is in — that is what the `In Progress` and `Blocked` statuses are for. `journal.md` says *why* it is in that state, which is the half that only exists in a live session and is otherwise lost the moment it ends.
+What makes this work is that the two halves record different things. `plan.md` says what state the work is in — that is what the `In Progress` and `Blocked` statuses are for. The journal says *why* it is in that state, which is the half that only exists in a live session and is otherwise lost the moment it ends.
 
-**`journal.md` belongs to these two skills alone.** `checkpoint` is the only writer, `resume` the only reader; `plan` and `implement` never open it. That boundary is deliberate: once `resume` has briefed a session, the journal's contents are already in the conversation, so a later skill re-reading the file would only spend its context on what it already has. The trade is that `checkpoint` has to actually run — it is what converts a session's reasoning into something the next one can read, and nothing else does it.
+**The journal belongs to these two skills alone.** `checkpoint` is the only writer, `resume` the only reader; `plan` and `implement` never open it. That boundary is deliberate: once `resume` has briefed a session, the journal's contents are already in the conversation, so a later skill re-reading the file would only spend its context on what it already has. The trade is that `checkpoint` has to actually run — it is what converts a session's reasoning into something the next one can read, and nothing else does it.
 
 **Neither infers the ticket from the branch name.** Both take the reference or ask, listing what is on disk — the session context's product first, every product on request. A guess that attached a session's journal entry to the wrong ticket would corrupt the one file here that nothing can regenerate, which is also why `checkpoint` asks before writing to a ticket outside the session context.
 
@@ -141,7 +141,7 @@ Four levels, always: namespace, product, source, ticket.
 │       └── local/{slug}/
 │           ├── ticket.json               source, id, title, type, native_type, state, url, last_fetched_at, coordinates
 │           ├── digest.md                 ← ticket-digest
-│           ├── journal.md                ← ticket-checkpoint only (newest entry first)
+│           ├── journal/                  ← ticket-checkpoint only; one file per entry, named by UTC time
 │           ├── plan.md                   ← ticket-plan (the index: each step names its artifacts)
 │           ├── raw/                      ← ticket-fetch, or the source of truth for a local store
 │           └── artifacts/                ← ticket-plan and ticket-implement
@@ -159,7 +159,7 @@ Keeping `{source}/` directly above the id is what keeps ids unique and relative 
 
 A reference resolves to the nearest ticket directory of that name — in the session context's product, then its namespace, then everywhere. Exactly one at the nearest level wins; **two or more is an error that lists them**, because guessing here attaches work to the wrong ticket. A qualified reference, `{namespace}/{product}/{source}:{id}`, is never ambiguous.
 
-`journal.md` is append-only in the strongest sense in here: an entry is one session's account of itself, and unlike a plan, a digest or a probe output, nothing can regenerate it. Entries are added above the newest one so the current state is the top of the file, and an existing entry is never edited or deleted — a correction is a new entry that says what it corrects.
+The journal is append-only in the strongest sense in here: an entry is one session's account of itself, and unlike a plan, a digest or a probe output, nothing can regenerate it. Each entry is a file of its own, created and never reopened, so the newest sorts last and a resume reads that one file alone. Each entry carries forward the questions and blockers still open, which is what lets the latest stand without the rest. A correction is a new entry that says what it corrects.
 
 `artifacts/` is created lazily, the first time a run produces a file that is not a change to the workspace — a read-only probe, its captured output, a data extract, or a note recording what was found. A capture is named for the format it holds — `.json`, `.csv`, `.md`, and `.txt` by default — so a later run can parse it instead of re-running the script to get the data in a usable shape.
 
@@ -182,7 +182,7 @@ flowchart TD
     PICKUP -->|Yes| RESUME
     PICKUP -->|"No — new ticket"| INIT_CHECK
 
-    RESUME["/ticket-resume {ref}\n────────────────\nReads journal.md + plan.md + digest.md\nInspects live git state\nChecks the source for drift since last fetch\nPrints a briefing ending in the next action\n\nRead-only; starts nothing"]
+    RESUME["/ticket-resume {ref}\n────────────────\nReads latest journal entry + plan.md + digest.md\nInspects live git state\nChecks the source for drift since last fetch\nPrints a briefing ending in the next action\n\nRead-only; starts nothing"]
 
     RESUME --> RESUME_STALE{"Ticket changed\nwhile away?"}
     RESUME_STALE -->|"Yes — fold it in"| FETCH
@@ -228,7 +228,7 @@ flowchart TD
 
     PLAN --> IMPLEMENT
 
-    IMPLEMENT["/ticket-implement {ref} [phases|all]\n────────────────\nReads plan.md + digest.md + artifacts/\nImplements one, several, or all phases\nProbes, outputs & notes → artifacts/step-N.M/\nBuilds affected projects after each phase\nChecks the type's completion rule\n\nSource-agnostic; never touches journal.md"]
+    IMPLEMENT["/ticket-implement {ref} [phases|all]\n────────────────\nReads plan.md + digest.md + artifacts/\nImplements one, several, or all phases\nProbes, outputs & notes → artifacts/step-N.M/\nBuilds affected projects after each phase\nChecks the type's completion rule\n\nSource-agnostic; never touches the journal"]
 
     IMPLEMENT --> PHASES_DONE{"All phases\ncomplete?"}
     PHASES_DONE -->|Yes| END([Done])
@@ -237,7 +237,7 @@ flowchart TD
     SWITCHING -->|"No — keep going"| IMPLEMENT
     SWITCHING -->|Yes| CHECKPOINT
 
-    CHECKPOINT["/ticket-checkpoint {ref}\n────────────────\nRecords the session in journal.md:\n  · where the code is (repository, worktree, branch)\n  · what was done\n  · what was decided, and why\n  · what is blocking\n  · the single next action\n\nMakes no code changes"]
+    CHECKPOINT["/ticket-checkpoint {ref}\n────────────────\nRecords the session as a journal entry:\n  · where the code is (repository, worktree, branch)\n  · what was done\n  · what was decided, and why\n  · what is blocking\n  · the single next action\n\nMakes no code changes"]
 
     CHECKPOINT -.->|"days later,\nnew session"| RESUME
 ```

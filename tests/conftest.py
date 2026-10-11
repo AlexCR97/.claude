@@ -262,3 +262,15 @@ def ado_bound(tickets_home) -> None:
         at_namespace={"organization": "contoso"},
         at_product={"project": "Big Project"},
     )
+
+
+@pytest.fixture
+def local_ticket(run_cli) -> Callable[..., dict]:
+    """File a local ticket and return its resolver report."""
+
+    def make(title: str = "Hello world", ticket_type: str = "task") -> dict:
+        result = run_cli("new", "--source", "local", "--title", title, "--type", ticket_type)
+        assert result.code == 0, result.err
+        return result.json
+
+    return make

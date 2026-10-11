@@ -12,7 +12,7 @@ Read by `ticket-digest`, `ticket-plan` and `ticket-checkpoint`.
 
 ## Attachments link locally
 
-Always prefer the local copy. Where an attachment's `download_ok` is `true`, link to it as a path relative to the file doing the linking — `digest.md`, `plan.md` and `journal.md` all sit in the ticket directory, so that path is `raw/{local_filename}`.
+Always prefer the local copy. Where an attachment's `download_ok` is `true`, link to it as a path relative to the file doing the linking — `digest.md` and `plan.md` sit in the ticket directory, so that path is `raw/{local_filename}`; a journal entry sits one level down, so its path is `../raw/{local_filename}`.
 
 Fall back to the remote URL only where `download_ok` is `false` and no local file exists.
 

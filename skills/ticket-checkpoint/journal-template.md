@@ -1,8 +1,6 @@
-# Work Log — [#{id}: {title}]({ticketUrl})
+# Journal entry — [#{id}: {title}]({ticketUrl})
 
-> Newest entry first. Written only by `/ticket-checkpoint`, and read only by `/ticket-resume`.
->
-> An entry is one session's account of itself. It cannot be regenerated from the code, the plan, or git history — so never edit or delete an existing entry. Record a correction as a new entry that says what it corrects.
+> Written only by `/ticket-checkpoint`, and read only by `/ticket-resume`. This file is one session's account of itself; it is never edited. Record a correction as a new entry that says what it corrects.
 
 ## {timestamp} UTC — {stage}
 
@@ -30,12 +28,8 @@
 
 ### Open questions
 
-- <!-- the question, and who or what can answer it -->
+- <!-- every question still open, including ones carried forward from the previous entry, and who or what can answer it -->
 
 ### Blockers
 
-- <!-- what is blocking, and what would unblock it -->
-
----
-
-<!-- the previous entries follow, unchanged -->
+- <!-- every blocker still open, including ones carried forward from the previous entry, and what would unblock it -->

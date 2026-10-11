@@ -35,7 +35,7 @@ No `allowed-tools`: Step 8 runs user-approved probe scripts whose commands canno
 1. **Plan only.** Never create, edit or delete a source code file, and never run a command that changes the workspace — no `dotnet`, `npm install`, migrations or commits.
 2. **Run read-only git only.** Discovery uses `rev-parse`, `worktree list`, `remote get-url` and `branch --show-current` — never `fetch`, `checkout`, or `worktree add`, `remove` or `prune`.
 3. **Plan from `digest.md`, never from the raw data.** Derive content from `digest.md`, the attachments it references, `artifacts/`, the confirmed workspace and the type file; never fabricate a file or class name. Where `digest.md` lacks what the plan needs, ask, or point at `/ticket-refine` then `/ticket-digest`.
-4. **Never read or write `journal.md`.** It belongs to `ticket-checkpoint` and `ticket-resume`.
+4. **Never read or write the journal.** It belongs to `ticket-checkpoint` and `ticket-resume`.
 5. **Use the glossary's terms exactly**, in `plan.md` and in chat — never a synonym it retires.
 6. **Write only `plan.md` and `artifacts/planning/`.** A renumbering pass is the one exception: it renames step directories and fixes references under `artifacts/`. `artifacts/step-{N}.{M}/` and `artifacts/shared/` belong to implementation.
 7. **Never run a script without approval of that run.** Write it, show it, ask, then run; never run anything that writes to an external system.

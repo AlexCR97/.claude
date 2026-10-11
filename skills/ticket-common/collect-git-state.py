@@ -2,7 +2,7 @@
 """
 Collects the read-only git state of the worktree holding a directory, as JSON.
 
-Shared by ticket-checkpoint (which records the state in journal.md) and
+Shared by ticket-checkpoint (which records the state in a journal entry) and
 ticket-resume (which compares the live state against what was recorded). Both
 need the same facts described the same way, so they read them from here rather
 than each running its own set of git commands.

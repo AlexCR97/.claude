@@ -108,7 +108,7 @@ Every result names the product, the rule that chose it — `named`, `address`, `
 
 Exit 3 on an absent capability is structural, not advisory: the verb refuses before any provider code loads. Report it as a gap. Never substitute another source's behaviour for it, and never hand-roll the call the provider declined to make.
 
-`--require` takes a comma-separated subset of `config, ticket_dir, ticket_json, raw, digest, plan, journal`. `config` means the source is bound where the ticket is filed: every coordinate its manifest declares is known. An unmet requirement exits 2 with a hint naming the skill that would satisfy it.
+`--require` takes a comma-separated subset of `config, ticket_dir, ticket_json, raw, digest, plan, journal`; `journal` is met once the journal holds an entry. `config` means the source is bound where the ticket is filed: every coordinate its manifest declares is known. An unmet requirement exits 2 with a hint naming the skill that would satisfy it.
 
 ---
 
@@ -128,7 +128,8 @@ Exit 3 on an absent capability is structural, not advisory: the verb refuses bef
             └── {id}/
                 ├── ticket.json  source, id, title, type, native_type, state, url, last_fetched_at, coordinates
                 ├── digest.md    ← ticket-digest
-                ├── journal.md   ← ticket-checkpoint only; read only by ticket-resume
+                ├── journal/     ← ticket-checkpoint only; ticket-resume reads the latest entry
+                │   └── 2026-10-11T09-30-00Z.md
                 ├── plan.md      ← ticket-plan
                 ├── raw/         ← ticket-fetch, or the source of truth for a local store
                 └── artifacts/   ← ticket-plan and ticket-implement (see ARTIFACTS.md)

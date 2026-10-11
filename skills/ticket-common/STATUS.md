@@ -24,7 +24,7 @@ A step's `**Status:**` line takes exactly one of four values, optionally followe
 
 `In Progress` and `Blocked` exist so that stopping mid-phase is recordable. A session that ends between steps must leave the plan saying so: a step that is 80% finished marked `Pending` loses the 80%, and marked `Done` loses far more than that.
 
-**Never write a bare `In Progress` or `Blocked`.** The note is what makes the state actionable in a later session — `In Progress` on its own says only that a step was touched, which is nearly as unhelpful as `Pending`. Keep it to one line; the fuller account of a session belongs in `journal.md`, which `ticket-checkpoint` writes.
+**Never write a bare `In Progress` or `Blocked`.** The note is what makes the state actionable in a later session — `In Progress` on its own says only that a step was touched, which is nearly as unhelpful as `Pending`. Keep it to one line; the fuller account of a session belongs in the journal, which `ticket-checkpoint` writes.
 
 ---
 
@@ -47,4 +47,4 @@ A phase whose steps are not all `Done` is not marked `[x] Done`, however much of
 
 ## Where the *why* goes
 
-A status note records **what** state a step is in. **Why** it is in that state belongs in `journal.md`, and `ticket-checkpoint` is the only skill that writes it. Keep the note to one line and let the journal carry the account.
+A status note records **what** state a step is in. **Why** it is in that state belongs in the journal, and `ticket-checkpoint` is the only skill that writes it. Keep the note to one line and let the journal carry the account.

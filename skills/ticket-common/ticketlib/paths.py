@@ -22,7 +22,7 @@ HOME_ENV_VAR = "TICKETS_HOME"
 TICKET_ENTRIES = (
     "ticket.json",
     "digest.md",
-    "journal.md",
+    "journal",
     "plan.md",
     "raw",
     "artifacts",
@@ -114,7 +114,7 @@ def ticket_paths(
         "ticket_json": str(root / "ticket.json"),
         "digest": str(root / "digest.md"),
         "plan": str(root / "plan.md"),
-        "journal": str(root / "journal.md"),
+        "journal_dir": str(root / "journal"),
         "raw_dir": str(root / "raw"),
         "artifacts_dir": str(root / "artifacts"),
     }

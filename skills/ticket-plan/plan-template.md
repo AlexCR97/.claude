@@ -1,7 +1,7 @@
 # Implementation Plan — [#{id}: {title}]({ticketUrl})
 
 > Generated on {date} at {time} UTC Based on [digest.md](digest.md)
-> Session history: [journal.md](journal.md)
+> Session history: [journal/](journal/)
 
 ## Progress
 
