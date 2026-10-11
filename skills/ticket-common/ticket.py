@@ -25,6 +25,7 @@ Usage:
     python ticket.py drift <ref>
     python ticket.py move <ref> --to NS/PRODUCT [--dry-run]
     python ticket.py guard check --op OP [--branch B] [--repo DIR] [--in X] | protected [--branch B] [--repo DIR] | fast-forward --branch B [--repo DIR]
+    python ticket.py worktree propose|create <ref> --repo DIR [--repo DIR ...] [--add-ignore]
     python ticket.py journal write <ref> --file F [--at ISO] | latest <ref> | list <ref> | migrate <ref>
     python ticket.py auth-status [--source S] [--in X]
     python ticket.py scan-roots [--in NS[/PRODUCT]] [--set [DIR ...]]
@@ -69,6 +70,7 @@ from ticketlib import (
     providers,
     sources,
     tickets,
+    worktrees,
 )
 from ticketlib.errors import (
     EXIT_ERROR,
@@ -645,6 +647,39 @@ def verb_guard(args: argparse.Namespace) -> int:
     return EXIT_OK if verdict.allowed else EXIT_REFUSED
 
 
+def verb_worktree(args: argparse.Namespace) -> int:
+    location = require_filed(locate(args))
+    record = tickets.load(location)
+    branch = worktrees.branch_name(record.get("type"), location.id, record.get("title"))
+
+    config_values = config.effective(
+        location.product.namespace, location.product.name
+    )[0]
+    patterns = guard.patterns_from(config_values)
+    root = config_values.get("worktree_root")
+
+    plans = [
+        worktrees.propose(
+            Path(repo).expanduser().resolve(), branch, patterns, str(root) if root else None
+        )
+        for repo in args.repo
+    ]
+    if len({plan.repository for plan in plans}) != len(plans):
+        raise TicketError("a repository was given more than once", EXIT_ERROR)
+
+    if args.action == "propose":
+        emit({"qualified_ref": location.qualified, "branch": branch, "plans": [p.as_dict() for p in plans]})
+        return EXIT_OK
+
+    # Every plan is checked before the first repository is touched.
+    for plan in plans:
+        if plan.refusal:
+            raise TicketError(plan.refusal, EXIT_REFUSED)
+    created = [worktrees.create(plan, args.add_ignore) for plan in plans]
+    emit({"qualified_ref": location.qualified, "branch": branch, "created": created})
+    return EXIT_OK
+
+
 def verb_journal(args: argparse.Namespace) -> int:
     location = require_filed(locate(args))
     report = {"qualified_ref": location.qualified}
@@ -825,6 +860,7 @@ VERBS = {
     "move": verb_move,
     "journal": verb_journal,
     "guard": verb_guard,
+    "worktree": verb_worktree,
     "auth-status": verb_auth_status,
     "scan-roots": verb_scan_roots,
 }
@@ -968,6 +1004,17 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--branch", help="default: the repository's current branch")
     p.add_argument("--repo", help="default: the current directory")
     add_restrict(p, "the namespace or product whose `protected_branches` apply")
+    add_context(p)
+
+    p = sub.add_parser(
+        "worktree", help="propose or create a ticket branch and worktree per repository"
+    )
+    p.add_argument("action", choices=("propose", "create"))
+    p.add_argument("ref")
+    p.add_argument("--source")
+    p.add_argument("--repo", action="append", required=True, help="a repository the work changes; repeat for several")
+    p.add_argument("--add-ignore", action="store_true", help="create: also add the worktrees directory to .gitignore")
+    add_restrict(p, "restrict the lookup to a namespace or product")
     add_context(p)
 
     p = sub.add_parser("auth-status", help="report each source's credential state")

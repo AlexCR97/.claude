@@ -125,7 +125,7 @@ A ticket's workspace can span several repositories and plain directories. Map it
 
 A repository holding a directory the user gave or the invocation directory is kept regardless. Every other repository is ranked against the digest's identifiers as the search in Step 4 does, and carried forward only when it matches: that covers everything reached only through a default scan root, and each repository beneath a directory of repositories the user named.
 
-**Worktrees.** Run `git worktree list --porcelain` in each repository, skipping entries git marks `prunable`. The workspace holds only the worktrees the work happens in, one or several per repository; a ticket that lands on more than one branch, such as a fix on `main` backported to a release branch, needs a worktree for each:
+**Worktrees.** Run `git worktree list --porcelain` in each repository, skipping entries git marks `prunable`. A ticket worktree under a repository's `.worktrees/` directory (or under `worktree_root`) is one of that repository's worktrees, never a second repository or a project of the one that holds it: skip `.worktrees/` when looking for projects, so a nested copy of the code is not mistaken for another. The workspace holds only the worktrees the work happens in, one or several per repository; a ticket that lands on more than one branch, such as a fix on `main` backported to a release branch, needs a worktree for each:
 
 - Every worktree holding a scan root is in the workspace.
 - Otherwise, for a related repository or a directory holding several worktrees of one, list each worktree with its branch and ask in Step 6 which ones the work will happen in. A branch that names this ticket is a sensible default to propose, never one to assume.
