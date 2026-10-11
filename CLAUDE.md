@@ -4,10 +4,6 @@
 
 In Windows prefer using PowerShell. If a command cannot be executed fallback to the OS's configured shell, e.g. bash.
 
-## Git
-
-When generating code do not stage the changes or commit them so I can review. If there are already staged changes it was very likely me, so do not unstage them, as I use this to review the diff of the new changes, i.e. the staged changes vs the unstaged changes.
-
 ## Code Comments
 
 Avoid over-commenting code if it's not necessary. The code should be self-descriptive enough that it is understandable by reading the code itself instead of having to read comments. Code comments should explain "why", not "what", when it cannot be inferred from the code itself, i.e., instead of explaining what a method or variable is doing, explain why that method exists and why the variable is set to a specific value, but only if it's not inferrable from the surrounding context.
