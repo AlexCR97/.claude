@@ -192,3 +192,93 @@ def create(plan: Plan, add_ignore_entry: bool) -> dict:
         report["ignore_offer"] = None
     report.update({"created": True, "ignore_entry_added": ignore_added})
     return report
+
+
+@dataclass
+class Candidate:
+    path: Path
+    branch: str | None
+    protected: bool
+    ahead: int
+    behind: int
+
+    @property
+    def status(self) -> str:
+        if not self.branch:
+            return "detached"
+        if self.ahead and self.behind:
+            return "diverged"
+        return "behind" if self.behind else "current"
+
+    @property
+    def is_current_ticket_branch(self) -> bool:
+        return bool(self.branch) and not self.protected and self.status == "current"
+
+    def as_dict(self) -> dict:
+        return {
+            "worktree": str(self.path),
+            "branch": self.branch,
+            "protected": self.protected,
+            "ahead": self.ahead,
+            "behind": self.behind,
+            "status": self.status,
+        }
+
+
+def list_worktrees(repo: Path) -> list[tuple[Path, str | None]]:
+    """Every worktree of the repository with its branch, skipping those git marks prunable."""
+    code, out = guard.git(repo, "worktree", "list", "--porcelain")
+    if code != 0:
+        raise TicketError(f"could not list the worktrees of {repo}: {out}", EXIT_ERROR)
+    found: list[tuple[Path, str | None]] = []
+    for block in out.split("\n\n"):
+        path: Path | None = None
+        branch: str | None = None
+        prunable = False
+        for line in block.splitlines():
+            if line.startswith("worktree "):
+                path = Path(line[len("worktree ") :])
+            elif line.startswith("branch refs/heads/"):
+                branch = line[len("branch refs/heads/") :]
+            elif line.startswith("prunable"):
+                prunable = True
+        if path and not prunable:
+            found.append((path, branch))
+    return found
+
+
+def survey(repo: Path, patterns: list[str]) -> dict:
+    """
+    Fetch, then say how far each worktree of a repository is behind the remote default branch.
+
+    The fetch changes no worktree. An offer to cut a new ticket worktree is
+    made only when none of the existing ones is a non-protected branch that is
+    already up to date, so re-running a skill in a good workspace stays quiet.
+    """
+    repo = repository_root(repo)
+    default = guard.default_branch(repo)
+    if not default:
+        raise TicketError(
+            f"{repo} has no origin/HEAD, so its default branch is unknown",
+            EXIT_ERROR,
+            "Run `git remote set-head origin --auto` in it.",
+        )
+    code, out = guard.git(repo, "fetch", "origin")
+    if code != 0:
+        raise TicketError(f"fetching origin failed: {out}", EXIT_ERROR)
+
+    base = f"refs/remotes/origin/{default}"
+    candidates: list[Candidate] = []
+    for path, branch in list_worktrees(repo):
+        _, counts = guard.git(path, "rev-list", "--left-right", "--count", f"HEAD...{base}")
+        ahead, behind = (int(part) for part in counts.split())
+        candidates.append(
+            Candidate(path, branch, guard.is_protected(branch, default, patterns), ahead, behind)
+        )
+
+    return {
+        "repository": str(repo),
+        "default_branch": default,
+        "worktrees": [candidate.as_dict() for candidate in candidates],
+        "offer": not any(c.is_current_ticket_branch for c in candidates),
+    }

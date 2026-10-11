@@ -25,7 +25,7 @@ Usage:
     python ticket.py drift <ref>
     python ticket.py move <ref> --to NS/PRODUCT [--dry-run]
     python ticket.py guard check --op OP [--branch B] [--repo DIR] [--in X] | protected [--branch B] [--repo DIR] | fast-forward --branch B [--repo DIR]
-    python ticket.py worktree propose|create <ref> --repo DIR [--repo DIR ...] [--add-ignore]
+    python ticket.py worktree survey|propose|create <ref> --repo DIR [--repo DIR ...] [--add-ignore]
     python ticket.py journal write <ref> --file F [--at ISO] | latest <ref> | list <ref> | migrate <ref>
     python ticket.py auth-status [--source S] [--in X]
     python ticket.py scan-roots [--in NS[/PRODUCT]] [--set [DIR ...]]
@@ -658,6 +658,21 @@ def verb_worktree(args: argparse.Namespace) -> int:
     patterns = guard.patterns_from(config_values)
     root = config_values.get("worktree_root")
 
+    if args.action == "survey":
+        surveys = []
+        for repo in args.repo:
+            report = worktrees.survey(Path(repo).expanduser().resolve(), patterns)
+            if report["offer"]:
+                report["proposal"] = worktrees.propose(
+                    Path(report["repository"]),
+                    branch,
+                    patterns,
+                    str(root) if root else None,
+                ).as_dict()
+            surveys.append(report)
+        emit({"qualified_ref": location.qualified, "branch": branch, "repositories": surveys})
+        return EXIT_OK
+
     plans = [
         worktrees.propose(
             Path(repo).expanduser().resolve(), branch, patterns, str(root) if root else None
@@ -1009,7 +1024,7 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser(
         "worktree", help="propose or create a ticket branch and worktree per repository"
     )
-    p.add_argument("action", choices=("propose", "create"))
+    p.add_argument("action", choices=("survey", "propose", "create"))
     p.add_argument("ref")
     p.add_argument("--source")
     p.add_argument("--repo", action="append", required=True, help="a repository the work changes; repeat for several")

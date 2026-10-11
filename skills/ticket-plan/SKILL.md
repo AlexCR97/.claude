@@ -132,6 +132,16 @@ A repository holding a directory the user gave or the invocation directory is ke
 
 Where a worktree left out of the workspace sits on a branch that names this ticket, mention it in Step 6 and offer to add it: the work may already be under way there.
 
+**Staleness and the offer.** Plan against current code. For each repository in the workspace, run
+
+```bash
+python "{skills}/ticket-common/ticket.py" worktree survey {ref} --repo {repositoryDirectory} [--repo ...]
+```
+
+It fetches — which changes no worktree — and reports each worktree's branch, whether it is protected, and how many commits it is `behind` the remote default branch, with a `status` of `current`, `behind`, `diverged` or `detached`. Planning against an up-to-date `main` worktree is fine and changes nothing in it. Show the behind count next to every worktree in Step 6.
+
+Where a repository's report has `offer: true` — no worktree of it is a non-protected branch that is already current — it carries a `proposal`. Offer it in Step 6: a ticket branch and worktree cut from the up-to-date default branch, showing its branch name and path. Create it with `worktree create` (`ticket-common/GUARD.md`) only on a yes, then add the new worktree to the workspace and to the Workspace section. Where `offer` is `false`, use the current ticket branch with no question asked.
+
 **Related repositories.** Follow evidence out of the scan roots, not proximity:
 
 - References that leave the repository: `.gitmodules`, relative project references, `file:` or `link:` dependencies, `pnpm-workspace.yaml` or a `package.json` `workspaces` field, VS Code `.code-workspace` files, compose build contexts, relative paths in pipeline definitions.
