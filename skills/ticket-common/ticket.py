@@ -24,6 +24,7 @@ Usage:
     python ticket.py publish <ref> --file F [--delete-after-post]
     python ticket.py drift <ref>
     python ticket.py move <ref> --to NS/PRODUCT [--dry-run]
+    python ticket.py guard check --op OP [--branch B] [--repo DIR] [--in X] | protected [--branch B] [--repo DIR] | fast-forward --branch B [--repo DIR]
     python ticket.py journal write <ref> --file F [--at ISO] | latest <ref> | list <ref> | migrate <ref>
     python ticket.py auth-status [--source S] [--in X]
     python ticket.py scan-roots [--in NS[/PRODUCT]] [--set [DIR ...]]
@@ -37,6 +38,7 @@ Exit codes:
     1  error / not initialized
     2  `--require` unmet, or `drift` found the ticket moved
     3  ambiguous reference or filing, or the source declares this capability absent
+    4  `guard check` refused the operation, or `guard fast-forward` could not do it safely
     5  ticket, namespace or product not found
 """
 
@@ -59,6 +61,7 @@ from ticketlib import (
     bindings,
     config,
     filing,
+    guard,
     journal,
     layout,
     moves,
@@ -71,6 +74,7 @@ from ticketlib.errors import (
     EXIT_ERROR,
     EXIT_NOT_FOUND,
     EXIT_OK,
+    EXIT_REFUSED,
     TicketError,
 )
 from ticketlib.layout import Location, Product, Scope
@@ -605,6 +609,42 @@ def verb_drift(args: argparse.Namespace) -> int:
     return EXIT_DRIFTED if result.get("is_stale") else EXIT_OK
 
 
+def verb_guard(args: argparse.Namespace) -> int:
+    repo = Path(args.repo).expanduser().resolve() if args.repo else Path.cwd()
+    guard.require_repository(repo)
+    scope = restrict_of(args) or context_of(args)
+    config_values = config.effective(
+        scope.namespace if scope else None, scope.product if scope else None
+    )[0]
+    patterns = guard.patterns_from(config_values)
+
+    if args.action == "fast-forward":
+        if not args.branch:
+            raise TicketError("fast-forward needs --branch", EXIT_ERROR)
+        report = guard.fast_forward(repo, args.branch)
+        emit(report)
+        return EXIT_REFUSED if report["refused"] else EXIT_OK
+
+    default = guard.default_branch(repo)
+    branch = args.branch or guard.current_branch(repo)
+    if args.action == "protected":
+        emit(
+            {
+                "branch": branch,
+                "default_branch": default,
+                "patterns": patterns,
+                "protected": guard.is_protected(branch, default, patterns),
+            }
+        )
+        return EXIT_OK
+
+    if not args.op:
+        raise TicketError("check needs --op", EXIT_ERROR)
+    verdict = guard.classify(args.op, branch, default, patterns)
+    emit(verdict.as_dict())
+    return EXIT_OK if verdict.allowed else EXIT_REFUSED
+
+
 def verb_journal(args: argparse.Namespace) -> int:
     location = require_filed(locate(args))
     report = {"qualified_ref": location.qualified}
@@ -784,6 +824,7 @@ VERBS = {
     "drift": verb_drift,
     "move": verb_move,
     "journal": verb_journal,
+    "guard": verb_guard,
     "auth-status": verb_auth_status,
     "scan-roots": verb_scan_roots,
 }
@@ -916,6 +957,17 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--file", help="write: the entry text")
     p.add_argument("--at", help="write: the entry's UTC time, default now")
     add_restrict(p, "restrict the lookup to a namespace or product")
+    add_context(p)
+
+    p = sub.add_parser(
+        "guard",
+        help="may this git operation run against this branch? (protected branches)",
+    )
+    p.add_argument("action", choices=("check", "protected", "fast-forward"))
+    p.add_argument("--op", help="check: the operation to classify")
+    p.add_argument("--branch", help="default: the repository's current branch")
+    p.add_argument("--repo", help="default: the current directory")
+    add_restrict(p, "the namespace or product whose `protected_branches` apply")
     add_context(p)
 
     p = sub.add_parser("auth-status", help="report each source's credential state")

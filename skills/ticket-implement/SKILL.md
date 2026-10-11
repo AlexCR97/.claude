@@ -6,7 +6,7 @@ argument-hint: "<ref> [phases | all]"
 
 Implements one, several or all phases of a ticket's `plan.md`: makes the code changes each step names, in the worktrees the plan's Workspace section confirms, builds each affected project, and keeps every step's status in `plan.md` current as it goes. What this run has to show before a phase is done — and whether a phase with no code change is complete — comes from the ticket's type.
 
-End state: each selected phase's steps done and marked `Done`, or stopped with an accurate status and note; the affected projects building; `plan.md` and `artifacts/` matching what the run produced; no git operation run; and a report of what the run produced, decided and inferred.
+End state: each selected phase's steps done and marked `Done`, or stopped with an accurate status and note; the affected projects building; `plan.md` and `artifacts/` matching what the run produced; no write to a protected branch and no commit or push the developer did not ask for; and a report of what the run produced, decided and inferred.
 
 This skill is a **driver**: it contains no field names, URLs, API versions, credential commands, markup dialects, or type-specific rules of its own. Everything specific lives alongside it in three directories, and each step names the file to read.
 
@@ -34,7 +34,7 @@ No `allowed-tools` here: this skill's whole purpose is to change code and build 
 1. **Stay inside the selected phases.** Never implement beyond them, and never use `digest.md` to expand scope beyond the plan.
 2. **Never redo finished work.** Skip a phase marked `[x] Done` or a step marked `Done`, with a warning; resume a step marked `In Progress` rather than restarting it.
 3. **Run only read-only and build commands.** Never install a package or global tool, change the environment, or alter state outside the project being built. Run tests only where the type's file makes them its completion test.
-4. **Never run a git operation** — commit, push, pull, rebase, merge, reset, stash or any other. The developer reviews the diff and decides when to commit.
+4. **Run git only as `ticket-common/GUARD.md` allows.** Never write to a protected branch or edit a file in a worktree that has one checked out — ask the guard with `--op edit`. Commit and push only when the developer asks; otherwise they review the diff and decide.
 5. **Never run a script artifact without approval of that run.** Write it, show it, ask, then run.
 6. **Never read or write the journal.** It belongs to `ticket-checkpoint` and `ticket-resume`, and `ticket-resume` has already brought what matters into the session.
 7. **Never read a provider file.** By now `digest.md` holds what the ticket said and `plan.md` what the work is; needing a provider file means the abstraction leaked — report it as a bug.

@@ -33,7 +33,7 @@ No `allowed-tools`: Step 8 runs user-approved probe scripts whose commands canno
 ## Ground rules
 
 1. **Plan only.** Never create, edit or delete a source code file, and never run a command that changes the workspace — no `dotnet`, `npm install`, migrations or commits.
-2. **Run read-only git only.** Discovery uses `rev-parse`, `worktree list`, `remote get-url` and `branch --show-current` — never `fetch`, `checkout`, or `worktree add`, `remove` or `prune`.
+2. **Run git only as `ticket-common/GUARD.md` allows.** Discovery uses `rev-parse`, `worktree list`, `remote get-url` and `branch --show-current`. Never write to a protected branch, and never commit or push unless the developer asks.
 3. **Plan from `digest.md`, never from the raw data.** Derive content from `digest.md`, the attachments it references, `artifacts/`, the confirmed workspace and the type file; never fabricate a file or class name. Where `digest.md` lacks what the plan needs, ask, or point at `/ticket-refine` then `/ticket-digest`.
 4. **Never read or write the journal.** It belongs to `ticket-checkpoint` and `ticket-resume`.
 5. **Use the glossary's terms exactly**, in `plan.md` and in chat — never a synonym it retires.
@@ -119,7 +119,7 @@ If nothing matches, report the directories searched and the identifiers tried, a
 
 ### Step 5 — Discover the workspace
 
-A ticket's workspace can span several repositories and plain directories. Map it, beginning at the scan roots. Use only read-only git commands (`rev-parse`, `worktree list`, `remote get-url`, `branch --show-current`), and do **not** read source file contents at this stage: file names, paths and directory structure are enough. Build and deployment files may be read, but only for references that point outside their own repository.
+A ticket's workspace can span several repositories and plain directories. Map it, beginning at the scan roots. Discover it with `rev-parse`, `worktree list`, `remote get-url` and `branch --show-current`, within the policy in `ticket-common/GUARD.md`, and do **not** read source file contents at this stage: file names, paths and directory structure are enough. Build and deployment files may be read, but only for references that point outside their own repository.
 
 **Repositories.** Record the repository holding each scan root, and each repository beneath one, once each however many scan roots reach it. Name each as the glossary says: from its remote's URL, or from its main worktree's directory name where it has no remote.
 

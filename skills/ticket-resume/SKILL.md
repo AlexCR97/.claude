@@ -30,7 +30,7 @@ A fact that needs a particular ticket system belongs in `ticket-providers/{sourc
 ## Ground rules
 
 1. **Write nothing.** No code, no journal entry, no `plan.md`, no artifacts — `/ticket-checkpoint` records state and `/ticket-implement` changes code.
-2. **Run only read-only commands:** `collect-git-state.py`, `ticket.py` `resolve`, `list`, `drift` and `journal latest` or `list`, and reads of the files the steps name. Never `git fetch`, `pull`, `checkout`, `stash` or any command that changes repository state.
+2. **Run only read-only commands:** `collect-git-state.py`, `ticket.py` `resolve`, `list`, `drift` and `journal latest` or `list`, and reads of the files the steps name. Run git only as `ticket-common/GUARD.md` allows, which here means reading: no `checkout`, `stash`, `commit`, `push` or any command that changes repository state.
 3. **Never run a script under `artifacts/`.** A captured output already on disk is the answer; re-running a probe against a live system needs the user's approval in the session that needs it.
 4. **Never read the source's raw data for ticket content.** `digest.md` is the source of truth; the drift check reads the snapshot for comparison only.
 5. **Never correct `plan.md`, even when it is visibly stale.** Report the discrepancy and let `/ticket-checkpoint` or `/ticket-plan` fix it.

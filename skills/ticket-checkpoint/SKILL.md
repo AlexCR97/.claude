@@ -32,7 +32,7 @@ A fact that needs a particular ticket system belongs in `ticket-providers/{sourc
 
 1. **Record state; change no code.** Never create, edit or delete a source code file.
 2. **Write only a new journal entry**, plus the `**Status:**` lines and Progress rows in `plan.md` that Step 6 corrects. Never touch `digest.md`, `raw/` or anything under `artifacts/`.
-3. **Run only read-only commands.** `collect-git-state.py` and `ticket.py` are read-only; never run `git fetch`, `pull`, `add`, `stash` or any other command that changes repository state — the developer decides when to commit, stash or push.
+3. **Change no repository state.** `collect-git-state.py` only reads, and the only `ticket.py` verb that writes is `journal`. Run git only as `ticket-common/GUARD.md` allows, and never commit, stash or push — the developer decides when.
 4. **Record local state only.** Never re-fetch the ticket or check its source; `/ticket-resume` is what checks for drift.
 
 ---

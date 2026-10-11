@@ -14,6 +14,8 @@ EXIT_DRIFTED = 2
 # An ambiguous bare reference, or a capability this source does not have.
 EXIT_AMBIGUOUS = 3
 EXIT_NO_CAPABILITY = 3
+# The protected-branch guard refused an operation.
+EXIT_REFUSED = 4
 EXIT_NOT_FOUND = 5
 
 

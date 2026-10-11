@@ -45,7 +45,7 @@ The words every `ticket-*` skill uses for where tickets are kept and for the cod
 | Term                 | Meaning                                                                                                                                                              |
 | -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Default branch**   | The branch a repository's `origin/HEAD` names, usually `main`.                                                                                                       |
-| **Protected branch** | The default branch, plus any branch listed in `protected_branches` in the effective config. A skill may read it and fast-forward it from its remote; it never writes to it. |
+| **Protected branch** | The default branch, plus any branch listed in `protected_branches` in the effective config. A skill may read it and fast-forward it from its remote; it never writes to it. The policy is in [`GUARD.md`](./GUARD.md). |
 | **Ticket branch**    | A branch created for one ticket's implementation, cut from `origin/{default branch}` and named from the ticket's type and id.                                          |
 | **Ticket worktree**  | The linked worktree holding a ticket branch, at `{repository}/.worktrees/{branch-slug}`, or under the effective config's `worktree_root`.                              |
 
