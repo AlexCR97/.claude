@@ -6,7 +6,7 @@ argument-hint: "<ref> [dir ...] [--type type]"
 
 Turns a ticket's `digest.md` into a phased, file-level implementation plan in `plan.md`. It discovers the workspace — the repositories, worktrees and projects the work spans — from the ticket's scan roots, researches the facts the plan's shape rests on, and shapes the phases by the ticket's type. Run again on a ticket that has a plan, it shows progress and updates step status. It plans only: research artifacts under `artifacts/planning/` are part of planning — a plan built on an unverified assumption is worth less than the hour spent verifying it — but no change to the workspace is. The terms for code mean what `ticket-common/GLOSSARY.md` says; read it before discovering anything.
 
-End state: `plan.md` written from `digest.md` and the confirmed workspace, every research artifact under `artifacts/planning/` cited by the steps that rest on it, and the workspace unchanged — or, on a later run, `plan.md` updated as the user asked.
+End state: `plan.md` written from `digest.md` and the confirmed workspace, every research artifact under `artifacts/planning/` cited by the steps that rest on it, and the workspace's code unchanged — or, on a later run, `plan.md` updated as the user asked.
 
 This skill is a **driver**: it contains no field names, URLs, API versions, credential commands, markup dialects, or type-specific rules of its own. Everything specific lives alongside it in three directories, and each step names the file to read.
 
@@ -46,17 +46,30 @@ No `allowed-tools`: Step 8 runs user-approved probe scripts whose commands canno
 
 ## Execution Steps
 
-### Step 1 — Resolve the ticket
+### Step 1 — Resolve the ticket, and do the groundwork it is missing
 
-With a session context, pass `--context {context}` on every `ticket.py` call below that takes one and open the first output line with `Ticket context: {context}` — `ticket-common/RESOLUTION.md` → *The session context* covers overrides.
+With a session context, pass `--context {context}` on every `ticket.py` call below that takes one and open the first output line with `Ticket context: {context}` — `ticket-common/RESOLUTION.md` → *How a reference resolves* covers overrides. A pasted web address is a valid `<ref>` even for a ticket not on disk yet.
+
+Ask what planning needs first:
+
+```bash
+python "{skills}/ticket-common/ticket.py" prepare "<ref>" [--context {context}]
+```
+
+Its `steps` are what is missing, in order. Do each by following the named skill's own steps in this session, without confirmation: both write only inside the ticket directory.
+
+- **`fetch`** — follow `ticket-fetch/SKILL.md`. It is absent for a source with no fetch capability, such as a local ticket.
+- **`digest`** — follow `ticket-digest/SKILL.md`.
+
+Where `steps` is empty and `ask_before_refresh` is `true`, the ticket changed upstream since it was fetched. Show what `drift` reports and **ask** before refreshing: a refresh re-fetches and re-digests, replacing a digest that may have been refined. On a yes, run `refresh_steps`; on a no, plan from what is on disk and say so. Where it is `false`, go on without asking.
+
+Then resolve it:
 
 ```bash
 python "{skills}/ticket-common/ticket.py" resolve "<ref>" --require digest [--type type] [--context {context}]
 ```
 
 Everything below uses the paths, type, `product` and `ticket.json` it returns; **every path it prints is absolute**, so nothing here needs expanding. On a non-zero exit, report the message and its hint verbatim and stop. `ticket-common/RESOLUTION.md` carries the full contract — open it only when the output is disputed.
-
-An unmet `digest` requirement means there is nothing to plan from; the hint names the skill that fixes it.
 
 The resolver's `artifacts_dir` may not exist yet — it is absent on a first run.
 

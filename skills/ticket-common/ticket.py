@@ -23,6 +23,7 @@ Usage:
     python ticket.py new --source S --title "..." [--id SLUG] [--type T] [--in X] [--context X] [--propose] [provider flags...]
     python ticket.py publish <ref> --file F [--delete-after-post]
     python ticket.py drift <ref>
+    python ticket.py prepare <ref>
     python ticket.py move <ref> --to NS/PRODUCT [--dry-run]
     python ticket.py guard check --op OP [--branch B] [--repo DIR] [--in X] | protected [--branch B] [--repo DIR] | fast-forward --branch B [--repo DIR]
     python ticket.py worktree survey|propose|create <ref> --repo DIR [--repo DIR ...] [--add-ignore]
@@ -611,6 +612,45 @@ def verb_drift(args: argparse.Namespace) -> int:
     return EXIT_DRIFTED if result.get("is_stale") else EXIT_OK
 
 
+def verb_prepare(args: argparse.Namespace) -> int:
+    """
+    What a plan must do first: fetch what was never fetched, digest what was never digested.
+
+    A snapshot and a digest only ever write inside the ticket directory, so
+    they need no confirmation. Refreshing a digest that already exists does,
+    because it may have been refined by hand — `ask_before_refresh` says so.
+    """
+    target = locate(args)
+    location = target.location
+    manifest = providers.load_manifest(location.source)
+    capabilities = manifest.get("capabilities") or {}
+    survey = tickets.on_disk(location, True)
+
+    steps: list[str] = []
+    if capabilities.get("fetch") and not survey["raw"]:
+        steps.append("fetch")
+    if not survey["digest"]:
+        steps.append("digest")
+
+    drift_report = None
+    if not steps and capabilities.get("drift"):
+        module = provider_for(location.source, "drift")
+        drift_report = module.drift(ticket_context(location, target.address), [])
+
+    stale = bool(drift_report and drift_report.get("is_stale"))
+    emit(
+        {
+            "qualified_ref": location.qualified,
+            "filed": target.filed,
+            "steps": steps,
+            "drift": drift_report,
+            "ask_before_refresh": stale,
+            "refresh_steps": ["fetch", "digest"] if stale and capabilities.get("fetch") else ["digest"] if stale else [],
+        }
+    )
+    return EXIT_OK
+
+
 def verb_guard(args: argparse.Namespace) -> int:
     repo = Path(args.repo).expanduser().resolve() if args.repo else Path.cwd()
     guard.require_repository(repo)
@@ -875,6 +915,7 @@ VERBS = {
     "move": verb_move,
     "journal": verb_journal,
     "guard": verb_guard,
+    "prepare": verb_prepare,
     "worktree": verb_worktree,
     "auth-status": verb_auth_status,
     "scan-roots": verb_scan_roots,
@@ -1030,6 +1071,14 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--repo", action="append", required=True, help="a repository the work changes; repeat for several")
     p.add_argument("--add-ignore", action="store_true", help="create: also add the worktrees directory to .gitignore")
     add_restrict(p, "restrict the lookup to a namespace or product")
+    add_context(p)
+
+    p = sub.add_parser(
+        "prepare", help="what ticket-plan must fetch or digest before it can plan"
+    )
+    p.add_argument("ref")
+    p.add_argument("--source")
+    add_restrict(p, "only look in, and only file under, this namespace or product")
     add_context(p)
 
     p = sub.add_parser("auth-status", help="report each source's credential state")
