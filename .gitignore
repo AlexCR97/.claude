@@ -18,6 +18,7 @@
 /shell-snapshots
 # /skills
 /skills/synced
+/skills/.trash
 /state
 /statsig
 /tasks
