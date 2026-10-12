@@ -15,5 +15,3 @@ Inferences made:
 - {stepId} — <!-- what was inferred and why -->
 
 Left in flight: {stepId} — {statusNote}
-
-Run `/ticket-checkpoint {qualifiedRef}` before switching away from this ticket, and `/ticket-resume {qualifiedRef}` when you come back to it.
