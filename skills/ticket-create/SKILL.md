@@ -34,13 +34,13 @@ A fact that needs a particular ticket system belongs in `ticket-providers/{sourc
 ## Ground rules
 
 1. **Report a missing capability as a gap.** Never create a ticket in a source that declares no `new`, and never substitute another source's file for a missing one.
-   **Never write to a remote system without an explicit yes.** Creating an upstream ticket needs the user to have seen the product, title, type, body and parent or labels, and said yes in plain words.
-2. **Never interview.** Establishing what the work is belongs to `/ticket-refine`.
-3. **Never invent content.** Leave acceptance criteria as a `TODO` stub, and make every seeded section a prompt, not an answer.
-4. **Never pick a type silently.** Ask; the type shapes every skill downstream.
-5. **Show the filing before creating.** Never create a ticket without showing its slug and the product it is filed under, and letting the user change either.
-6. **Never write into an existing ticket directory.** A collision is a different slug, never a merge.
-7. **Write only what the store's `new.md` describes** into the ticket directory.
+2. **Never write to a remote system without an explicit yes.** Creating an upstream ticket needs the user to have seen the product, title, type, body and parent or labels, and said yes in plain words.
+3. **Never interview.** Establishing what the work is belongs to `/ticket-refine`.
+4. **Never invent content.** Leave acceptance criteria as a `TODO` stub, and make every seeded section a prompt, not an answer.
+5. **Never pick a type silently.** Ask; the type shapes every skill downstream.
+6. **Show the filing before creating.** Never create a ticket without showing its slug and the product it is filed under, and letting the user change either.
+7. **Never write into an existing ticket directory.** A collision is a different slug, never a merge.
+8. **Write only what the store's `new.md` describes** into the ticket directory.
 
 ---
 

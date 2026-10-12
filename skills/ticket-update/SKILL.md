@@ -1,7 +1,7 @@
 ---
 name: ticket-update
-description: Changes an existing upstream ticket — its title, description, acceptance criteria, state, or labels or tags — after refusing if it drifted, showing a before and after, and getting an explicit yes. Re-fetches the snapshot afterwards so the local files match upstream.
-argument-hint: "<ref> [what to change]"
+description: Changes an existing upstream ticket's title, description, acceptance criteria, state, or labels or tags, after showing a before and after and getting an explicit yes.
+argument-hint: "<ref> [change]"
 allowed-tools: Read Write Skill Bash(python *ticket.py:*)
 ---
 
@@ -18,7 +18,7 @@ A fact that needs a particular ticket system belongs in `ticket-providers/{sourc
 ## Parameters
 
 - **`<ref>`** — the ticket, as `ticket-common/RESOLUTION.md` → *How a reference resolves* defines it. Ask for one when it is absent.
-- **`[what to change]`** — in words. Step 3 turns it into the source's flags.
+- **`[change]`** — in words. Step 3 turns it into the source's flags.
 
 ---
 

@@ -1,6 +1,6 @@
 ---
 name: ticket-implement
-description: Implements one, several or all phases of a ticket's plan.md by making the code changes each step names, then builds the affected projects — only on a ticket branch, never on a protected one. Tracks step status in plan.md as it goes, and reports what the run produced, decided and inferred.
+description: Implements one, several or all phases of a ticket's plan.md by making the code changes each step names, then builds the affected projects. Tracks step status in plan.md as it goes, and reports what the run produced, decided and inferred.
 argument-hint: "<ref> [phases | all]"
 ---
 
@@ -82,7 +82,7 @@ A step marked `In Progress` or `Blocked` was left mid-flight by an earlier sessi
 python "{skills}/ticket-common/ticket.py" worktree adopt {ref} [--context {context}]
 ```
 
-Exit `0` means no worktree in the Workspace section has a protected branch checked out — a workspace already on a current ticket branch proceeds with no offer. Exit `4` **refuses to start**: report each worktree it names with its `reason`, show each `proposals` entry (the branch, its worktree, and `origin/{default branch}` as the base), and ask whether to create them. Ask once for all of them — one ticket branch and worktree is made per repository the phases change; pass `--repo {directory}` for each repository to limit the swap to those. If the developer declines, stop: nothing is implemented on a protected branch.
+Exit `0` means no worktree in the Workspace section has a protected branch checked out — a workspace already on a current ticket branch proceeds with no offer. Exit `4` **refuses to start**: report each worktree it names with its `reason`, show each `proposals` entry (the branch, its worktree, and `origin/{default branch}` as the base), and ask whether to create them. Ask once for all of them — one ticket branch and worktree is made per repository the phases change; pass `--repo {directory}` for each repository to limit the swap to those. If the developer declines, stop: nothing is implemented on a protected branch. Any other exit: report the message and its hint verbatim and stop.
 
 On a yes, run the same command with `--create` (add `--add-ignore` only if the report's `ignore_offer` was shown and accepted). It cuts each ticket branch from the freshly fetched default branch, replaces that worktree's row in the plan's Workspace section with the new one and a one-line note saying why, and rewrites every reference to the old worktree in `plan.md` and under `artifacts/` in the same pass, as `ticket-common/ARTIFACTS.md` → *Renumbering is a rename* requires of a rename. Re-read the Workspace section from the rewritten `plan.md`; everything after this works in the new worktrees.
 

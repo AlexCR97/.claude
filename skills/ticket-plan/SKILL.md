@@ -1,6 +1,6 @@
 ---
 name: ticket-plan
-description: Turns a ticket's digest.md into a phased, file-level implementation plan in plan.md, discovering the repositories, worktrees and projects the work spans from its scan roots. Researches unknowns under artifacts/planning/, running verified read-only scripts and asking before any other. Re-run, it updates step status.
+description: Turns a ticket's digest.md into a phased, file-level implementation plan in plan.md, discovering repositories, worktrees and projects from its scan roots. Researches unknowns under artifacts/planning/, running read-only scripts unasked. Re-run, it updates step status.
 argument-hint: "<ref> [dir ...] [--type type]"
 ---
 
@@ -56,7 +56,7 @@ Ask what planning needs first:
 python "{skills}/ticket-common/ticket.py" prepare "<ref>" [--context {context}]
 ```
 
-Its `steps` are what is missing, in order. Do each by following the named skill's own steps in this session, without confirmation: both write only inside the ticket directory.
+Its `steps` are what is missing, in order. Do each by following the named skill's own steps in this session, without confirmation: both write only inside the ticket directory. On a non-zero exit from `prepare`, report the message and its hint verbatim and stop.
 
 - **`fetch`** — follow `ticket-fetch/SKILL.md`. It is absent for a source with no fetch capability, such as a local ticket.
 - **`digest`** — follow `ticket-digest/SKILL.md`.
@@ -151,7 +151,7 @@ Where a worktree left out of the workspace sits on a branch that names this tick
 python "{skills}/ticket-common/ticket.py" worktree survey {ref} --repo {repositoryDirectory} [--repo ...]
 ```
 
-It fetches — which changes no worktree — and reports each worktree's branch, whether it is protected, and how many commits it is `behind` the remote default branch, with a `status` of `current`, `behind`, `diverged` or `detached`. Planning against an up-to-date `main` worktree is fine and changes nothing in it. Show the behind count next to every worktree in Step 6.
+It fetches — which changes no worktree — and reports each worktree's branch, whether it is protected, and how many commits it is `behind` the remote default branch, with a `status` of `current`, `behind`, `diverged` or `detached`. Planning against an up-to-date `main` worktree is fine and changes nothing in it. Show the behind count next to every worktree in Step 6. On a non-zero exit, report the message and its hint verbatim and stop.
 
 Where a repository's report has `offer: true` — no worktree of it is a non-protected branch that is already current — it carries a `proposal`. Offer it in Step 6: a ticket branch and worktree cut from the up-to-date default branch, showing its branch name and path. Create it with `worktree create` (`ticket-common/GUARD.md`) only on a yes, then add the new worktree to the workspace and to the Workspace section. Where `offer` is `false`, use the current ticket branch with no question asked.
 
