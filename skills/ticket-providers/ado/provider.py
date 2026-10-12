@@ -15,6 +15,7 @@ each be bound to a different project.
 
 import argparse
 import urllib.parse
+from pathlib import Path
 
 from ticketlib import providers, tickets, tokencache
 from ticketlib.errors import EXIT_ERROR, TicketError
@@ -130,6 +131,92 @@ def fetch(ctx: dict, extra: list[str]) -> dict:
     org, project = _auth.coordinates(ctx)
     fetch_module = providers.load_private(SOURCE, "_fetch")
     return fetch_module.run(ctx["location"], org, project, _auth.auth_header(org))
+
+
+def propose_new(ctx: dict, title: str, ticket_type: str | None, extra: list[str]) -> dict:
+    """What `new` would send, built without writing anything. Reads the project's types."""
+    parser = argparse.ArgumentParser(prog="ticket.py new --source ado")
+    parser.add_argument("--body-file")
+    parser.add_argument("--criteria-file")
+    parser.add_argument("--tag", action="append", default=[])
+    parser.add_argument("--parent")
+    args = parser.parse_args(extra)
+
+    org, project = _auth.coordinates(ctx)
+    new_module = providers.load_private(SOURCE, "_new")
+
+    parent_id = None
+    if args.parent:
+        if ticket_type != "task":
+            raise TicketError(
+                f"only a task may have a parent, not a {ticket_type}", EXIT_ERROR
+            )
+        parent_id = args.parent.strip().removeprefix("ado:").removeprefix("#")
+        if not parent_id.isdigit():
+            raise TicketError(
+                f"'{args.parent}' is not a work item id",
+                EXIT_ERROR,
+                "Pass the parent as an id or `ado:{id}`.",
+            )
+
+    available = new_module.project_types(org, project, _auth.auth_header(org))
+    native = new_module.native_type(ticket_type or "", available)
+
+    tags = list(args.tag)
+    type_tag = new_module.TAG_BY_TYPE.get(ticket_type or "")
+    if type_tag and type_tag not in (tag.lower() for tag in tags):
+        tags.append(type_tag)
+
+    return {
+        "organization": org,
+        "project": project,
+        "title": title,
+        "type": ticket_type,
+        "native_type": native,
+        "labels": tags,
+        "body": _read(args.body_file),
+        "acceptance_criteria": _read(args.criteria_file),
+        "parent": f"ado:{parent_id}" if parent_id else None,
+    }
+
+
+def _read(path: str | None) -> str:
+    if not path:
+        return ""
+    source = Path(path).expanduser()
+    if not source.is_file():
+        raise TicketError(f"file not found: {source}", EXIT_ERROR)
+    return source.read_text(encoding="utf-8").strip()
+
+
+def new(ctx: dict, title: str, ticket_type: str | None, extra: list[str]) -> dict:
+    proposal = propose_new(ctx, title, ticket_type, extra)
+    org, project = proposal["organization"], proposal["project"]
+    new_module = providers.load_private(SOURCE, "_new")
+    parent_id = (proposal["parent"] or "").removeprefix("ado:") or None
+
+    created = new_module.create(
+        org,
+        project,
+        _auth.auth_header(org),
+        proposal["native_type"],
+        new_module.patch_document(
+            org,
+            title,
+            proposal["body"],
+            proposal["acceptance_criteria"],
+            proposal["labels"],
+            parent_id,
+        ),
+    )
+    if not created.get("id"):
+        raise TicketError("Azure DevOps did not report the id of the work item it created")
+    return {
+        "id": str(created["id"]),
+        "url": f"https://dev.azure.com/{org}/{urllib.parse.quote(project)}"
+        f"/_workitems/edit/{created['id']}",
+        **proposal,
+    }
 
 
 def publish(ctx: dict, text: str, extra: list[str]) -> dict:

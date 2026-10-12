@@ -127,7 +127,11 @@ def test_a_type_is_required(run_cli, stubbed):
     assert "--type" in result.err
 
 
-def test_a_source_without_the_capability_is_still_refused(run_cli):
-    result = run_cli("new", "--source", "ado", "--title", "T", "--type", "task", "--confirm")
+def test_a_source_without_the_capability_is_still_refused(run_cli, monkeypatch):
+    from ticketlib import providers
+
+    monkeypatch.setattr(providers, "capabilities", lambda source: {"fetch": True, "new": False})
+
+    result = run_cli("new", "--source", "github", "--title", "T", "--type", "task", "--confirm")
 
     assert result.code == 3

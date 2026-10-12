@@ -30,3 +30,17 @@ Fall back to `task`, and **say so in one line** — never silently. The value th
 ## Override
 
 `--type {type}` on any driver wins over everything above. It is recorded in `ticket.json` alongside the untouched `native_type`, so the next skill inherits it with no flag.
+
+## Creating: canonical to native
+
+Used by `new.md`. The first candidate the project's process template actually has is used; the project's own list of types is read at proposal time, because Agile, Scrum, CMMI and custom templates all name them differently.
+
+| Canonical type | Candidates, in order | Tag added |
+| --- | --- | --- |
+| `user-story` | User Story, Product Backlog Item, Requirement, Feature | — |
+| `bug` | Bug, Defect | — |
+| `task` | Task, Issue | — |
+| `spike` | Task, Issue | `spike` |
+| `tech-debt` | Task, Issue | `tech-debt` |
+
+Neither Spike nor Tech Debt is a native type, so they are created as a task and told apart by the tag — the same tag the table above reads back as that type.

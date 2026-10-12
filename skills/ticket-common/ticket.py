@@ -629,6 +629,8 @@ def new_remote(args, source, module, restrict, context) -> int:
     (location.dir / "raw").mkdir(parents=True, exist_ok=True)
     fetched = module.fetch(fetch_ctx, [])
     tickets.update(location, type=args.type)
+    if created.get("parent"):
+        tickets.update(location, parent=created["parent"])
 
     emit(
         {
