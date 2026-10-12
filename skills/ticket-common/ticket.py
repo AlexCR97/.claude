@@ -24,6 +24,7 @@ Usage:
     python ticket.py publish <ref> --file F [--delete-after-post]
     python ticket.py drift <ref>
     python ticket.py prepare <ref>
+    python ticket.py update <ref> [--propose | --confirm] [provider flags...]
     python ticket.py move <ref> --to NS/PRODUCT [--dry-run]
     python ticket.py guard check --op OP [--branch B] [--repo DIR] [--in X] | protected [--branch B] [--repo DIR] | fast-forward --branch B [--repo DIR]
     python ticket.py worktree survey|propose|create|adopt <ref> --repo DIR [--repo DIR ...] [--add-ignore]
@@ -77,6 +78,7 @@ from ticketlib import (
     workspace,
 )
 from ticketlib.errors import (
+    EXIT_DRIFTED,
     EXIT_ERROR,
     EXIT_NOT_FOUND,
     EXIT_OK,
@@ -740,6 +742,61 @@ def verb_script_check(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def verb_update(args: argparse.Namespace) -> int:
+    """
+    Change an upstream ticket: drift check, show the diff, require a yes, write, re-fetch.
+
+    The drift check comes first because the diff is computed against the local
+    snapshot: writing over a ticket someone else has since edited would silently
+    discard their change.
+    """
+    location = require_filed(locate(args))
+    module = provider_for(location.source, "update")
+    drift_module = provider_for(location.source, "drift")
+    ctx = ticket_context(location)
+
+    drift_report = drift_module.drift(ctx, [])
+    if drift_report.get("is_stale"):
+        emit({"qualified_ref": location.qualified, "refused": "drifted", "drift": drift_report})
+        raise TicketError(
+            f"{location.qualified} changed upstream since it was fetched",
+            EXIT_DRIFTED,
+            f"Run `/ticket-fetch {location.qualified}` and redo the update against the current ticket.",
+        )
+
+    proposal = module.propose_update(ctx, args.extra)
+    if args.propose or not proposal["payload"]:
+        emit(
+            {
+                "qualified_ref": location.qualified,
+                "changes": proposal["changes"],
+                "confirmation_required": bool(proposal["payload"]),
+                "written": False,
+            }
+        )
+        return EXIT_OK
+
+    if not args.confirm:
+        raise TicketError(
+            f"updating a {location.source} ticket writes to a remote system and needs explicit confirmation",
+            EXIT_REFUSED,
+            "Show the changes (`--propose`), and re-run with --confirm only after the user says yes.",
+        )
+
+    result = module.update(ctx, args.extra)
+    refreshed = module.fetch(ticket_context(location), [])
+    emit(
+        {
+            "qualified_ref": location.qualified,
+            "changes": proposal["changes"],
+            "written": result.get("written", True),
+            "fetched": refreshed,
+            "ticket_json": tickets.load(location),
+        }
+    )
+    return EXIT_OK
+
+
 def verb_guard(args: argparse.Namespace) -> int:
     repo = Path(args.repo).expanduser().resolve() if args.repo else Path.cwd()
     guard.require_repository(repo)
@@ -1036,6 +1093,7 @@ VERBS = {
     "move": verb_move,
     "journal": verb_journal,
     "guard": verb_guard,
+    "update": verb_update,
     "script-check": verb_script_check,
     "prepare": verb_prepare,
     "worktree": verb_worktree,
@@ -1215,6 +1273,16 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p.add_argument("file")
     add_restrict(p, "the namespace or product whose `sensitive` targets apply")
+    add_context(p)
+
+    p = sub.add_parser(
+        "update", help="change an upstream ticket (title, description, acceptance criteria, state, labels)"
+    )
+    p.add_argument("ref")
+    p.add_argument("--source")
+    p.add_argument("--propose", action="store_true", help="show the before and after; write nothing")
+    p.add_argument("--confirm", action="store_true", help="the user has seen the diff and said yes")
+    add_restrict(p, "only look in this namespace or product")
     add_context(p)
 
     p = sub.add_parser("auth-status", help="report each source's credential state")

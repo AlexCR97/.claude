@@ -27,6 +27,7 @@ CAPABILITY_ROLE_FILES = {
     "fetch": "fetch.md",
     "new": "new.md",
     "publish": "publish.md",
+    "update": "update.md",
     "drift": "drift.md",
 }
 

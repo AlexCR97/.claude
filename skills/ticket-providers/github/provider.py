@@ -249,6 +249,113 @@ def new(ctx: dict, title: str, ticket_type: str | None, extra: list[str]) -> dic
     return {"id": str(issue["number"]), "url": issue.get("html_url"), **proposal}
 
 
+ACCEPTANCE_HEADING = re.compile(r"^(#{2,3})[ \t]+acceptance criteria[ \t]*$", re.IGNORECASE | re.MULTILINE)
+
+
+def split_body(body: str) -> tuple[str, str, str, str]:
+    """
+    An issue body as (description, acceptance criteria, what follows them, heading marker).
+
+    An issue has no field for acceptance criteria, so they are the section under
+    an `## Acceptance Criteria` heading, ending at the next heading of the same
+    or a higher level.
+    """
+    found = ACCEPTANCE_HEADING.search(body)
+    if not found:
+        return body.strip(), "", "", "##"
+    level = len(found.group(1))
+    after = body[found.end() :]
+    following = re.search(rf"^#{{1,{level}}}[ \t]", after, re.MULTILINE)
+    criteria = after[: following.start()] if following else after
+    tail = after[following.start() :] if following else ""
+    return body[: found.start()].strip(), criteria.strip(), tail.strip(), found.group(1)
+
+
+def join_body(description: str, criteria: str, tail: str, marker: str) -> str:
+    parts = [description] if description else []
+    if criteria:
+        parts.append(f"{marker} Acceptance Criteria\n\n{criteria}")
+    if tail:
+        parts.append(tail)
+    return "\n\n".join(parts)
+
+
+def propose_update(ctx: dict, extra: list[str]) -> dict:
+    """
+    The before and after of an update, built from the local snapshot and written nowhere.
+
+    `before` is the snapshot, which the front door has already checked is not
+    stale, so the diff is against what is really upstream.
+    """
+    parser = argparse.ArgumentParser(prog="ticket.py update (github)")
+    parser.add_argument("--title")
+    parser.add_argument("--description-file")
+    parser.add_argument("--criteria-file")
+    parser.add_argument("--state", choices=("open", "closed"))
+    parser.add_argument("--add-label", action="append", default=[])
+    parser.add_argument("--remove-label", action="append", default=[])
+    args = parser.parse_args(extra)
+
+    repo = _gh.repository(ctx)
+    raw = config.read_json(ctx["location"].dir / "raw" / "raw.json")
+    issue = raw.get("issue") or {}
+    if not issue:
+        raise TicketError(
+            f"no fetched data for {repo}#{ctx['id']}",
+            EXIT_ERROR,
+            f"Run `/ticket-fetch github:{ctx['id']}` first.",
+        )
+
+    description, criteria, tail, marker = split_body(issue.get("body") or "")
+    labels = [str((label or {}).get("name") or "") for label in issue.get("labels") or []]
+
+    new_description = read_text(args.description_file) if args.description_file else description
+    new_criteria = read_text(args.criteria_file) if args.criteria_file else criteria
+    new_labels = [
+        label for label in labels if label.lower() not in {l.lower() for l in args.remove_label}
+    ]
+    new_labels += [
+        label for label in args.add_label if label.lower() not in {l.lower() for l in new_labels}
+    ]
+
+    after = {
+        "title": args.title if args.title is not None else issue.get("title"),
+        "description": new_description,
+        "acceptance_criteria": new_criteria,
+        "state": args.state or issue.get("state"),
+        "labels": new_labels,
+    }
+    before = {
+        "title": issue.get("title"),
+        "description": description,
+        "acceptance_criteria": criteria,
+        "state": issue.get("state"),
+        "labels": labels,
+    }
+    changes = [
+        {"field": field, "before": before[field], "after": after[field]}
+        for field in before
+        if before[field] != after[field]
+    ]
+
+    payload: dict = {}
+    for field in ("title", "state", "labels"):
+        if before[field] != after[field]:
+            payload[field] = after[field]
+    if before["description"] != after["description"] or before["acceptance_criteria"] != after["acceptance_criteria"]:
+        payload["body"] = join_body(new_description, new_criteria, tail, marker)
+
+    return {"repository": repo, "changes": changes, "payload": payload}
+
+
+def update(ctx: dict, extra: list[str]) -> dict:
+    proposal = propose_update(ctx, extra)
+    if not proposal["payload"]:
+        return {**proposal, "written": False}
+    _gh.patch(f"repos/{proposal['repository']}/issues/{ctx['id']}", proposal["payload"])
+    return {**proposal, "written": True}
+
+
 def publish(ctx: dict, text: str, extra: list[str]) -> dict:
     repo = _gh.repository(ctx)
     _gh.require_auth()

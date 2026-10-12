@@ -134,6 +134,12 @@ class GhStub:
         table.insert(0, {"match": matcher, "stdout": stdout, "code": code})
         self.responses.write_text(json.dumps(table), encoding="utf-8")
 
+    def respond_in_turn(self, matcher: str, *outputs: str) -> None:
+        """Answer successive matching calls with each output in turn, the last repeating."""
+        table = json.loads(self.responses.read_text(encoding="utf-8"))
+        table.insert(0, {"match": matcher, "sequence": list(outputs), "code": 0})
+        self.responses.write_text(json.dumps(table), encoding="utf-8")
+
     @property
     def requests(self) -> list[dict]:
         if not self.log.is_file():
@@ -171,6 +177,14 @@ with open(os.path.join(here, "responses.json"), encoding="utf-8") as handle:
     table = json.load(handle)
 for entry in table:
     if entry["match"] in joined:
+        outputs = entry.get("sequence")
+        if outputs:
+            position = entry.get("position", 0)
+            sys.stdout.write(outputs[min(position, len(outputs) - 1)])
+            entry["position"] = position + 1
+            with open(os.path.join(here, "responses.json"), "w", encoding="utf-8") as handle:
+                json.dump(table, handle)
+            sys.exit(entry["code"])
         sys.stdout.write(entry["stdout"])
         sys.exit(entry["code"])
 sys.stderr.write("gh stub: no response for " + joined + "\\n")
