@@ -765,12 +765,13 @@ def verb_update(args: argparse.Namespace) -> int:
         )
 
     proposal = module.propose_update(ctx, args.extra)
-    if args.propose or not proposal["payload"]:
+    has_changes = bool(proposal["changes"])
+    if args.propose or not has_changes:
         emit(
             {
                 "qualified_ref": location.qualified,
                 "changes": proposal["changes"],
-                "confirmation_required": bool(proposal["payload"]),
+                "confirmation_required": has_changes,
                 "written": False,
             }
         )

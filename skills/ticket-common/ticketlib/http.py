@@ -52,11 +52,12 @@ def post_json(
     payload: dict | list,
     hint: str = "",
     content_type: str = "application/json",
+    method: str = "POST",
 ) -> dict:
     request = urllib.request.Request(
         url,
         data=json.dumps(payload).encode("utf-8"),
-        method="POST",
+        method=method,
         headers={"Authorization": auth_header, "Content-Type": content_type},
     )
     try:

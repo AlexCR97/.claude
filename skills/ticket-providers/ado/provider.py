@@ -219,6 +219,75 @@ def new(ctx: dict, title: str, ticket_type: str | None, extra: list[str]) -> dic
     }
 
 
+def propose_update(ctx: dict, extra: list[str]) -> dict:
+    """
+    The before and after of an update, built from the local snapshot and written nowhere.
+
+    The snapshot's revision travels with the proposal: the write asserts it, so
+    an edit made between the drift check and the write is refused by Azure
+    DevOps itself rather than overwritten.
+    """
+    parser = argparse.ArgumentParser(prog="ticket.py update (ado)")
+    parser.add_argument("--title")
+    parser.add_argument("--description-file")
+    parser.add_argument("--criteria-file")
+    parser.add_argument("--state")
+    parser.add_argument("--add-tag", action="append", default=[])
+    parser.add_argument("--remove-tag", action="append", default=[])
+    args = parser.parse_args(extra)
+
+    org, project = _auth.coordinates(ctx)
+    update_module = providers.load_private(SOURCE, "_update")
+    snapshot = update_module.read_snapshot(ctx["location"], ctx["id"])
+
+    fields = snapshot["fields"]
+    tags = [tag.strip() for tag in str(fields.get(update_module.TAGS_FIELD) or "").split(";") if tag.strip()]
+    removed = {tag.lower() for tag in args.remove_tag}
+    new_tags = [tag for tag in tags if tag.lower() not in removed]
+    new_tags += [tag for tag in args.add_tag if tag.lower() not in {t.lower() for t in new_tags}]
+
+    before = {
+        "title": fields.get("System.Title"),
+        "description": fields.get(update_module.DESCRIPTION_FIELD) or "",
+        "acceptance_criteria": fields.get(update_module.CRITERIA_FIELD) or "",
+        "state": fields.get("System.State"),
+        "labels": tags,
+    }
+    after = {
+        "title": args.title if args.title is not None else before["title"],
+        "description": _read(args.description_file) if args.description_file else before["description"],
+        "acceptance_criteria": _read(args.criteria_file) if args.criteria_file else before["acceptance_criteria"],
+        "state": args.state or before["state"],
+        "labels": new_tags,
+    }
+    changes = [
+        {"field": field, "before": before[field], "after": after[field]}
+        for field in before
+        if before[field] != after[field]
+    ]
+
+    return {
+        "organization": org,
+        "project": snapshot["project"] or project,
+        "revision": snapshot["rev"],
+        "changes": changes,
+        "payload": update_module.patch_document(snapshot["rev"], changes),
+        "payload_is_empty": not changes,
+    }
+
+
+def update(ctx: dict, extra: list[str]) -> dict:
+    proposal = propose_update(ctx, extra)
+    if proposal["payload_is_empty"]:
+        return {**proposal, "written": False}
+    update_module = providers.load_private(SOURCE, "_update")
+    org = proposal["organization"]
+    update_module.write(
+        org, proposal["project"], ctx["id"], _auth.auth_header(org), proposal["payload"]
+    )
+    return {**proposal, "written": True}
+
+
 def publish(ctx: dict, text: str, extra: list[str]) -> dict:
     org, project = _auth.coordinates(ctx)
     comment_module = providers.load_private(SOURCE, "_comment")
