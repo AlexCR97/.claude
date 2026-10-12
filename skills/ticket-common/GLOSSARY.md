@@ -21,7 +21,7 @@ The words every `ticket-*` skill uses for where tickets are kept and for the cod
 | **Binding**             | The coordinates a namespace or product records for one source, under `sources.{source}` in its `config.json`. New tickets are fetched with them, and a pasted address is filed by them.                                                                                                                                      |
 | **Effective config**    | The root, namespace and product `config.json` merged, the inner level winning. Every skill reads this, never one file alone.                                                                                                                                                                                                 |
 | **Filing**              | Choosing the product a ticket not yet on disk is placed under, by the rules in `RESOLUTION.md`: first which products can hold it, then which of them the session context, the invocation directory or the default product prefers. Moving it later with `/ticket-move` is re-filing.                                         |
-| **Ticket directory**    | One ticket's directory, at `{namespace}/{product}/{source}/{id}` in the tickets home: `ticket.json`, `digest.md`, `plan.md`, `journal/`, `raw/` and `artifacts/`.                                                                                                                                                          |
+| **Ticket directory**    | One ticket's directory, at `{namespace}/{product}/{source}/{id}` in the tickets home: `ticket.json`, `digest.md`, `plan.md`, `journal/`, `pulls.md`, `raw/` and `artifacts/`.                                                                                                                                                          |
 | **Qualified reference** | `{namespace}/{product}/{source}:{id}` — names one ticket on the machine without ambiguity.                                                                                                                                                                                                                                   |
 
 ### The code a ticket touches
@@ -55,6 +55,7 @@ The words every `ticket-*` skill uses for where tickets are kept and for the cod
 | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Journal**        | The ticket directory's `journal/`: one **entry** per file, each named by its UTC timestamp so the files sort by time. Replaces the single `journal.md`.     |
 | **Journal entry**  | One session's self-contained account of itself, carrying forward whatever is still open. The latest is the one a resume reads; an entry is never edited.     |
+| **Pull request record** | The ticket directory's `pulls.md`: one link to each pull request that delivers the ticket's work, each with the status it had when the record was last refreshed, and the time of that refresh. A pull request delivering two tickets is in both records. |
 | **Canonical URL**  | A ticket's address in its source's preferred form. A ticket pasted under another form of its address is recorded under this one.                           |
 
 ---

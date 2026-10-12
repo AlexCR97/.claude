@@ -67,6 +67,8 @@ Read, in this order, and stop reading a file once the briefing has what it needs
 
 **`plan.md`** — the Progress table, the Workspace section, and every step whose `**Status:**` is `In Progress` or `Blocked`, in full including its note. Then the first `Pending` step after them, since that is where work resumes if nothing is in flight. Do not read every phase. The status vocabulary is in `ticket-common/STATUS.md` if a line needs interpreting.
 
+**`pulls.md`** — the pull request record, read as a file, when the ticket directory has one. Its statuses are as of the time it states; report them with that time and never look them up, since a resume runs no `pulls` verb.
+
 **`digest.md`** — the Description and Acceptance Criteria, for the two or three sentences of the briefing that say what the work actually is. Skip the metadata table, the attachments and the discussion.
 
 **`artifacts/`** — the `README.md` of the in-flight step, of the next step, of `shared/`, and of `planning/` where they exist. These hold measurements taken against live systems, which are the one thing here that cannot be regenerated. **Never re-run a probe whose captured output is already on disk**; a resume that re-measures what a prior session already established has failed at its job. `ticket-common/ARTIFACTS.md` has the layout.
@@ -128,6 +130,7 @@ Rules:
 
 - Link `{title}` to `ticket.json`'s `url`. Where it is `null`, print the title as plain text — this source has no web address, and a broken link is worse than none.
 - Collapse a long Progress table: every `Done` and `Blocked` phase, the in-flight phase, and the next two `Pending` ones. Summarize the rest as `… {N} more phases pending`.
+- List each pull request in the record as its link with the recorded status and the record's time. Where a status is old enough to matter, say so and point at `/ticket-checkpoint`, which refreshes it.
 - Quote the journal's `**Next:**` line verbatim. Do not improve it — it was written with context this session does not have.
 - Mark reconstructed facts as reconstructed. Never present an inference as a record.
 - Do not print the plan, the digest, or a file's contents wholesale. This is a briefing, not a dump.

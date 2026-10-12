@@ -136,6 +136,8 @@ What makes this work is that the two halves record different things. `plan.md` s
 
 **The journal belongs to these two skills alone.** `checkpoint` is the only writer, `resume` the only reader; `plan` and `implement` never open it. That boundary is deliberate: once `resume` has briefed a session, the journal's contents are already in the conversation, so a later skill re-reading the file would only spend its context on what it already has. The trade is that `checkpoint` has to actually run — it is what converts a session's reasoning into something the next one can read, and nothing else does it.
 
+**The pull request record** is `pulls.md` in the ticket directory: one link per pull request that delivers the ticket, each with its status as of the time the file states. `ticket-checkpoint` and `ticket-implement` record the pull requests a session opens or the user names, discover those on the branches `plan.md`'s Workspace section lists (never by branch name), and refresh every status from its host; `ticket-resume` only reads the file. GitHub and Azure DevOps addresses are both accepted whatever the ticket's source, and a pull request delivering two tickets is in both records. An Azure DevOps status carries its state and reviewers' votes but no checks.
+
 **Neither infers the ticket from the branch name.** Both take the reference or ask, listing what is on disk — the session context's product first, every product on request. A guess that attached a session's journal entry to the wrong ticket would corrupt the one file here that nothing can regenerate, which is also why `checkpoint` asks before writing to a ticket outside the session context.
 
 ## Data Layout
@@ -158,6 +160,7 @@ Four levels, always: namespace, product, source, ticket.
 │           ├── digest.md                 ← ticket-digest
 │           ├── journal/                  ← ticket-checkpoint only; one file per entry, named by UTC time
 │           ├── plan.md                   ← ticket-plan (the index: each step names its artifacts)
+│           ├── pulls.md                  ← the pull request record: ticket-checkpoint and ticket-implement
 │           ├── raw/                      ← ticket-fetch, or the source of truth for a local store
 │           └── artifacts/                ← ticket-plan and ticket-implement
 │               ├── planning/             ← research the plan was built on

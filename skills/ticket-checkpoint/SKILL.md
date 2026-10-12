@@ -7,7 +7,7 @@ allowed-tools: Read Write Edit Bash(python *ticket.py:*) Bash(python *collect-gi
 
 Records the current session's state on a ticket as a new entry file in its `journal/` directory — where the code is, what was done, what was decided and why, what is blocking, and the single next action — so a later `/ticket-resume` can pick the work up. `plan.md` records what the work is; it cannot record what a session learned, and that dies with the session unless this skill writes it down. It is the only skill that writes the journal, so an unrecorded session leaves nothing behind but its step statuses.
 
-End state: one new file in `journal/` — after a legacy `journal.md` is migrated into entries and kept as `journal.md.bak` — every existing entry untouched, any stale `**Status:**` line in `plan.md` corrected, and nothing else changed.
+End state: one new file in `journal/` — after a legacy `journal.md` is migrated into entries and kept as `journal.md.bak` — every existing entry untouched, any stale `**Status:**` line in `plan.md` corrected, the ticket's pull request record refreshed, and nothing else changed.
 
 This skill is a **driver**: it contains no field names, URLs, API versions, credential commands, markup dialects, or type-specific rules of its own. Everything specific lives alongside it in three directories, and each step names the file to read.
 
@@ -31,8 +31,8 @@ A fact that needs a particular ticket system belongs in `ticket-providers/{sourc
 ## Ground rules
 
 1. **Record state; change no code.** Never create, edit or delete a source code file.
-2. **Write only a new journal entry**, or the migration of a legacy `journal.md` that precedes it, plus the `**Status:**` lines and Progress rows in `plan.md` that Step 6 corrects. Never touch `digest.md`, `raw/` or anything under `artifacts/`.
-3. **Change no repository state.** `collect-git-state.py` only reads, and the only `ticket.py` verb that writes is `journal`. Run git only as `ticket-common/GUARD.md` allows, and never commit, stash or push — the developer decides when.
+2. **Write only a new journal entry**, or the migration of a legacy `journal.md` that precedes it, plus the `**Status:**` lines and Progress rows in `plan.md` that Step 6 corrects and the `pulls.md` that Step 7 refreshes. Never touch `digest.md`, `raw/` or anything under `artifacts/`.
+3. **Change no repository state.** `collect-git-state.py` only reads, and the only `ticket.py` verbs that write are `journal` and `pulls`. Run git only as `ticket-common/GUARD.md` allows, and never commit, stash or push — the developer decides when.
 4. **Record local state only.** Never re-fetch the ticket or check its source; `/ticket-resume` is what checks for drift.
 
 ---
@@ -151,6 +151,20 @@ The vocabulary, the note rules and the phase-derivation table are in `ticket-com
 
 If no status line needs changing, leave `plan.md` untouched.
 
-### Step 7 — Report
+### Step 7 — Record and refresh the pull requests
 
-Report in two lines at most. Do not print the entry body in chat — it was just written to a file the user can open. The first line names the ticket, the new entry's path, the phase and step, and the Next line condensed; the second names each step Step 6 changed and its new status, or says `plan.md` is unchanged.
+A pull request opened or named in this session that delivers this ticket belongs in its pull request record. Record each one by address, then discover any the plan's worktrees already have, then refresh every status:
+
+```bash
+python "{skills}/ticket-common/ticket.py" pulls add "{ref}" "{url}"
+python "{skills}/ticket-common/ticket.py" pulls discover "{ref}"
+python "{skills}/ticket-common/ticket.py" pulls refresh "{ref}"
+```
+
+A pull request counts for this ticket when it was opened for it in this session, or the user said it was. Never record one because its branch looks like the ticket; `discover` matches only the branches the Workspace section of `plan.md` lists. Where it is unclear which ticket a pull request belongs to, ask.
+
+On a non-zero exit from `refresh`, report its message: the previous statuses were kept and the record says the refresh failed. Do not retry in a loop, and do not stop the checkpoint — the entry is already written.
+
+### Step 8 — Report
+
+Report in two lines at most. Do not print the entry body in chat — it was just written to a file the user can open. The first line names the ticket, the new entry's path, the phase and step, and the Next line condensed; the second names each step Step 6 changed and its new status, or says `plan.md` is unchanged. Where the pull request record changed, add the number of pull requests it lists, or that its refresh failed.

@@ -131,11 +131,12 @@ Exit 3 on an absent capability is structural, not advisory: the verb refuses bef
                 ├── journal/     ← ticket-checkpoint only; ticket-resume reads the latest entry
                 │   └── 2026-10-11T09-30-00Z.md
                 ├── plan.md      ← ticket-plan
+                ├── pulls.md     ← the pull request record: ticket-checkpoint and ticket-implement
                 ├── raw/         ← ticket-fetch, or the source of truth for a local store
                 └── artifacts/   ← ticket-plan and ticket-implement (see ARTIFACTS.md)
 ```
 
-A ticket directory holds **nothing but those six entries**. Never write a generated file directly into it.
+A ticket directory holds **nothing but those seven entries**. Never write a generated file directly into it.
 
 Every `config.json` is optional; an absent one reads as empty. Objects merge key by key across levels, anything else set at an inner level replaces what an outer one set, and `[]` clears an inherited list. `default_namespace` is read from the root alone, `default_product` from its namespace alone. The resolver's `config_sources` names the file each effective value came from.
 

@@ -9,7 +9,7 @@ Read by `ticket-plan` and `ticket-implement`. Everything a run produces that is 
 └── step-{N}.{M}/      ← everything one plan step produced
 ```
 
-`artifacts/` and its subdirectories are created lazily — only when a run actually produces a file. The ticket directory holds nothing but its six entries: **never write a generated file directly into `{ticket-dir}/`.**
+`artifacts/` and its subdirectories are created lazily — only when a run actually produces a file. The ticket directory holds nothing but its seven entries: **never write a generated file directly into `{ticket-dir}/`.**
 
 Nothing here belongs in the workspace. An artifact is a record of how this ticket was investigated, not a deliverable — never copy one into a repository unless a plan step explicitly says to.
 

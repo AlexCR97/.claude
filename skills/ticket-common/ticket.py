@@ -30,6 +30,7 @@ Usage:
     python ticket.py worktree survey|propose|create|adopt <ref> --repo DIR [--repo DIR ...] [--add-ignore]
     python ticket.py script-check <file> [--in X] [--context X]
     python ticket.py journal write <ref> --file F [--at ISO] | latest <ref> | list <ref> | migrate <ref>
+    python ticket.py pulls add <ref> URL | refresh <ref> | discover <ref>
     python ticket.py auth-status [--source S] [--in X]
     python ticket.py scan-roots [--in NS[/PRODUCT]] [--set [DIR ...]]
 
@@ -71,6 +72,7 @@ from ticketlib import (
     moves,
     paths,
     providers,
+    pulls,
     scripteffect,
     sources,
     tickets,
@@ -946,6 +948,30 @@ def verb_journal(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def verb_pulls(args: argparse.Namespace) -> int:
+    location = require_filed(locate(args))
+    if args.action == "add":
+        if not args.url:
+            raise TicketError("pulls add needs the pull request's address", EXIT_ERROR)
+        pulls.add(location, args.url)
+    elif args.action == "discover":
+        config_values = config.effective(location.product.namespace, location.product.name)[0]
+        pulls.discover(location, guard.patterns_from(config_values))
+    else:
+        pulls.refresh(location)
+    emit(
+        {
+            "qualified_ref": location.qualified,
+            "path": str(pulls.path(location)),
+            "pull_requests": [
+                {"label": pr.label, "url": pr.url, "status": pr.status}
+                for pr in pulls.entries(location)
+            ],
+        }
+    )
+    return EXIT_OK
+
+
 def verb_move(args: argparse.Namespace) -> int:
     location = require_filed(locate(args))
     emit(moves.move(location, layout.parse_product(args.to), args.dry_run))
@@ -1093,6 +1119,7 @@ VERBS = {
     "drift": verb_drift,
     "move": verb_move,
     "journal": verb_journal,
+    "pulls": verb_pulls,
     "guard": verb_guard,
     "update": verb_update,
     "script-check": verb_script_check,
@@ -1274,6 +1301,14 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p.add_argument("file")
     add_restrict(p, "the namespace or product whose `sensitive` targets apply")
+    add_context(p)
+
+    p = sub.add_parser("pulls", help="record and refresh a ticket's pull requests")
+    p.add_argument("action", choices=("add", "refresh", "discover"))
+    p.add_argument("ref")
+    p.add_argument("url", nargs="?", help="add: the pull request's address")
+    p.add_argument("--source")
+    add_restrict(p, "restrict the lookup to a namespace or product")
     add_context(p)
 
     p = sub.add_parser(

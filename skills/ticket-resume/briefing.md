@@ -22,6 +22,9 @@ Code
   {baseBranch} has moved {baseCommitsNotMerged} commits since you branched
   {stashCount} stash(es): {stashSubject}
 
+Pull requests
+  <!-- one line each: "• [label](url) — status", then "as of {recordTime}"; omit the section when the ticket has no pull request record -->
+
 Carried forward
   <!-- one line each: "• decision — why (Step N.M)", "• Blocker: what — what would clear it (Step N.M)", "• Question: what — who can answer (Step N.M)" -->
 

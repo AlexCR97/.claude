@@ -42,7 +42,8 @@ No `allowed-tools` here: this skill's whole purpose is to change code and build 
 9. **Write non-code files only under `artifacts/step-{N}.{M}/` or `artifacts/shared/`.** Never into `artifacts/planning/`, which belongs to `ticket-plan`, the ticket directory or the workspace; never delete or overwrite an existing artifact. `ticket-common/ARTIFACTS.md` has the layout.
 10. **State every decision and inference in chat as it is made.** The report is the only record this skill produces, and `ticket-checkpoint` builds its entry from the conversation.
 11. **Honour the type's completion rule both ways.** Never report a document-only run as incomplete where the type's deliverable is a written finding, and never report a violated type invariant as progress — stop and report it.
-12. **Renumber in one pass.** When the plan's shape changes, finish the rename so nothing points at an old number — `ticket-common/ARTIFACTS.md` → *Renumbering is a rename*.
+12. **Record every pull request you open for this ticket.** When the developer asks for one, add its address to the ticket's pull request record and refresh the statuses with `ticket.py pulls add` then `pulls refresh`. Never open one unasked, and where it is unclear which ticket a pull request delivers, ask. Step 9 refreshes the record on every run.
+13. **Renumber in one pass.** When the plan's shape changes, finish the rename so nothing points at an old number — `ticket-common/ARTIFACTS.md` → *Renumbering is a rename*.
 
 ---
 
@@ -232,6 +233,8 @@ Start with whatever the type file's *"What implement must produce"* section requ
 2. **The file's worktree** — for a modified file no project row holds, walk up from it to the directory holding a `.git` entry: a directory in a main worktree, a file in a linked one. That directory is the worktree; report it, referred to as the glossary says, in place of a project.
 
 **Where the run changed no source file**, say what it produced instead — the artifact paths, and what they establish. Do not report an empty project list, and do not imply something is missing; for a type whose deliverable is a written finding, that is a complete run. Check the type file before writing this sentence, not after.
+
+Then bring the pull request record up to date: `ticket.py pulls discover {ref}` to record pull requests on the Workspace section's branches, then `ticket.py pulls refresh {ref}` — skip both when the plan names no ticket worktree and the record does not exist. A non-zero exit from `refresh` is reported verbatim and does not fail the run: the previous statuses were kept.
 
 Then report what this run decided and assumed, each naming the step it affects. This report is the only place either list is written down, so state it even when it feels obvious — `ticket-checkpoint` builds the session's journal entry from this conversation, and what was never said cannot be recorded.
 
