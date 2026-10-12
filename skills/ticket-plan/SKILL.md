@@ -1,6 +1,6 @@
 ---
 name: ticket-plan
-description: Turns a ticket's digest.md into a phased, file-level implementation plan in plan.md, discovering the repositories, worktrees and projects the work spans from its scan roots. Researches unknowns under artifacts/planning/, asking before running any script. Re-run, it updates step status.
+description: Turns a ticket's digest.md into a phased, file-level implementation plan in plan.md, discovering the repositories, worktrees and projects the work spans from its scan roots. Researches unknowns under artifacts/planning/, running verified read-only scripts and asking before any other. Re-run, it updates step status.
 argument-hint: "<ref> [dir ...] [--type type]"
 ---
 
@@ -18,7 +18,7 @@ This skill is a **driver**: it contains no field names, URLs, API versions, cred
 
 A fact that needs a particular ticket system belongs in `ticket-providers/{source}/`, and one that needs a ticket type belongs in `ticket-types/{type}.md` — never in this file.
 
-No `allowed-tools`: Step 8 runs user-approved probe scripts whose commands cannot be known in advance.
+No `allowed-tools`: Step 8 runs probe scripts whose commands cannot be known in advance.
 
 ---
 
@@ -38,7 +38,7 @@ No `allowed-tools`: Step 8 runs user-approved probe scripts whose commands canno
 4. **Never read or write the journal.** It belongs to `ticket-checkpoint` and `ticket-resume`.
 5. **Use the glossary's terms exactly**, in `plan.md` and in chat — never a synonym it retires.
 6. **Write only `plan.md` and `artifacts/planning/`.** A renumbering pass is the one exception: it renames step directories and fixes references under `artifacts/`. `artifacts/step-{N}.{M}/` and `artifacts/shared/` belong to implementation.
-7. **Never run a script without approval of that run.** Write it, show it, ask, then run; never run anything that writes to an external system.
+7. **Run a script only as `ticket-common/ARTIFACTS.md` allows.** A script whose `script-check` verifies it as read-only runs without asking; every other one needs approval of that run. Never run anything that writes to an external system.
 8. **Never break the type's rules.** A phase requirement, phase prohibition or Activity prohibition in the resolved type's file wins over this file.
 9. **Never write a bare `In Progress` or `Blocked` status.** Each needs a one-line note, and a phase's Progress row is always derived from its steps.
 
@@ -233,13 +233,13 @@ A plan built on a false assumption is wrong in its *shape*, not just its estimat
 
 Before estimating, name the facts the plan's shape rests on that neither `digest.md` nor the workspace settles — a production row count, whether an index exists, which of two code paths actually runs, the true size of a data set, how long something currently takes. For each, ask: **if this turned out to be wrong by an order of magnitude, would the plan change?** If not, record it as a stated assumption in the plan and move on. If it would, research it now rather than discovering it during implementation.
 
-Reading files needs no permission — a file in the workspace, a local export, an attachment. Writing a script does not need permission either. **Running one always does.**
+Reading files needs no permission — a file in the workspace, a local export, an attachment. Writing a script does not need permission either. **Running one needs permission unless it only reads.**
 
-A script artifact is never executed until the user has approved that specific script. Write it first, then show what it does, what it reads, and where its output will land, and ask:
+Give every script the `effect:` header `ticket-common/ARTIFACTS.md` describes, then run `ticket.py script-check` on it. Where `run_without_asking` is `true`, run it and capture its output beside it. Otherwise, a script is not executed until the user has approved that specific script. Write it first, then show what it does, what it reads, and where its output will land, and ask:
 
 > To size Phase 2 I need the real number of `UserAuthorization` documents in production — the ticket states ~21,000 but nothing has confirmed it. I have written a read-only query at `artifacts/planning/count-authorizations.js`; it runs one `countDocuments` against `analytics-svc-userauthorizations` and writes nothing. May I run it against production?
 
-- **Approved** → run it. Ask again for each later run — approval covers the run in front of the user, not the script forever.
+- **Approved** → run it. Ask again for each later run of a script that asks — approval covers the run in front of the user, not the script forever.
 - **Declined** → do not run it. Record the fact as a stated assumption in the plan, as for a fact that would not change the plan.
 
 Never write to an external system under any circumstance.

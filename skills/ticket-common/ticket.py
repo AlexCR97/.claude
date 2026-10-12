@@ -27,6 +27,7 @@ Usage:
     python ticket.py move <ref> --to NS/PRODUCT [--dry-run]
     python ticket.py guard check --op OP [--branch B] [--repo DIR] [--in X] | protected [--branch B] [--repo DIR] | fast-forward --branch B [--repo DIR]
     python ticket.py worktree survey|propose|create|adopt <ref> --repo DIR [--repo DIR ...] [--add-ignore]
+    python ticket.py script-check <file> [--in X] [--context X]
     python ticket.py journal write <ref> --file F [--at ISO] | latest <ref> | list <ref> | migrate <ref>
     python ticket.py auth-status [--source S] [--in X]
     python ticket.py scan-roots [--in NS[/PRODUCT]] [--set [DIR ...]]
@@ -69,6 +70,7 @@ from ticketlib import (
     moves,
     paths,
     providers,
+    scripteffect,
     sources,
     tickets,
     worktrees,
@@ -652,6 +654,22 @@ def verb_prepare(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def verb_script_check(args: argparse.Namespace) -> int:
+    path = Path(args.file).expanduser()
+    if not path.is_file():
+        raise TicketError(f"script not found: {path}", EXIT_NOT_FOUND)
+    scope = restrict_of(args) or context_of(args)
+    merged = config.effective(
+        scope.namespace if scope else None, scope.product if scope else None
+    )[0]
+    listed = merged.get("sensitive")
+    sensitive = [str(item) for item in listed] if isinstance(listed, list) else []
+    report = scripteffect.check(path, sensitive).as_dict()
+    report["file"] = str(path)
+    emit(report)
+    return EXIT_OK
+
+
 def verb_guard(args: argparse.Namespace) -> int:
     repo = Path(args.repo).expanduser().resolve() if args.repo else Path.cwd()
     guard.require_repository(repo)
@@ -948,6 +966,7 @@ VERBS = {
     "move": verb_move,
     "journal": verb_journal,
     "guard": verb_guard,
+    "script-check": verb_script_check,
     "prepare": verb_prepare,
     "worktree": verb_worktree,
     "auth-status": verb_auth_status,
@@ -1113,6 +1132,14 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("ref")
     p.add_argument("--source")
     add_restrict(p, "only look in, and only file under, this namespace or product")
+    add_context(p)
+
+    p = sub.add_parser(
+        "script-check",
+        help="may this script artifact run without asking? (its effect header, verified)",
+    )
+    p.add_argument("file")
+    add_restrict(p, "the namespace or product whose `sensitive` targets apply")
     add_context(p)
 
     p = sub.add_parser("auth-status", help="report each source's credential state")

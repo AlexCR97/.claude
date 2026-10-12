@@ -35,7 +35,7 @@ No `allowed-tools` here: this skill's whole purpose is to change code and build 
 2. **Never redo finished work.** Skip a phase marked `[x] Done` or a step marked `Done`, with a warning; resume a step marked `In Progress` rather than restarting it.
 3. **Run only read-only and build commands.** Never install a package or global tool, change the environment, or alter state outside the project being built. Run tests only where the type's file makes them its completion test.
 4. **Run git only as `ticket-common/GUARD.md` allows.** Never write to a protected branch or edit a file in a worktree that has one checked out — ask the guard with `--op edit`. Commit and push only when the developer asks; otherwise they review the diff and decide.
-5. **Never run a script artifact without approval of that run.** Write it, show it, ask, then run.
+5. **Run a script artifact only as `ticket-common/ARTIFACTS.md` allows.** One that `ticket.py script-check` verifies as read-only runs without asking; any other needs approval of that run — write it, show it, ask, then run.
 6. **Never read or write the journal.** It belongs to `ticket-checkpoint` and `ticket-resume`, and `ticket-resume` has already brought what matters into the session.
 7. **Never read a provider file.** By now `digest.md` holds what the ticket said and `plan.md` what the work is; needing a provider file means the abstraction leaked — report it as a bug.
 8. **Keep `plan.md` honest.** Mark a step `In Progress` before its first edit — only what is on disk survives an interrupted session. Never write a bare `In Progress` or `Blocked` status, keep every `**Artifacts:**` line accurate, and never mark a phase `[x] Done` while a step is not `Done`. `ticket-common/STATUS.md` has the vocabulary and the note rules.
@@ -160,11 +160,11 @@ A step may need to produce something that is **not** a change to the workspace �
 Follow `ticket-common/ARTIFACTS.md` for placement, naming and the run-approval rule. In outline:
 
 1. Create `artifacts/step-{N}.{M}/` for the step being implemented, or `artifacts/shared/` when the file serves more than one step.
-2. Write the script there. Ask the user before running it — show what it does, what it reads, and that it writes nothing outside `artifacts/`. On approval, run it and capture its output beside it.
+2. Write the script there with its `effect:` header, and run `ticket.py script-check` on it. If `run_without_asking` is `true`, run it and capture its output beside it. Otherwise ask the user first — show what it does, what it reads, and that it writes nothing outside `artifacts/` — and on approval run it.
 3. If the artifacts would not explain themselves to a later reader — what was run, against what, when, and what it showed — add a `README.md` to that directory saying so.
 4. Set the step's `**Artifacts:**` line in `plan.md` to the paths just created.
 
-The approval in point 2 is required for every run of every script artifact, and a contradicting artifact stops the step — both per `ticket-common/ARTIFACTS.md` → *Running a script is always a separate permission*.
+Approval in point 2 is required for every run of a script that asks, and a contradicting artifact stops the step — both per `ticket-common/ARTIFACTS.md` → *Running a script*.
 
 #### Keeping the step's status current
 
@@ -186,7 +186,7 @@ Saying it out loud is what preserves it. This skill does not write the session's
 
 - Do not add features, abstractions, or refactors beyond what the step requires.
 - Do not add comments unless the WHY is non-obvious (a hidden constraint, subtle invariant, or workaround for a specific bug).
-- Do not install packages or run any shell command that modifies the workspace or environment. Read-only commands are permitted, and anything they produce is stored as an artifact — but never run a script artifact without the user's approval.
+- Do not install packages or run any shell command that modifies the workspace or environment. Read-only commands are permitted, and anything they produce is stored as an artifact — but run a script artifact only as `ticket-common/ARTIFACTS.md` allows.
 
 ### Step 7 — Build the affected projects
 

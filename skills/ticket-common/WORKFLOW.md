@@ -163,7 +163,7 @@ The journal is append-only in the strongest sense in here: an entry is one sessi
 
 `artifacts/` is created lazily, the first time a run produces a file that is not a change to the workspace — a read-only probe, its captured output, a data extract, or a note recording what was found. A capture is named for the format it holds — `.json`, `.csv`, `.md`, and `.txt` by default — so a later run can parse it instead of re-running the script to get the data in a usable shape.
 
-Each of the two writers owns one part of it. `ticket-plan` writes only to `planning/`, where it stores the research that settles a fact the plan's shape depends on; it must ask before running any script it writes, since no approved step authorizes execution. `ticket-implement` writes only to `step-{N}.{M}/` and `shared/`, and reads `planning/` to see why a step is shaped the way it is.
+Each of the two writers owns one part of it. `ticket-plan` writes only to `planning/`, where it stores the research that settles a fact the plan's shape depends on; it runs a script it writes unasked only when `script-check` verifies the script as read-only, and asks before any other. `ticket-implement` writes only to `step-{N}.{M}/` and `shared/`, and reads `planning/` to see why a step is shaped the way it is.
 
 A step directory is named after the `### Step {N}.{M}` heading it belongs to, and the step's `**Artifacts:**` line in `plan.md` points back at it. That back-link is what makes the evidence findable in a later session: `plan.md` is already the first thing `ticket-plan` and `ticket-implement` read, so a step's prior measurements are read before it is re-planned or re-run, rather than being silently re-derived.
 
@@ -171,7 +171,7 @@ Three consequences worth knowing:
 
 - **Renumbering is a rename.** Steps are renumbered whenever the plan's shape calls for it, but a step number is also a directory name, so the same pass renames the directories and updates every reference to the old numbers.
 - **Artifacts are append-only.** A measurement taken against a live system is the one thing in here that cannot be regenerated, so a later run writes a new file alongside an existing one rather than replacing it.
-- **Scripts need permission to run.** Both skills write script artifacts freely and execute none of them until the user approves that specific script.
+- **Only read-only scripts run unasked.** Both skills write script artifacts freely. Each declares `effect: read-only` or `effect: writes` in its header, and `script-check` verifies that header against the code: a verified read-only script runs, and any other, a `cost: heavy` one, or one aimed at a `sensitive` target waits for the user's approval of that run.
 
 ## Typical Workflow
 
