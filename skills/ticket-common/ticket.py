@@ -26,7 +26,7 @@ Usage:
     python ticket.py prepare <ref>
     python ticket.py move <ref> --to NS/PRODUCT [--dry-run]
     python ticket.py guard check --op OP [--branch B] [--repo DIR] [--in X] | protected [--branch B] [--repo DIR] | fast-forward --branch B [--repo DIR]
-    python ticket.py worktree survey|propose|create <ref> --repo DIR [--repo DIR ...] [--add-ignore]
+    python ticket.py worktree survey|propose|create|adopt <ref> --repo DIR [--repo DIR ...] [--add-ignore]
     python ticket.py journal write <ref> --file F [--at ISO] | latest <ref> | list <ref> | migrate <ref>
     python ticket.py auth-status [--source S] [--in X]
     python ticket.py scan-roots [--in NS[/PRODUCT]] [--set [DIR ...]]
@@ -72,6 +72,7 @@ from ticketlib import (
     sources,
     tickets,
     worktrees,
+    workspace,
 )
 from ticketlib.errors import (
     EXIT_ERROR,
@@ -698,6 +699,38 @@ def verb_worktree(args: argparse.Namespace) -> int:
     patterns = guard.patterns_from(config_values)
     root = config_values.get("worktree_root")
 
+    if args.action == "adopt":
+        only = {worktrees.repository_root(Path(r).expanduser().resolve()) for r in args.repo} if args.repo else None
+        plan_file = location.dir / "plan.md"
+        if not plan_file.is_file():
+            raise TicketError(f"{location.qualified} has no plan.md", EXIT_NOT_FOUND, "Run /ticket-plan first.")
+        if args.create:
+            report = workspace.swap_protected(
+                location.dir, patterns, branch, str(root) if root else None, only, args.add_ignore
+            )
+            emit({"qualified_ref": location.qualified, "ok": True, **report})
+            return EXIT_OK
+        rows, _ = workspace.parse_rows(plan_file.read_text(encoding="utf-8").split(chr(10)))
+        inspected = workspace.inspect(rows, patterns)
+        blocked = [row for row in inspected if row["protected"]]
+        proposals = []
+        for repo_root in sorted({row["repository_root"] for row in blocked}):
+            proposals.append(
+                worktrees.propose(Path(repo_root), branch, patterns, str(root) if root else None).as_dict()
+            )
+        emit(
+            {
+                "qualified_ref": location.qualified,
+                "ok": not blocked,
+                "worktrees": inspected,
+                "proposals": proposals,
+            }
+        )
+        return EXIT_REFUSED if blocked else EXIT_OK
+
+    if not args.repo:
+        raise TicketError(f"worktree {args.action} needs --repo", EXIT_ERROR)
+
     if args.action == "survey":
         surveys = []
         for repo in args.repo:
@@ -1065,10 +1098,11 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser(
         "worktree", help="propose or create a ticket branch and worktree per repository"
     )
-    p.add_argument("action", choices=("survey", "propose", "create"))
+    p.add_argument("action", choices=("survey", "propose", "create", "adopt"))
     p.add_argument("ref")
     p.add_argument("--source")
-    p.add_argument("--repo", action="append", required=True, help="a repository the work changes; repeat for several")
+    p.add_argument("--repo", action="append", help="a repository the work changes; repeat for several")
+    p.add_argument("--create", action="store_true", help="adopt: replace each protected-branch row with a new ticket worktree")
     p.add_argument("--add-ignore", action="store_true", help="create: also add the worktrees directory to .gitignore")
     add_restrict(p, "restrict the lookup to a namespace or product")
     add_context(p)
