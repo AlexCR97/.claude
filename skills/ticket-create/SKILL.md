@@ -1,13 +1,13 @@
 ---
 name: ticket-create
-description: Creates a ticket in a store that supports it — a local ticket, or an upstream GitHub issue or Azure DevOps work item after an explicit yes — seeded from its type so the body starts with the right questions, then chains into ticket-refine.
+description: Creates a ticket in a store that supports it — a local ticket, or an upstream GitHub issue or Azure DevOps work item after an explicit yes — seeded from its type so the body starts with the right questions.
 argument-hint: "<title> [--source source] [--type type] [--in namespace[/product]] [--parent ref]"
 allowed-tools: Read Edit Skill Bash(python *ticket.py:*)
 ---
 
-Creates a ticket in a store that supports it — a local ticket for work with no upstream system, or an upstream ticket in a source that can create them — seeds its body from its type so it starts with the right questions, and hands straight to `/ticket-refine`. It does not interview: establishing what the work is belongs to refinement, so acceptance criteria stay a `TODO` stub.
+Creates a ticket in a store that supports it — a local ticket for work with no upstream system, or an upstream ticket in a source that can create them — and seeds its body from its type so it starts with the right questions. It does not interview: the author answers those questions in the body, so acceptance criteria stay a `TODO` stub.
 
-End state: a new ticket directory under the product the user confirmed, its body seeded from its type with acceptance criteria left as a `TODO`, and the run handed to `ticket-refine` — or stopped at the user's word, with the way back named.
+End state: a new ticket directory under the product the user confirmed, its body seeded from its type with acceptance criteria left as a `TODO`, ready for the author to fill in.
 
 This skill is a **driver**: it contains no field names, URLs, API versions, credential commands, markup dialects, or type-specific rules of its own. Everything specific lives alongside it in three directories, and each step names the file to read.
 
@@ -27,7 +27,7 @@ A fact that needs a particular ticket system belongs in `ticket-providers/{sourc
 - **`[--source source]`** — the store to create it in. Step 2 resolves `{source}` from it.
 - **`[--type type]`** — the kind of work. Step 3 resolves `{type}` from it.
 - **`[--in namespace[/product]]`** — the namespace or product to file it under, overriding the filing rules. Namespace, product and filing mean what `ticket-common/GLOSSARY.md` says.
-- **`[--parent ref]`** — for a task, the reference of the parent user story it belongs to. The source's `new.md` says whether it accepts this and how it is stored. When it is absent for a task, the seeded stub from Step 5 and `/ticket-refine` establish it.
+- **`[--parent ref]`** — for a task, the reference of the parent user story it belongs to. The source's `new.md` says whether it accepts this and how it is stored. When it is absent for a task, the seeded stub from Step 5 asks for it.
 
 ---
 
@@ -35,7 +35,7 @@ A fact that needs a particular ticket system belongs in `ticket-providers/{sourc
 
 1. **Report a missing capability as a gap.** Never create a ticket in a source that declares no `new`, and never substitute another source's file for a missing one.
 2. **Never write to a remote system without an explicit yes.** Creating an upstream ticket needs the user to have seen the product, title, type, body and parent or labels, and said yes in plain words.
-3. **Never interview.** Establishing what the work is belongs to `/ticket-refine`.
+3. **Never interview.** The author answers the seeded questions in the body.
 4. **Never invent content.** Leave acceptance criteria as a `TODO` stub, and make every seeded section a prompt, not an answer.
 5. **Never pick a type silently.** Ask; the type shapes every skill downstream.
 6. **Show the filing before creating.** Never create a ticket without showing its slug and the product it is filed under, and letting the user change either.
@@ -70,7 +70,7 @@ A refusal is a **reported gap, not a fallback**. The absence of that source's `n
 
 Take the type the user supplied. If they supplied none, offer the list from Step 1 and ask — one line each, from the first paragraph of each type file. Do not default silently: type decides the shape of everything downstream, and it is much cheaper to pick now than to discover the plan came out the wrong shape.
 
-Read `ticket-types/{type}.md` once the type is known. Its *"What this type is"* and *"What refine must establish"* sections are what Step 5 seeds from.
+Read `ticket-types/{type}.md` once the type is known. Its *"What this type is"* and *"What the ticket must establish"* sections are what Step 5 seeds from.
 
 ### Step 4 — Derive the slug, file it, and create the ticket
 
@@ -109,21 +109,15 @@ The store created its own skeleton; `new.md` says what that skeleton is. Shape i
 
 From `ticket-types/{type}.md`:
 
-- Turn each thing *"What refine must establish"* names into a stub heading or a `TODO` line in the body, so the questions are visible in the file before the interview starts.
+- Turn each thing *"What the ticket must establish"* names into a stub heading or a `TODO` line in the body, so the questions are visible in the file for the author to answer.
 - Where *"What done means"* states an invariant that holds for this kind of work whether or not anyone wrote it down, put it in the acceptance section as a stated condition.
 
 The point is that the ticket is born with the right shape: one kind of work starts with a question and a time-box already asked for, another starts with a stated "behaviour unchanged" condition, and the lightest kind starts with almost nothing — because that is what its type file says it needs.
 
-Do not invent content. A seeded stub is a prompt for the refinement, not an answer to it, and it must read as one.
+Do not invent content. A seeded stub is a prompt for the author, not an answer, and it must read as one.
 
-### Step 6 — Confirm and chain into refinement
+### Step 6 — Confirm
 
-Report in two lines at most: the qualified reference, title and type, with the path of the ticket body; and that the body was seeded from `ticket-types/{type}.md`, with acceptance criteria left as a `TODO` for refinement.
+Report in two lines at most: the qualified reference, title and type, with the path of the ticket body; and that the body was seeded from `ticket-types/{type}.md`, with acceptance criteria left as a `TODO`.
 
-Then hand over to refinement, saying in the same line that it is experimental:
-
-> Handing over to `/ticket-refine` — note it is **experimental** and still under development. Say "skip" to stop here and refine later.
-
-Invoke the [`ticket-refine`](../ticket-refine/SKILL.md) skill, passing `{qualified_ref}`.
-
-Chain by default: a ticket whose acceptance criteria are still a `TODO` stub is not ready to plan against, and refinement is what fills them in. But do not chain over an objection — the skill being handed to is experimental, so a user who wants to stop and read the seeded body first is making a reasonable call. If they skip, close by naming the two ways back in: `/ticket-refine {qualified_ref}` when they are ready, or editing the body by hand.
+Then name the next step: fill in the `TODO` stubs in the body by hand, since a ticket whose acceptance criteria are still a stub is not ready to plan against, and run `/ticket-digest {qualified_ref}` when they are written.

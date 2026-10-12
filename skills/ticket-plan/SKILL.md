@@ -34,7 +34,7 @@ No `allowed-tools`: Step 8 runs probe scripts whose commands cannot be known in 
 
 1. **Plan only.** Never create, edit or delete a source code file, and never run a command that changes the workspace — no `dotnet`, `npm install`, migrations or commits.
 2. **Run git only as `ticket-common/GUARD.md` allows.** Discovery uses `rev-parse`, `worktree list`, `remote get-url` and `branch --show-current`. Never write to a protected branch, and never commit or push unless the developer asks.
-3. **Plan from `digest.md`, never from the raw data.** Derive content from `digest.md`, the attachments it references, `artifacts/`, the confirmed workspace and the type file; never fabricate a file or class name. Where `digest.md` lacks what the plan needs, ask, or point at `/ticket-refine` then `/ticket-digest`.
+3. **Plan from `digest.md`, never from the raw data.** Derive content from `digest.md`, the attachments it references, `artifacts/`, the confirmed workspace and the type file; never fabricate a file or class name. Where `digest.md` lacks what the plan needs, ask, or point at editing the ticket then `/ticket-digest`.
 4. **Never read or write the journal.** It belongs to `ticket-checkpoint` and `ticket-resume`.
 5. **Use the glossary's terms exactly**, in `plan.md` and in chat — never a synonym it retires.
 6. **Write only `plan.md` and `artifacts/planning/`.** A renumbering pass is the one exception: it renames step directories and fixes references under `artifacts/`. `artifacts/step-{N}.{M}/` and `artifacts/shared/` belong to implementation.
@@ -61,7 +61,7 @@ Its `steps` are what is missing, in order. Do each by following the named skill'
 - **`fetch`** — follow `ticket-fetch/SKILL.md`. It is absent for a source with no fetch capability, such as a local ticket.
 - **`digest`** — follow `ticket-digest/SKILL.md`.
 
-Where `steps` is empty and `ask_before_refresh` is `true`, the ticket changed upstream since it was fetched. Show what `drift` reports and **ask** before refreshing: a refresh re-fetches and re-digests, replacing a digest that may have been refined. On a yes, run `refresh_steps`; on a no, plan from what is on disk and say so. Where it is `false`, go on without asking.
+Where `steps` is empty and `ask_before_refresh` is `true`, the ticket changed upstream since it was fetched. Show what `drift` reports and **ask** before refreshing: a refresh re-fetches and re-digests, replacing a digest that may have been edited. On a yes, run `refresh_steps`; on a no, plan from what is on disk and say so. Where it is `false`, go on without asking.
 
 Then resolve it:
 

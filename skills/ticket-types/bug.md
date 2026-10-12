@@ -8,11 +8,11 @@ Both matter more than they look. Work that skips the reproduction fixes a sympto
 
 ---
 
-## What refine must establish
+## What the ticket must establish
 
 These are the round-one questions for a bug, and none of them is optional:
 
-- **Repro steps.** The exact sequence that produces the wrong behaviour, including the starting state. "Sometimes it fails" is not a repro; establishing what makes it sometimes is part of refinement.
+- **Repro steps.** The exact sequence that produces the wrong behaviour, including the starting state. "Sometimes it fails" is not a repro; establishing what makes it sometimes is part of writing the ticket.
 - **Expected versus actual.** Both, stated separately. A report that only says what happened has not said what should have happened, and those are frequently not the same disagreement.
 - **Environment.** Where it reproduces and where it does not — which build, which configuration, which data. A bug that reproduces in one environment and not another has already told you half the cause.
 - **A root-cause hypothesis.** Not a commitment; a first guess, with what would confirm or kill it. Recording the hypothesis is what stops the first investigation phase from starting cold.
@@ -43,7 +43,7 @@ Then the usual rounds. In edge cases, ask specifically: **is the wrong behaviour
 
 **Activity mix:** the first phase is Design (it is investigation, not code), then Development for the fix, then Testing for the regression coverage.
 
-**Estimate adjustment:** **where the root cause is unclear, add a +1 hour investigation buffer** to the first phase. "Unclear" means refine produced a hypothesis nobody could confirm, or produced none at all. Where the hypothesis is confirmed and the cause is already localized, do not add it.
+**Estimate adjustment:** **where the root cause is unclear, add a +1 hour investigation buffer** to the first phase. "Unclear" means the ticket holds a hypothesis nobody could confirm, or none at all. Where the hypothesis is confirmed and the cause is already localized, do not add it.
 
 ---
 
@@ -51,7 +51,7 @@ Then the usual rounds. In edge cases, ask specifically: **is the wrong behaviour
 
 Two conditions, both required:
 
-1. **The repro no longer reproduces.** Run the exact steps refine recorded, not an approximation of them.
+1. **The repro no longer reproduces.** Run the exact steps the ticket records, not an approximation of them.
 2. **A regression test covers it** — one that fails against the old behaviour and passes against the new.
 
 A fix that satisfies only the first is a fix that will be undone by someone who never knew it happened.

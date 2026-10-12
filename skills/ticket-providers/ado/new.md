@@ -16,8 +16,6 @@ Read by `ticket-create`. Creating a work item writes to Azure DevOps, so it is *
 
 3. **Create.** Re-run with `--confirm` in place of `--propose`. It creates the work item, **fetches it immediately**, and files it under the id Azure DevOps assigned. The report carries `created`, `fetched` and `ticket_json`.
 
-4. **Chain into refinement**, as for a local ticket.
-
 ## What is sent
 
 | Field | Sent as |

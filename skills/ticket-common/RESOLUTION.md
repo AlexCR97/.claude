@@ -23,7 +23,6 @@ python "{skills}/ticket-common/ticket.py" <verb> [<ref>] [--source S] [--in X] [
 | `init --in NS[/PRODUCT]`                                         | Creates a namespace or product with no binding.                                                                                                                                                    |
 | `fetch <ref>`                                                    | Refreshes the local snapshot. Remote sources only. A ticket not yet on disk is filed first.                                                                                                        |
 | `new --source S --title "…" [--id SLUG] [--type T] [--propose]`  | Creates a ticket in a store that supports it, filed by the filing rules. `--propose` reports where it would be filed and whether the id is taken, and creates nothing.                             |
-| `publish <ref> --file F [--delete-after-post]`                   | Posts a summary back to the source.                                                                                                                                                                |
 | `drift <ref>`                                                    | Has the ticket moved since it was fetched?                                                                                                                                                         |
 | `move <ref> --to NS/PRODUCT [--dry-run]`                         | Re-files a ticket: renames its directory, rewrites every `parent` that would stop resolving, reports the links the move breaks. See [Moving](#moving).                                             |
 | `auth-status [--source S]`                                       | Each source's credential state, once per credential, never the credential.                                                                                                                         |
@@ -41,7 +40,7 @@ Flags a verb does not recognise are passed through to the provider untouched, so
 
 **Every driver, when the session has one:**
 
-- passes `--context {context}` on every `ticket.py` call that takes it — `resolve`, `list`, `fetch`, `new`, `publish`, `drift`, `move`;
+- passes `--context {context}` on every `ticket.py` call that takes it — `resolve`, `list`, `fetch`, `new`, `drift`, `move`;
 - starts its first output line with `Ticket context: {context}`, which keeps it visible in the transcript and in any summary of it;
 - lets an explicit `--in` or qualified reference in the invocation override it for that one call, and says so in one line;
 - takes everything about a resolved ticket — its scan roots, its bindings — from that ticket's own product, never from the context.

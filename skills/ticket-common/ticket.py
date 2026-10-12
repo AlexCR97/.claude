@@ -21,7 +21,6 @@ Usage:
     python ticket.py init --in NS[/PRODUCT]
     python ticket.py fetch <ref> [--source S] [--in X] [--context X]
     python ticket.py new --source S --title "..." [--id SLUG] [--type T] [--in X] [--context X] [--propose] [provider flags...]
-    python ticket.py publish <ref> --file F [--delete-after-post]
     python ticket.py drift <ref>
     python ticket.py prepare <ref>
     python ticket.py update <ref> [--propose | --confirm] [provider flags...]
@@ -648,32 +647,6 @@ def new_remote(args, source, module, restrict, context) -> int:
     return EXIT_OK
 
 
-def verb_publish(args: argparse.Namespace) -> int:
-    location = require_filed(locate(args))
-    module = provider_for(location.source, "publish")
-
-    # Neither Python nor a quoted shell argument expands a leading ~.
-    comment_path = Path(args.file).expanduser()
-    if not comment_path.is_file():
-        raise TicketError(f"comment file not found: {comment_path}", EXIT_NOT_FOUND)
-
-    text = comment_path.read_text(encoding="utf-8").strip()
-    if not text:
-        raise TicketError(f"comment file is empty: {comment_path}", EXIT_ERROR)
-
-    result = module.publish(ticket_context(location), text, args.extra)
-    result.setdefault("source", location.source)
-    result.setdefault("id", location.id)
-    result["qualified_ref"] = location.qualified
-
-    if args.delete_after_post:
-        comment_path.unlink()
-        result["deleted"] = str(comment_path)
-
-    emit(result)
-    return EXIT_OK
-
-
 def verb_drift(args: argparse.Namespace) -> int:
     location = require_filed(locate(args))
     module = provider_for(location.source, "drift")
@@ -1115,7 +1088,6 @@ VERBS = {
     "init": verb_init,
     "fetch": verb_fetch,
     "new": verb_new,
-    "publish": verb_publish,
     "drift": verb_drift,
     "move": verb_move,
     "journal": verb_journal,
@@ -1229,14 +1201,6 @@ def build_parser() -> argparse.ArgumentParser:
         help="report where it would be filed and whether the id is taken; create nothing",
     )
     add_restrict(p, "file it under this namespace or product")
-    add_context(p)
-
-    p = sub.add_parser("publish", help="post a refinement summary back to the source")
-    p.add_argument("ref")
-    p.add_argument("--source")
-    p.add_argument("--file", required=True)
-    p.add_argument("--delete-after-post", action="store_true")
-    add_restrict(p, "only look in this namespace or product")
     add_context(p)
 
     p = sub.add_parser("drift", help="has the ticket moved since it was fetched?")

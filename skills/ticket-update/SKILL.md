@@ -27,7 +27,7 @@ A fact that needs a particular ticket system belongs in `ticket-providers/{sourc
 1. **Never write without an explicit yes.** The ticket is visible to everyone who can see the project, and an edit is hard to take back: show every change as a before and after first, and take only a plain yes.
 2. **Never write over a drifted ticket.** The diff is against the local snapshot; if upstream moved, the front door refuses and says to re-fetch. Do not work around it — re-fetch, then redo the update against what is there now.
 3. **Report a missing capability as a gap.** A source that declares no `update` is refused. Never improvise an API call, and never edit the local files as though that changed the ticket.
-4. **Comments are not updated here.** Posting one keeps using `ticket-refine`'s publish path.
+4. **Comments are not updated here.** No skill posts one.
 5. **Change only what was asked.** Every field not named stays exactly as it is.
 
 ---

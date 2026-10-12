@@ -29,4 +29,4 @@ The patch opens with `test /rev` against the revision in the snapshot. Azure Dev
 | State | `--state` | `System.State` — a state the work item's type allows; Azure DevOps refuses others |
 | Tags | `--add-tag`, `--remove-tag` | `System.Tags`, `;`-separated. Repeatable; compared case-insensitively. A tag overrides the work item type when it names a spike or tech debt (`types.md`), so a tag change can change the type the next fetch records |
 
-Comments are not changed here: they keep using `publish`. Assignee, iteration and area path are out of scope.
+Comments are not changed here: they are not changed by this skill. Assignee, iteration and area path are out of scope.

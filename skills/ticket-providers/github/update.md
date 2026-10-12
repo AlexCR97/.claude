@@ -25,6 +25,6 @@ python "{skills}/ticket-common/ticket.py" update "{qualified_ref}" [flags] --con
 | State | `--state open\|closed` | This source has only these two |
 | Labels | `--add-label`, `--remove-label` | Repeatable; compared case-insensitively. A label decides the ticket's type (`types.md`), so a label change can change the type the next fetch records |
 
-Whatever follows the acceptance criteria in the body is carried through untouched. Comments are not changed here: they keep using `publish`.
+Whatever follows the acceptance criteria in the body is carried through untouched. Comments are not changed here: they are not changed by this skill.
 
 Assignee, milestone and project are out of scope.

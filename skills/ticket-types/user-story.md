@@ -10,13 +10,13 @@ A user story may optionally decompose into **one or more child tasks**, each tra
 
 ---
 
-## What refine must establish
+## What the ticket must establish
 
 Fold these into the driver's rounds; they are the ones that cannot be skipped for this type.
 
 **Goal and success criteria**
 
-- **Who is the user?** A role, not "the system" — a teacher, an administrator, an integrating service. A story with no user has not been refined.
+- **Who is the user?** A role, not "the system" — a teacher, an administrator, an integrating service. A story with no user has not been written down.
 - **What can they do afterwards that they cannot do now?** Stated as an observable action, not an internal change.
 - **How would we demonstrate it?** The concrete walkthrough someone would perform to accept this. If the acceptance criteria cannot be demonstrated, they are not acceptance criteria yet.
 - **What is explicitly out of scope?** Stories grow during implementation; the boundary is worth agreeing before it is tested.
@@ -58,7 +58,7 @@ Fold these into the driver's rounds; they are the ones that cannot be skipped fo
 
 ## What done means
 
-**The acceptance criteria are demonstrable.** Not "the code is written" and not "the tests pass" — someone can perform the walkthrough refine agreed on, and see the outcome.
+**The acceptance criteria are demonstrable.** Not "the code is written" and not "the tests pass" — someone can perform the walkthrough the ticket describes, and see the outcome.
 
 A criterion that cannot be demonstrated at the end is either unfinished work or a criterion that should never have been written. Say which.
 

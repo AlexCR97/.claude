@@ -288,12 +288,6 @@ def update(ctx: dict, extra: list[str]) -> dict:
     return {**proposal, "written": True}
 
 
-def publish(ctx: dict, text: str, extra: list[str]) -> dict:
-    org, project = _auth.coordinates(ctx)
-    comment_module = providers.load_private(SOURCE, "_comment")
-    return comment_module.run(ctx["id"], org, project, _auth.auth_header(org), text)
-
-
 def drift(ctx: dict, extra: list[str]) -> dict:
     org, project = _auth.coordinates(ctx)
     drift_module = providers.load_private(SOURCE, "_drift")

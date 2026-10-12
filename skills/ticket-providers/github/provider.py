@@ -11,7 +11,6 @@ references uploaded files by URL with no enumerable attachment list.
 import argparse
 import json
 import re
-import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -354,41 +353,6 @@ def update(ctx: dict, extra: list[str]) -> dict:
         return {**proposal, "written": False}
     _gh.patch(f"repos/{proposal['repository']}/issues/{ctx['id']}", proposal["payload"])
     return {**proposal, "written": True}
-
-
-def publish(ctx: dict, text: str, extra: list[str]) -> dict:
-    repo = _gh.repository(ctx)
-    _gh.require_auth()
-
-    # `gh issue comment` takes a file rather than an argument, which also keeps
-    # a long markdown body off the command line.
-    with tempfile.NamedTemporaryFile(
-        "w", suffix=".md", delete=False, encoding="utf-8"
-    ) as handle:
-        handle.write(text)
-        body_path = Path(handle.name)
-
-    try:
-        code, stdout, stderr = _gh.run(
-            [
-                "issue",
-                "comment",
-                str(ctx["id"]),
-                "--repo",
-                repo,
-                "--body-file",
-                str(body_path),
-            ]
-        )
-    finally:
-        body_path.unlink(missing_ok=True)
-
-    if code != 0:
-        raise TicketError(
-            f"could not post the comment — {stderr.strip() or f'exit code {code}'}"
-        )
-
-    return {"repository": repo, "url": stdout.strip() or None}
 
 
 def drift(ctx: dict, extra: list[str]) -> dict:

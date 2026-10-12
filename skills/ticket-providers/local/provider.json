@@ -22,7 +22,6 @@
   "capabilities": {
     "fetch": false,
     "new": true,
-    "publish": true,
     "update": false,
     "drift": true,
     "related": true,

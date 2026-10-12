@@ -21,7 +21,7 @@ A provider directory is trusted **code**, not configuration. `provider.py` is im
   "id": { "pattern": "\\d+", "shape": "numeric work item id" },
   "formats": { "comment": "html", "body": "html" },
   "capabilities": {
-    "fetch": true, "new": true, "publish": true, "update": true,
+    "fetch": true, "new": true, "update": true,
     "drift": true, "related": true, "attachments": true
   }
 }
@@ -42,10 +42,9 @@ A provider directory is trusted **code**, not configuration. `provider.py` is im
 | `fetch.md`                        | how raw data lands in `raw/`, traversal policy, attachment rules, how `ticket.json` is refreshed | `ticket-fetch`                                      | `fetch`          |
 | `new.md`                          | how a ticket is created here — locally, or upstream behind an explicit confirmation               | `ticket-create`                                     | `new`            |
 | `update.md`                       | how an upstream ticket is changed: which fields, which flags, the drift and confirmation gates    | `ticket-update`                                     | `update`         |
-| `schema.md`                       | where the content is on disk and the logical→physical field map                                  | `ticket-digest`, `ticket-refine`                    | —                |
+| `schema.md`                       | where the content is on disk and the logical→physical field map                                  | `ticket-digest`                                      | —                |
 | `types.md`                        | this source's native type and tag/label vocabulary → one canonical type                          | `ticket-fetch`, `ticket-create`                     | —                |
 | `links.md`                        | ticket / comment / attachment URL patterns                                                       | `ticket-digest`, `ticket-plan`, `ticket-checkpoint` | —                |
-| `publish.md`                      | where a refinement summary goes, in what markup, via what verb, which template                   | `ticket-refine`                                     | `publish`        |
 | `drift.md`                        | how to tell the local snapshot is stale, as exit 0/1/2                                           | `ticket-resume`                                     | `drift`          |
 | `provider.py` (+ private `_*.py`) | every network call and every credential                                                          | never read — invoked via `ticket.py`                | —                |
 
@@ -68,7 +67,7 @@ A driver must never name a source. The converse binds just as hard:
 
 > **A role file must never restate a driver's step ordering, its output template, or anything in `ticket-common/`.**
 
-A fact stated in both places will drift, and the role-file copy will be the stale one. Say where the acceptance criteria live; do not say what the digest does with them. Say what markup a comment must be in; do not restate the three refinement rounds.
+A fact stated in both places will drift, and the role-file copy will be the stale one. Say where the acceptance criteria live; do not say what the digest does with them. Say what markup a comment must be in; do not restate the digest's steps.
 
 The one legitimate crossing point between the source axis and the type axis is `types.md`, which maps this source's vocabulary onto a canonical type — **the mapping only**. A source file must never encode a type's behaviour, and a type file must never mention a source.
 
@@ -76,7 +75,7 @@ The one legitimate crossing point between the source axis and the type axis is `
 
 ## Adding a source
 
-Create the directory, write `provider.json`, then answer six questions in `schema.md`. They are fixed, because they are exactly what `ticket-digest` and `ticket-refine` need and nothing more:
+Create the directory, write `provider.json`, then answer six questions in `schema.md`. They are fixed, because they are exactly what `ticket-digest` needs and nothing more:
 
 1. **Where does the content live on disk?** Which file under `raw/`, and in what shape.
 2. **What is the logical→physical field map?** For `id`, `type`, `title`, `state`, `description`, `acceptance criteria`, `assignee`, `labels` — and **which of them this source simply does not have**. A field a source lacks is stated as absent, so the driver omits the row rather than inventing one.
@@ -85,7 +84,7 @@ Create the directory, write `provider.json`, then answer six questions in `schem
 5. **How are attachments enumerated, and how is a failed download signalled?** Including the on-disk naming scheme and which field holds the display name.
 6. **How are related tickets and relation kinds enumerated?** Or, where `capabilities.related` is `false`, say so plainly.
 
-Then write `types.md`, `links.md`, `config.md`, `provider.py`, and whichever of `fetch.md` / `new.md` / `update.md` / `publish.md` / `drift.md` the capabilities claim. Finally run `sources --check`.
+Then write `types.md`, `links.md`, `config.md`, `provider.py`, and whichever of `fetch.md` / `new.md` / `update.md` / `drift.md` the capabilities claim. Finally run `sources --check`.
 
 ### What `provider.py` must expose
 
@@ -99,7 +98,6 @@ Then write `types.md`, `links.md`, `config.md`, `provider.py`, and whichever of 
 | `init(ctx, extra)`                    | a report dict; validates `ctx["coordinates"]` and acquires any credential. The front door writes the binding                                                                                                                                                             |
 | `fetch(ctx, extra)`                   | a report dict; writes `raw/` and refreshes `ticket.json`, including its `coordinates`                                                                                                                                                                                    |
 | `new(ctx, title, ticket_type, extra)` | a report dict; creates the ticket directory and `ticket.json`                                                                                                                                                                                                            |
-| `publish(ctx, text, extra)`           | a report dict                                                                                                                                                                                                                                                            |
 | `propose_new(ctx, title, type, extra)` | remote sources with `new`: what `new` would send, built without writing — the front door shows it and requires `--confirm` before calling `new`                                                                                                                         |
 | `propose_update(ctx, extra)` / `update(ctx, extra)` | sources with `update`: the `changes` (`{field, before, after}`) computed from the snapshot, then the write. The front door runs `drift` first and re-fetches after                                                                                          |
 | `drift(ctx, extra)`                   | a report dict carrying `is_stale`; `ticket.py` maps it to exit 0 or 2                                                                                                                                                                                                    |

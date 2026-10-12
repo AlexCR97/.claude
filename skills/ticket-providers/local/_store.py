@@ -97,13 +97,6 @@ def read(path: Path) -> dict:
     }
 
 
-def section_content(parsed: dict, heading: str) -> str:
-    for section in parsed["sections"]:
-        if section["heading"] == heading:
-            return section["content"]
-    return ""
-
-
 def set_frontmatter(path: Path, key: str, value: str, dry_run: bool = False) -> None:
     """
     Set one frontmatter key in place, leaving every other line byte-for-byte as it was.
@@ -157,28 +150,6 @@ def fingerprint(path: Path) -> str:
         return hashlib.sha256(path.read_bytes()).hexdigest()
     except OSError:
         return ""
-
-
-def replace_section(path: Path, heading: str, content: str) -> bool:
-    """
-    Overwrite one `##` section's content wholesale; every other section is left
-    byte-for-byte as it was. Returns whether `heading` was found at all — the
-    caller decides what a miss means, since this module never raises for it.
-    """
-    text = path.read_text(encoding="utf-8")
-    content = content.strip() + "\n"
-
-    matches = list(SECTION_PATTERN.finditer(text))
-    for index, match in enumerate(matches):
-        if match.group(1).strip() != heading:
-            continue
-        start = match.end()
-        end = matches[index + 1].start() if index + 1 < len(matches) else len(text)
-        head, tail = text[:start].rstrip("\n"), text[end:]
-        path.write_text(f"{head}\n\n{content}\n{tail}", encoding="utf-8")
-        return True
-
-    return False
 
 
 SKELETON = """{frontmatter}

@@ -32,7 +32,6 @@
   "capabilities": {
     "fetch": true,
     "new": true,
-    "publish": true,
     "update": true,
     "drift": true,
     "related": true,

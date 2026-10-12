@@ -6,9 +6,6 @@
 flowchart LR
     INIT[ticket-setup] --> NEW[ticket-create]
     INIT --> FETCH[ticket-fetch]
-    NEW --> REFINE[ticket-refine]
-    FETCH --> REFINE
-    REFINE -.-> FETCH
     FETCH -.-> UPDATE[ticket-update]
     UPDATE -.-> FETCH
     FETCH --> DIGEST[ticket-digest]
@@ -27,9 +24,8 @@ flowchart LR
 | `ticket-setup`      | Once per binding, or to create a namespace or product  | None             |
 | `ticket-context`    | Optional; once per session, to work in one product     | a product        |
 | `ticket-create`     | To create a ticket — locally, or upstream after a yes  | `init`           |
-| `ticket-fetch`      | Once per ticket; always re-run after `refine`          | `init`           |
+| `ticket-fetch`      | Once per ticket; re-run to refresh the snapshot        | `init`           |
 | `ticket-update`     | To change an upstream ticket's fields; re-fetches      | `fetch`          |
-| `ticket-refine` ⚠️   | Optional; followed by `fetch` where the source has one | `fetch` or `new` |
 | `ticket-digest`     | Once per ticket                                        | `fetch` or `new` |
 | `ticket-plan`       | Once to generate; re-run to view/update progress       | a ticket; it fetches and digests what is missing |
 | `ticket-implement`  | Once or multiple times; only on a ticket branch        | `plan`           |
@@ -37,9 +33,7 @@ flowchart LR
 | `ticket-resume`     | First thing in a new session on an existing ticket     | a ticket on disk |
 | `ticket-move`       | To re-file a ticket under another product              | a ticket on disk |
 
-⚠️ **`ticket-refine` is experimental** — under active development and not extensively tested. Prefer a scratch ticket while trying it out.
-
-**Three skills write to a system outside this machine** — `ticket-refine` posts a summary, `ticket-create` creates an upstream ticket, and `ticket-update` changes one. Each has the same load-bearing gate: nothing is written without the user's explicit yes, shown the exact content first.
+**Two skills write to a system outside this machine** — `ticket-create` creates an upstream ticket, and `ticket-update` changes one. Each has the same load-bearing gate: nothing is written without the user's explicit yes, shown the exact content first.
 
 `fetch` and `digest` each own one output. `plan` and `implement` additionally write any files their research or steps produce along the way. `checkpoint` owns the `journal/` directory outright — it is the only skill that writes it, and `resume` the only one that reads it. `resume` writes nothing at all. See [Data Layout](#data-layout).
 
@@ -69,7 +63,6 @@ Every driver invokes exactly one command — `ticket-common/ticket.py` — so a 
 | `schema.md` — where the content is, and the field map        |   ✅   |    ✅     |    ✅    |
 | `types.md` — this source's vocabulary → a canonical type     |   ✅   |    ✅     |    ✅    |
 | `links.md` — ticket / comment / attachment URL patterns      |   ✅   |    ✅     |    ✅    |
-| `publish.md` — where a refinement summary goes               |   ✅   |    ✅     |    ✅    |
 | `drift.md` — how to tell the local snapshot is stale         |   ✅   |    ✅     |    ✅    |
 
 **The absences are the mechanism, not an oversight.**
@@ -218,25 +211,12 @@ flowchart TD
     ORIGIN -->|"Yes — remote source"| FETCH
     ORIGIN -->|"No — my own work"| NEW
 
-    NEW["/ticket-create #quot;title#quot; --type {type}\n────────────────\nLocal: creates raw/ticket.md + ticket.json\nUpstream: shows the proposal, then creates it\nonly on an explicit yes, and fetches it\nSeeds the body from ticket-types/{type}.md\nChains straight into refine"]
+    NEW["/ticket-create #quot;title#quot; --type {type}\n────────────────\nLocal: creates raw/ticket.md + ticket.json\nUpstream: shows the proposal, then creates it\nonly on an explicit yes, and fetches it\nSeeds the body from ticket-types/{type}.md"]
 
     FETCH["/ticket-fetch {ref}\n────────────────\nDownloads the snapshot to raw/\nKeeps attachments already on disk\nRefreshes ticket.json incl. the resolved type\n\nRemote sources only"]
 
-    NEW --> REFINE
-    FETCH --> REFINE_OPT{"Refine\nrequirements?"}
-
-    REFINE_OPT -->|Optional| REFINE
-    REFINE_OPT -->|"Skip to digest"| DIGEST
-
-    REFINE["/ticket-refine {ref}\n────────────────\n3-round structured interview:\n  · Goal & success criteria\n  · Domain model & data\n  · Edge cases & failure modes\nplus the questions this type requires\nPosts the summary back to the source"]
-
-    REFINE --> REFETCH{"Source has\nfetch?"}
-    REFETCH -->|Yes| FETCH2["/ticket-fetch {ref}\n────────────────\nRe-fetch to pull the posted summary\nand the latest discussion"]
-    REFETCH -->|"No — already local"| CLEAR
-
-    FETCH2 --> CLEAR{"Requirements\nclear?"}
-    CLEAR -->|"No — refine again"| REFINE
-    CLEAR -->|Yes| DIGEST
+    NEW --> DIGEST
+    FETCH --> DIGEST
 
     DIGEST["/ticket-digest {ref}\n────────────────\nReads raw/ per the source's schema.md\nSurfaces what this type needs\nAnalyzes attachments & related tickets\nWrites digest.md"]
 

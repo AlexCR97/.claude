@@ -16,8 +16,6 @@ Read by `ticket-create`. Creating an issue writes to GitHub, so it is **gated be
 
 3. **Create.** Re-run the same command with `--confirm` instead of `--propose`. It creates the issue, **fetches it immediately**, and files it under the number GitHub assigned, so it behaves like any other fetched ticket. The report carries `created` (with the number and URL), `fetched` and the resulting `ticket_json`.
 
-4. **Chain into refinement**, as for a local ticket.
-
 ## What is sent
 
 | Field | How it is supplied |

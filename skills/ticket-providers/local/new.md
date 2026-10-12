@@ -34,7 +34,7 @@ TODO — what is this, and why now?
 
 ## Acceptance Criteria
 
-TODO — run `/ticket-refine` to establish these.
+TODO — what makes this done?
 
 ## Comments
 
@@ -53,7 +53,7 @@ TODO — run `/ticket-refine` to establish these.
 
 ## Where the body goes under `raw/`
 
-Not in the ticket directory. Putting it under `raw/` means `--require raw` is satisfiable identically for every source, so the digest and refine drivers need no special case for a store with no fetch.
+Not in the ticket directory. Putting it under `raw/` means `--require raw` is satisfiable identically for every source, so the digest driver needs no special case for a store with no fetch.
 
 ## Creating one
 
@@ -85,7 +85,7 @@ The skeleton above is what this source creates. **Shaping the stubs to the ticke
 
 Wherever that editing mentions another local ticket — a parent, a prospective child, anything — write a real relative markdown link, never `[[double-bracket]]` wiki syntax. `schema.md`'s *"Writing a link to another local ticket"* has the exact path shape.
 
-Leave acceptance criteria as a `TODO` stub. Establishing them is refinement's work, and a stub that says so is more honest than an invented criterion.
+Leave acceptance criteria as a `TODO` stub. Establishing them is the author's work, and a stub that says so is more honest than an invented criterion.
 
 ## Attachments are manual
 

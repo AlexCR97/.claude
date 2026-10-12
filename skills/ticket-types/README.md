@@ -21,7 +21,7 @@ Five types exist today. The set is open.
 Every type file answers the same six questions, in this order, under these headings. A driver reads only the sections it needs, so the headings are part of the contract.
 
 1. **What this type is** — one paragraph. What distinguishes it from its nearest neighbour.
-2. **What refine must establish** — the questions that are non-negotiable for this type, folded into the driver's own rounds.
+2. **What the ticket must establish** — the questions that are non-negotiable for this type, which `ticket-create` seeds into the body.
 3. **What digest must surface** — which sections matter, and which source field to prefer when several could fill one.
 4. **What shape the plan takes** — required phases, forbidden phases, the kind of thing a step delivers, the activity mix, and any estimate adjustment.
 5. **What done means** — the completion test, stated so it can be checked rather than asserted.
