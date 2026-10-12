@@ -44,6 +44,15 @@ LABEL_TYPE_MAP = {
 
 FALLBACK_TYPE = "task"
 
+# The label that makes `LABEL_TYPE_MAP` read a created issue back as the type it
+# was created as. A task has none: it is what an unlabelled issue falls back to.
+NATIVE_LABEL_BY_TYPE = {
+    "bug": "bug",
+    "spike": "spike",
+    "tech-debt": "tech-debt",
+    "user-story": "enhancement",
+}
+
 _gh = providers.load_private(SOURCE, "_gh")
 
 
@@ -187,6 +196,57 @@ def fetch(ctx: dict, extra: list[str]) -> dict:
         "attachments_downloaded": 0,
         "attachments_failed": [],
     }
+
+
+def propose_new(ctx: dict, title: str, ticket_type: str | None, extra: list[str]) -> dict:
+    """What `new` would send, built without touching GitHub."""
+    parser = argparse.ArgumentParser(prog="ticket.py new --source github")
+    parser.add_argument("--body-file")
+    parser.add_argument("--criteria-file")
+    parser.add_argument("--label", action="append", default=[])
+    args = parser.parse_args(extra)
+
+    repo = _gh.repository(ctx)
+    description = read_text(args.body_file)
+    criteria = read_text(args.criteria_file)
+    body = description
+    if criteria:
+        body = f"{description}\n\n## Acceptance Criteria\n\n{criteria}".strip()
+
+    labels = list(args.label)
+    native = NATIVE_LABEL_BY_TYPE.get(ticket_type or "")
+    if native and native.lower() not in (label.lower() for label in labels):
+        labels.append(native)
+
+    return {
+        "repository": repo,
+        "title": title,
+        "type": ticket_type,
+        "native_type": native,
+        "labels": labels,
+        "body": body,
+        "parent": None,
+    }
+
+
+def read_text(path: str | None) -> str:
+    if not path:
+        return ""
+    source = Path(path).expanduser()
+    if not source.is_file():
+        raise TicketError(f"file not found: {source}", EXIT_ERROR)
+    return source.read_text(encoding="utf-8").strip()
+
+
+def new(ctx: dict, title: str, ticket_type: str | None, extra: list[str]) -> dict:
+    proposal = propose_new(ctx, title, ticket_type, extra)
+    issue = _gh.post(
+        f"repos/{proposal['repository']}/issues",
+        {"title": title, "body": proposal["body"], "labels": proposal["labels"]},
+    )
+    if not isinstance(issue, dict) or not issue.get("number"):
+        raise TicketError("GitHub did not report the number of the issue it created")
+    return {"id": str(issue["number"]), "url": issue.get("html_url"), **proposal}
 
 
 def publish(ctx: dict, text: str, extra: list[str]) -> dict:

@@ -26,3 +26,15 @@ The full label list is kept verbatim in `ticket.json` as `native_type`, so nothi
 ## Override
 
 `--type {type}` on any driver wins over everything above. It is recorded in `ticket.json` alongside `native_type`, so the next skill inherits it with no flag. Expect it to be used more often here than elsewhere, precisely because labels are optional.
+
+## Creating: canonical to native
+
+Used by `new.md`. The inverse of the label table above: the label applied so that the issue reads back as the type it was created as.
+
+| Canonical type | Label applied |
+| --- | --- |
+| `bug` | `bug` |
+| `spike` | `spike` |
+| `tech-debt` | `tech-debt` |
+| `user-story` | `enhancement` |
+| `task` | none — the fallback type needs no label |

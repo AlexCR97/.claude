@@ -135,7 +135,7 @@ class GhStub:
         self.responses.write_text(json.dumps(table), encoding="utf-8")
 
     @property
-    def calls(self) -> list[list[str]]:
+    def requests(self) -> list[dict]:
         if not self.log.is_file():
             return []
         return [
@@ -143,13 +143,26 @@ class GhStub:
             for line in self.log.read_text(encoding="utf-8").splitlines()
         ]
 
+    @property
+    def calls(self) -> list[list[str]]:
+        return [request["args"] for request in self.requests]
+
+    def sent(self, fragment: str) -> list[dict]:
+        """The JSON bodies sent on stdin to every call whose arguments contain `fragment`."""
+        return [
+            json.loads(request["stdin"])
+            for request in self.requests
+            if fragment in " ".join(request["args"]) and request["stdin"]
+        ]
+
 
 GH_SCRIPT = """\
 import json, os, sys
 here = os.path.dirname(os.path.abspath(__file__))
 args = sys.argv[1:]
+stdin = "" if sys.stdin.isatty() else sys.stdin.read()
 with open(os.path.join(here, "calls.jsonl"), "a", encoding="utf-8") as log:
-    log.write(json.dumps(args) + "\\n")
+    log.write(json.dumps({"args": args, "stdin": stdin}) + "\\n")
 joined = " ".join(args)
 if args[:2] == ["auth", "status"]:
     sys.stderr.write("Logged in to github.com as tester\\n")
@@ -274,3 +287,16 @@ def local_ticket(run_cli) -> Callable[..., dict]:
         return result.json
 
     return make
+
+
+@pytest.fixture
+def github_bound(tickets_home) -> None:
+    """The `acme/web` product bound to the GitHub repository acme/web."""
+    write_binding(
+        tickets_home,
+        "github",
+        "acme",
+        "web",
+        at_namespace={"owner": "acme"},
+        at_product={"repository": "web"},
+    )

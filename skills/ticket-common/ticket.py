@@ -531,6 +531,9 @@ def verb_new(args: argparse.Namespace) -> int:
     if not args.title:
         raise TicketError("--title is required", EXIT_ERROR)
 
+    if providers.load_manifest(source).get("kind") == "remote":
+        return new_remote(args, source, module, restrict, context)
+
     ticket_id = args.id or slugify(args.title)
     if not ticket_id:
         raise TicketError(
@@ -571,6 +574,71 @@ def verb_new(args: argparse.Namespace) -> int:
     result["paths"] = location.paths()
     result["ticket_json"] = tickets.load(location)
     emit(result)
+    return EXIT_OK
+
+
+def new_remote(args, source, module, restrict, context) -> int:
+    """
+    Create a ticket in a system that assigns its own id, then file the fetched result.
+
+    Nothing is written upstream without `--confirm`: the ticket outlives this
+    session and is visible to everyone who can see the project. The id is only
+    known once the system has made it, so the ticket is fetched and filed under
+    that, exactly as any other fetched ticket.
+    """
+    if not args.type:
+        raise TicketError(
+            "--type is required to create a ticket upstream",
+            EXIT_ERROR,
+            "Ask the user; the type decides the native type it is created as.",
+        )
+    known = providers.list_types()
+    if known and args.type not in known:
+        raise TicketError(
+            f"unknown ticket type '{args.type}'", EXIT_ERROR, "Known types: " + ", ".join(known) + "."
+        )
+
+    choice = filing.choose(source, restrict=restrict, context=context, cwd=Path.cwd())
+    ctx = sources.provider_context(source, choice.product)
+    proposal = module.propose_new(ctx, args.title, args.type, args.extra)
+
+    if args.propose:
+        emit(
+            {
+                "source": source,
+                "product": choice.product.ref,
+                "filing": choice.as_dict(),
+                "proposal": proposal,
+                "confirmation_required": True,
+            }
+        )
+        return EXIT_OK
+
+    if not args.confirm:
+        raise TicketError(
+            f"creating a {source} ticket writes to a remote system and needs explicit confirmation",
+            EXIT_REFUSED,
+            "Show the proposal (`--propose`), and re-run with --confirm only after the user says yes.",
+        )
+
+    created = module.new(ctx, args.title, args.type, args.extra)
+    location = Location(choice.product, source, str(created["id"]))
+    fetch_ctx = sources.provider_context(
+        source, choice.product, location, ctx["coordinates"]
+    )
+    (location.dir / "raw").mkdir(parents=True, exist_ok=True)
+    fetched = module.fetch(fetch_ctx, [])
+    tickets.update(location, type=args.type)
+
+    emit(
+        {
+            **location_report(sources.Target(location, filed=False, filing=choice)),
+            "created": created,
+            "fetched": fetched,
+            "paths": location.paths(),
+            "ticket_json": tickets.load(location),
+        }
+    )
     return EXIT_OK
 
 
@@ -1062,6 +1130,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--id", help="the slug or id to use; derived from the title if absent"
     )
     p.add_argument("--type")
+    p.add_argument(
+        "--confirm",
+        action="store_true",
+        help="remote sources: the user has seen the proposal and said yes",
+    )
     p.add_argument(
         "--propose",
         action="store_true",

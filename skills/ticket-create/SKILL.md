@@ -1,11 +1,11 @@
 ---
 name: ticket-create
-description: Creates a ticket in a store that supports it, seeded from its type so the body starts with the right questions, then chains into ticket-refine. For local tickets that have no upstream system to fetch from.
+description: Creates a ticket in a store that supports it — a local ticket, or an upstream GitHub issue or Azure DevOps work item after an explicit yes — seeded from its type so the body starts with the right questions, then chains into ticket-refine.
 argument-hint: "<title> [--source source] [--type type] [--in namespace[/product]] [--parent ref]"
 allowed-tools: Read Edit Skill Bash(python *ticket.py:*)
 ---
 
-Creates a ticket in a store that supports it — work with no upstream system, such as a refactor decided this morning or a bug found in-house — seeds its body from its type so it starts with the right questions, and hands straight to `/ticket-refine`. It does not interview: establishing what the work is belongs to refinement, so acceptance criteria stay a `TODO` stub.
+Creates a ticket in a store that supports it — a local ticket for work with no upstream system, or an upstream ticket in a source that can create them — seeds its body from its type so it starts with the right questions, and hands straight to `/ticket-refine`. It does not interview: establishing what the work is belongs to refinement, so acceptance criteria stay a `TODO` stub.
 
 End state: a new ticket directory under the product the user confirmed, its body seeded from its type with acceptance criteria left as a `TODO`, and the run handed to `ticket-refine` — or stopped at the user's word, with the way back named.
 
@@ -34,6 +34,7 @@ A fact that needs a particular ticket system belongs in `ticket-providers/{sourc
 ## Ground rules
 
 1. **Report a missing capability as a gap.** Never create a ticket in a source that declares no `new`, and never substitute another source's file for a missing one.
+   **Never write to a remote system without an explicit yes.** Creating an upstream ticket needs the user to have seen the product, title, type, body and parent or labels, and said yes in plain words.
 2. **Never interview.** Establishing what the work is belongs to `/ticket-refine`.
 3. **Never invent content.** Leave acceptance criteria as a `TODO` stub, and make every seeded section a prompt, not an answer.
 4. **Never pick a type silently.** Ask; the type shapes every skill downstream.
@@ -58,12 +59,12 @@ This gives the installed sources with their capabilities, and `known_types` — 
 ### Step 2 — Resolve the source
 
 - **Supplied, and its `capabilities.new` is true** → use it.
-- **Supplied, with no `new`** → refuse: report that `{source}` cannot create tickets because its tickets are created in the system that backs it, and point at creating it there and running `/ticket-fetch` instead. Stop.
+- **Supplied, with no `new`** → refuse: report that `{source}` cannot create tickets, and point at creating it in the system that backs it and running `/ticket-fetch` instead. Stop.
 - **None supplied, and one source has `new`** → use it.
 - **None supplied, and several have `new`** → list them and ask.
 - **None supplied, and none has `new`** → report that no installed source can create tickets. Stop.
 
-A refusal is a **reported gap, not a fallback**. The absence of that source's `new.md` documents that creating an upstream ticket is out of scope — do not improvise an API call, and do not silently create it locally instead.
+A refusal is a **reported gap, not a fallback**. The absence of that source's `new.md` documents that it cannot create tickets — do not improvise an API call, and do not silently create it locally instead.
 
 ### Step 3 — Resolve the type
 
@@ -72,6 +73,10 @@ Take the type the user supplied. If they supplied none, offer the list from Step
 Read `ticket-types/{type}.md` once the type is known. Its *"What this type is"* and *"What refine must establish"* sections are what Step 5 seeds from.
 
 ### Step 4 — Derive the slug, file it, and create the ticket
+
+**A source whose `kind` is `remote`** assigns its own id, so there is no slug to derive and nothing to guess at. Read `ticket-providers/{source}/new.md` and follow its flow instead of the rest of this step: propose, show everything, require an explicit yes, create with `--confirm`. The created ticket is fetched and filed under its real id, so continue at Step 5 from the body it fetched and treat the ticket as already seeded by its author — shape only what is missing, never overwrite what the upstream body says.
+
+The rest of this step is for a source whose `kind` is `local`.
 
 The slug is the ticket's id and its directory name. `ticket.py` derives it from the title when `--id` is absent.
 

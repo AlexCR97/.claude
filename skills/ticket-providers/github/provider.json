@@ -24,7 +24,7 @@
   },
   "capabilities": {
     "fetch": true,
-    "new": false,
+    "new": true,
     "publish": true,
     "drift": true,
     "related": false,
