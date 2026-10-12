@@ -1,6 +1,6 @@
 ---
 name: ticket-implement
-description: Implements one, several or all phases of a ticket's plan.md by making the code changes each step names, then builds the affected projects. Tracks step status in plan.md as it goes, and reports what the run produced, decided and inferred.
+description: Implements one, several or all phases of a ticket's plan.md by making the code changes each step names, then builds the affected projects — only on a ticket branch, never on a protected one. Tracks step status in plan.md as it goes, and reports what the run produced, decided and inferred.
 argument-hint: "<ref> [phases | all]"
 ---
 

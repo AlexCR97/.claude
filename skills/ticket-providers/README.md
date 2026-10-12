@@ -21,7 +21,7 @@ A provider directory is trusted **code**, not configuration. `provider.py` is im
   "id": { "pattern": "\\d+", "shape": "numeric work item id" },
   "formats": { "comment": "html", "body": "html" },
   "capabilities": {
-    "fetch": true, "new": false, "publish": true,
+    "fetch": true, "new": true, "publish": true, "update": true,
     "drift": true, "related": true, "attachments": true
   }
 }
@@ -40,7 +40,8 @@ A provider directory is trusted **code**, not configuration. `provider.py` is im
 | `provider.json`                   | capabilities, prefixes, coordinates, address patterns, id shape, nouns, comment format           | all, via `resolve`                                  | —                |
 | `config.md`                       | what a binding holds and at which level, how credentials are acquired and validated              | `ticket-setup`                                      | —                |
 | `fetch.md`                        | how raw data lands in `raw/`, traversal policy, attachment rules, how `ticket.json` is refreshed | `ticket-fetch`                                      | `fetch`          |
-| `new.md`                          | how a ticket is created here                                                                     | `ticket-create`                                     | `new`            |
+| `new.md`                          | how a ticket is created here — locally, or upstream behind an explicit confirmation               | `ticket-create`                                     | `new`            |
+| `update.md`                       | how an upstream ticket is changed: which fields, which flags, the drift and confirmation gates    | `ticket-update`                                     | `update`         |
 | `schema.md`                       | where the content is on disk and the logical→physical field map                                  | `ticket-digest`, `ticket-refine`                    | —                |
 | `types.md`                        | this source's native type and tag/label vocabulary → one canonical type                          | `ticket-fetch`, `ticket-create`                     | —                |
 | `links.md`                        | ticket / comment / attachment URL patterns                                                       | `ticket-digest`, `ticket-plan`, `ticket-checkpoint` | —                |
@@ -48,14 +49,14 @@ A provider directory is trusted **code**, not configuration. `provider.py` is im
 | `drift.md`                        | how to tell the local snapshot is stale, as exit 0/1/2                                           | `ticket-resume`                                     | `drift`          |
 | `provider.py` (+ private `_*.py`) | every network call and every credential                                                          | never read — invoked via `ticket.py`                | —                |
 
-`config.md`, `schema.md`, `types.md` and `links.md` are **required of every source**. The other four are present exactly when the matching capability is `true`. `python ticket-common/ticket.py sources --check` validates that agreement, and that `coordinates` names real levels and covers every group the address patterns capture; a mismatch is an error.
+`config.md`, `schema.md`, `types.md` and `links.md` are **required of every source**. The others are present exactly when the matching capability is `true`. `python ticket-common/ticket.py sources --check` validates that agreement, and that `coordinates` names real levels and covers every group the address patterns capture; a mismatch is an error.
 
 ### Absence is the mechanism
 
-Two deliberate gaps are how the suite enforces its rules without a single `if source == …` branch in any driver:
+Deliberate gaps are how the suite enforces its rules without a single `if source == …` branch in any driver:
 
 - **`local/fetch.md` is absent** and `capabilities.fetch` is `false`, so `ticket-fetch` refuses `local` structurally. Fetch being remote-only falls out of the module system, not out of driver logic.
-- **`ado/new.md` and `github/new.md` are absent**, so `ticket-create` refuses remote sources — and the absence documents that creating an upstream ticket is out of scope rather than forgotten.
+- **`local/update.md` is absent** and `capabilities.update` is `false`, so `ticket-update` refuses `local`: a local ticket is edited directly, there being no upstream to change.
 
 A source directory may hold only some of the optional role files. Treat each as present-or-absent independently, and **never substitute another source's module for a missing one**. A missing module is a reported gap.
 
@@ -84,7 +85,7 @@ Create the directory, write `provider.json`, then answer six questions in `schem
 5. **How are attachments enumerated, and how is a failed download signalled?** Including the on-disk naming scheme and which field holds the display name.
 6. **How are related tickets and relation kinds enumerated?** Or, where `capabilities.related` is `false`, say so plainly.
 
-Then write `types.md`, `links.md`, `config.md`, `provider.py`, and whichever of `fetch.md` / `new.md` / `publish.md` / `drift.md` the capabilities claim. Finally run `sources --check`.
+Then write `types.md`, `links.md`, `config.md`, `provider.py`, and whichever of `fetch.md` / `new.md` / `update.md` / `publish.md` / `drift.md` the capabilities claim. Finally run `sources --check`.
 
 ### What `provider.py` must expose
 
@@ -99,6 +100,8 @@ Then write `types.md`, `links.md`, `config.md`, `provider.py`, and whichever of 
 | `fetch(ctx, extra)`                   | a report dict; writes `raw/` and refreshes `ticket.json`, including its `coordinates`                                                                                                                                                                                    |
 | `new(ctx, title, ticket_type, extra)` | a report dict; creates the ticket directory and `ticket.json`                                                                                                                                                                                                            |
 | `publish(ctx, text, extra)`           | a report dict                                                                                                                                                                                                                                                            |
+| `propose_new(ctx, title, type, extra)` | remote sources with `new`: what `new` would send, built without writing — the front door shows it and requires `--confirm` before calling `new`                                                                                                                         |
+| `propose_update(ctx, extra)` / `update(ctx, extra)` | sources with `update`: the `changes` (`{field, before, after}`) computed from the snapshot, then the write. The front door runs `drift` first and re-fetches after                                                                                          |
 | `drift(ctx, extra)`                   | a report dict carrying `is_stale`; `ticket.py` maps it to exit 0 or 2                                                                                                                                                                                                    |
 | `auth_status(ctx)`                    | a report dict; **never** a credential                                                                                                                                                                                                                                    |
 | `set_parent(ctx, ref, dry_run=False)` | optional; rewrites a stored `parent` in this source's own record, for `move`, raising `TicketError` where it cannot. `dry_run` fails exactly where a real run would and writes nothing, so `move` can check before renaming. Without it, only `ticket.json` is rewritten |
@@ -110,4 +113,4 @@ Then write `types.md`, `links.md`, `config.md`, `provider.py`, and whichever of 
 ## Known limitations, recorded rather than discovered
 
 - **Cross-repository GitHub references (`gh:owner/repo#42`) are out of scope.** A product is bound to one repository and holds its issues at `github/{number}/`, so two repositories' issue #42 would collide in one product. A second repository is a second product; a GitHub Projects board spanning repositories cannot be bound, for the same reason.
-- **Creating an upstream ticket is out of scope** for both remote sources. The door is left open — add a `new.md` and flip the capability.
+- **Assignee, iteration and area path** cannot be set on create or update for either remote source, and **GitHub Projects boards** are not touched.

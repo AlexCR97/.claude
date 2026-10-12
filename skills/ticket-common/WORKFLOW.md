@@ -9,6 +9,8 @@ flowchart LR
     NEW --> REFINE[ticket-refine]
     FETCH --> REFINE
     REFINE -.-> FETCH
+    FETCH -.-> UPDATE[ticket-update]
+    UPDATE -.-> FETCH
     FETCH --> DIGEST[ticket-digest]
     NEW -.-> DIGEST
     DIGEST --> PLAN[ticket-plan]
@@ -24,17 +26,20 @@ flowchart LR
 | ------------------- | ------------------------------------------------------ | ---------------- |
 | `ticket-setup`      | Once per binding, or to create a namespace or product  | None             |
 | `ticket-context`    | Optional; once per session, to work in one product     | a product        |
-| `ticket-create`     | To create a ticket in a local store                    | `init`           |
+| `ticket-create`     | To create a ticket — locally, or upstream after a yes  | `init`           |
 | `ticket-fetch`      | Once per ticket; always re-run after `refine`          | `init`           |
+| `ticket-update`     | To change an upstream ticket's fields; re-fetches      | `fetch`          |
 | `ticket-refine` ⚠️   | Optional; followed by `fetch` where the source has one | `fetch` or `new` |
 | `ticket-digest`     | Once per ticket                                        | `fetch` or `new` |
-| `ticket-plan`       | Once to generate; re-run to view/update progress       | `digest`         |
-| `ticket-implement`  | Once or multiple times for specific phases             | `plan`           |
+| `ticket-plan`       | Once to generate; re-run to view/update progress       | a ticket; it fetches and digests what is missing |
+| `ticket-implement`  | Once or multiple times; only on a ticket branch        | `plan`           |
 | `ticket-checkpoint` | Whenever attention leaves the ticket                   | a ticket on disk |
 | `ticket-resume`     | First thing in a new session on an existing ticket     | a ticket on disk |
 | `ticket-move`       | To re-file a ticket under another product              | a ticket on disk |
 
-⚠️ **`ticket-refine` is experimental** — under active development and not extensively tested. It is also the only skill in the suite that writes to a system outside this machine, so its confirmation gate is load-bearing: it never posts without an explicit yes. Prefer a scratch ticket while trying it out.
+⚠️ **`ticket-refine` is experimental** — under active development and not extensively tested. Prefer a scratch ticket while trying it out.
+
+**Three skills write to a system outside this machine** — `ticket-refine` posts a summary, `ticket-create` creates an upstream ticket, and `ticket-update` changes one. Each has the same load-bearing gate: nothing is written without the user's explicit yes, shown the exact content first.
 
 `fetch` and `digest` each own one output. `plan` and `implement` additionally write any files their research or steps produce along the way. `checkpoint` owns the `journal/` directory outright — it is the only skill that writes it, and `resume` the only one that reads it. `resume` writes nothing at all. See [Data Layout](#data-layout).
 
@@ -59,18 +64,19 @@ Every driver invokes exactly one command — `ticket-common/ticket.py` — so a 
 | `provider.json` — capabilities, prefixes, id shape, nouns    |   ✅   |    ✅     |    ✅    |
 | `config.md` — what is stored, how the credential is acquired |   ✅   |    ✅     |    ✅    |
 | `fetch.md` — how raw data lands on disk                      |   ✅   |    ✅     |    ❌    |
-| `new.md` — how a ticket is created here                      |   ❌   |    ❌     |    ✅    |
+| `new.md` — how a ticket is created here                      |   ✅   |    ✅     |    ✅    |
+| `update.md` — how an upstream ticket is changed              |   ✅   |    ✅     |    ❌    |
 | `schema.md` — where the content is, and the field map        |   ✅   |    ✅     |    ✅    |
 | `types.md` — this source's vocabulary → a canonical type     |   ✅   |    ✅     |    ✅    |
 | `links.md` — ticket / comment / attachment URL patterns      |   ✅   |    ✅     |    ✅    |
 | `publish.md` — where a refinement summary goes               |   ✅   |    ✅     |    ✅    |
 | `drift.md` — how to tell the local snapshot is stale         |   ✅   |    ✅     |    ✅    |
 
-**The two absences are the mechanism, not an oversight.**
+**The absences are the mechanism, not an oversight.**
 
-`local` has no `fetch.md`, and its `capabilities.fetch` is `false` — so `/ticket-fetch local:x` refuses, structurally, with no `if source == "local"` anywhere in any driver. There is nothing upstream to fetch from: a local ticket's `raw/ticket.md` *is* the source of truth.
+`local` has no `fetch.md` and no `update.md`, and its `capabilities.fetch` and `capabilities.update` are `false` — so `/ticket-fetch local:x` and `/ticket-update local:x` refuse, structurally, with no `if source == "local"` anywhere in any driver. There is nothing upstream to fetch from or to change: a local ticket's `raw/ticket.md` *is* the source of truth, and it is edited directly.
 
-Neither remote source has a `new.md` — so `/ticket-create` refuses them, and the absence documents that creating an upstream ticket is out of scope rather than forgotten.
+A source without a `new.md` or `update.md` is refused the same way, with a reported gap: no skill improvises an API call.
 
 A missing role file is always a **reported gap**, never a licence to substitute another source's.
 
@@ -89,6 +95,15 @@ The second modular axis. The source decides how to talk to whatever holds the ti
 A ticket's type is resolved once, by its source's `types.md`, and recorded in `ticket.json`, so every later skill agrees without re-deriving it. Any driver accepts `--type` to override. A native type that maps to nothing falls back to `task` and **says so** — never silently.
 
 The two that carry the most weight are `spike` and `tech-debt`, because each inverts a default: a spike that touched no source file is a **complete** run, and a tech-debt run whose tests needed editing to pass is a **failure to report**, not progress.
+
+## Git, branches and worktrees
+
+Skills may run any git or `gh` operation **except one that writes to a protected branch**. The protected branches are the repository's default branch plus any listed in `protected_branches` in the config (which cascades root, namespace, product). One shared guard, reached as `ticket.py guard`, decides — skills ask it rather than restating the rule. The full policy is in [`GUARD.md`](./GUARD.md), and the reasoning in [ADR 0001](../../docs/adr/0001-protected-branches-are-read-and-fast-forward-only.md).
+
+- **`ticket-plan`** fetches, then shows each candidate worktree with its branch and how many commits it is behind the default branch. It offers a new **ticket branch** and **ticket worktree** cut from the up-to-date default branch only when no existing worktree is a current non-protected branch. Planning against an up-to-date `main` worktree changes nothing in it.
+- **`ticket-implement`** refuses to start while a workspace worktree has a protected branch checked out, and offers one ticket branch and worktree per repository the phases change. The plan's Workspace section is rewritten to match, with a one-line note saying why.
+- **Ticket branches** are named `{prefix}/{id}-{title-slug}` — `feat` for a user story or task, `fix` for a bug, `spike`, `chore` for tech debt — and live in `{repository}/.worktrees/`, or under `worktree_root` when it is configured. The name is a label: no skill infers a ticket from a branch name.
+- **Committing and pushing** on a non-protected branch happens only when the developer asks.
 
 ## Namespaces and Products
 
@@ -200,7 +215,7 @@ flowchart TD
     ORIGIN -->|"Yes — remote source"| FETCH
     ORIGIN -->|"No — my own work"| NEW
 
-    NEW["/ticket-create #quot;title#quot; --type {type}\n────────────────\nCreates raw/ticket.md + ticket.json\nSeeds the body from ticket-types/{type}.md\nChains straight into refine\n\nLocal stores only"]
+    NEW["/ticket-create #quot;title#quot; --type {type}\n────────────────\nLocal: creates raw/ticket.md + ticket.json\nUpstream: shows the proposal, then creates it\nonly on an explicit yes, and fetches it\nSeeds the body from ticket-types/{type}.md\nChains straight into refine"]
 
     FETCH["/ticket-fetch {ref}\n────────────────\nDownloads the snapshot to raw/\nKeeps attachments already on disk\nRefreshes ticket.json incl. the resolved type\n\nRemote sources only"]
 
@@ -224,11 +239,11 @@ flowchart TD
 
     DIGEST --> PLAN
 
-    PLAN["/ticket-plan {ref}\n────────────────\nReads digest.md + artifacts/ + the type file\nDiscovers the workspace from its scan roots:\nrepositories, worktrees & projects\nResearches unknowns → artifacts/planning/\nApplies the type's phase shape & activity mix\nWrites phased plan.md\n\nRe-running shows progress & updates"]
+    PLAN["/ticket-plan {ref}\n────────────────\nFetches and digests whatever is missing\nFetches the code; reports each worktree's staleness\nOffers a ticket worktree if none is current\nDiscovers the workspace from its scan roots:\nrepositories, worktrees & projects\nResearches unknowns → artifacts/planning/\nApplies the type's phase shape & activity mix\nWrites phased plan.md\n\nRe-running shows progress & updates"]
 
     PLAN --> IMPLEMENT
 
-    IMPLEMENT["/ticket-implement {ref} [phases|all]\n────────────────\nReads plan.md + digest.md + artifacts/\nImplements one, several, or all phases\nProbes, outputs & notes → artifacts/step-N.M/\nBuilds affected projects after each phase\nChecks the type's completion rule\n\nSource-agnostic; never touches the journal"]
+    IMPLEMENT["/ticket-implement {ref} [phases|all]\n────────────────\nRefuses a protected branch; offers a ticket worktree\nReads plan.md + digest.md + artifacts/\nImplements one, several, or all phases\nProbes, outputs & notes → artifacts/step-N.M/\nBuilds affected projects after each phase\nChecks the type's completion rule\n\nSource-agnostic; never touches the journal"]
 
     IMPLEMENT --> PHASES_DONE{"All phases\ncomplete?"}
     PHASES_DONE -->|Yes| END([Done])
