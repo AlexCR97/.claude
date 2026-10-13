@@ -14,6 +14,10 @@ Read by `ticket-digest`, `ticket-plan` and `ticket-checkpoint`.
 
 The patterns above are the fallback, and they assume the public host. Take `{owner}/{name}` from `ticket.json`'s `coordinates` — `owner` and `repository` — or else the `coordinates` the resolver reports.
 
+## A pasted address resolves to its issue
+
+`https://github.com/{owner}/{repository}/issues/{number}` resolves with no `github:` prefix — `http`, `www.`, a trailing slash, a query, a fragment or a comment anchor all reach the same ticket, which is recorded under the canonical issue address. A `/pull/{number}` address is refused as not an issue. The repository's own binding files the ticket, so a repository that is not bound yet is reported with how to bind it.
+
 ## A comment anchor needs the comment's id
 
 Not its position in the thread. The id is on each comment in the fetched data.
