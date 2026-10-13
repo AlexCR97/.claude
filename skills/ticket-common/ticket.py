@@ -664,7 +664,10 @@ def verb_drift(args: argparse.Namespace) -> int:
 
 def verb_prepare(args: argparse.Namespace) -> int:
     """
-    What a plan must do first: fetch what was never fetched, digest what was never digested.
+    What a skill must do first: fetch what was never fetched, digest what was never digested.
+
+    `--for digest` stops at the fetch: a digest is what that skill writes, and
+    refreshing an existing one is not its call to make.
 
     A snapshot and a digest only ever write inside the ticket directory, so
     they need no confirmation. Refreshing a digest that already exists does,
@@ -679,11 +682,12 @@ def verb_prepare(args: argparse.Namespace) -> int:
     steps: list[str] = []
     if capabilities.get("fetch") and not survey["raw"]:
         steps.append("fetch")
-    if not survey["digest"]:
+    for_digest = args.for_skill == "digest"
+    if not for_digest and not survey["digest"]:
         steps.append("digest")
 
     drift_report = None
-    if not steps and capabilities.get("drift"):
+    if not for_digest and not steps and capabilities.get("drift"):
         module = provider_for(location.source, "drift")
         drift_report = module.drift(ticket_context(location, target.address), [])
 
@@ -1252,9 +1256,10 @@ def build_parser() -> argparse.ArgumentParser:
     add_context(p)
 
     p = sub.add_parser(
-        "prepare", help="what ticket-plan must fetch or digest before it can plan"
+        "prepare", help="what ticket-plan or ticket-digest must fetch or digest first"
     )
     p.add_argument("ref")
+    p.add_argument("--for", dest="for_skill", choices=("plan", "digest"), default="plan")
     p.add_argument("--source")
     add_restrict(p, "only look in, and only file under, this namespace or product")
     add_context(p)
