@@ -1,6 +1,6 @@
 # local — schema
 
-Read by `ticket-digest` and `ticket-refine`. Answers the six questions in `ticket-providers/README.md`.
+Read by `ticket-digest`. Answers the six questions in `ticket-providers/README.md`.
 
 ## 1. Where the content lives
 
@@ -32,7 +32,7 @@ A small frontmatter block sits at the top, fenced by `---`, holding flat `key: v
 
 ## 4. Comments, mentions and cross-references
 
-The `## Comments` section. Each comment is a `###` sub-heading, newest last — appended in file order, which is chronological because nothing reorders them. Hand-written only: `/ticket-refine` no longer posts here — see `publish.md` for where a refinement's conclusions land instead.
+The `## Comments` section. Each comment is a `###` sub-heading, newest last — appended in file order, which is chronological because nothing reorders them. Hand-written only.
 
 | Concept         | How it is recognized                                                                                                               |
 | --------------- | ---------------------------------------------------------------------------------------------------------------------------------- |

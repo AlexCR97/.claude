@@ -16,7 +16,7 @@ because those do not change when it is filed somewhere else.
 from datetime import datetime, timezone
 from pathlib import Path
 
-from . import config, layout
+from . import config, journal, layout
 from .layout import Location, Scope
 
 FILENAME = "ticket.json"
@@ -70,7 +70,7 @@ def on_disk(location: Location, usable: bool) -> dict:
         "ticket_json": (root / FILENAME).is_file(),
         "digest": (root / "digest.md").is_file(),
         "plan": (root / "plan.md").is_file(),
-        "journal": (root / "journal.md").is_file(),
+        "journal": bool(journal.entries(location)),
         "raw": raw_dir.is_dir() and any(raw_dir.iterdir()),
         "artifacts": (root / "artifacts").is_dir(),
         "config": usable,
@@ -104,7 +104,8 @@ def list_all(scope: Scope | None = None) -> list[dict]:
                 "path": str(root),
                 "last_touched": newest_mtime(root),
                 "has_plan": (root / "plan.md").is_file(),
-                "has_journal": (root / "journal.md").is_file(),
+                "has_journal": bool(journal.entries(location)),
+                "last_journal_entry": last_entry_at(location),
                 "has_digest": (root / "digest.md").is_file(),
             }
         )
@@ -113,10 +114,18 @@ def list_all(scope: Scope | None = None) -> list[dict]:
     return entries
 
 
+def last_entry_at(location: Location) -> str | None:
+    newest = journal.latest(location)
+    return journal.timestamp_of(newest) if newest else None
+
+
 def newest_mtime(directory: Path) -> str | None:
     newest = 0.0
-    for candidate in ("journal.md", "plan.md", "digest.md", FILENAME):
-        path = directory / candidate
+    newest_entry = journal.entries_in(directory)[-1:]
+    for path in (
+        *newest_entry,
+        *(directory / name for name in ("plan.md", "digest.md", FILENAME)),
+    ):
         try:
             newest = max(newest, path.stat().st_mtime)
         except OSError:

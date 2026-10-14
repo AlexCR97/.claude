@@ -1,11 +1,11 @@
 ---
 name: ticket-fetch
-description: Fetches or refreshes a ticket's raw data — fields, comments, attachments, related tickets — from its remote source into the ticket's raw/ directory. Required before ticket-refine or ticket-digest.
+description: Fetches or refreshes a ticket's raw data — fields, comments, attachments, related tickets — from its remote source into the ticket's raw/ directory. Required before ticket-digest.
 argument-hint: "<ref> [--in namespace[/product]]"
 allowed-tools: Read Bash(python *ticket.py:*)
 ---
 
-Downloads everything a remote source knows about a ticket into the ticket's `raw/` directory, so `ticket-refine` and `ticket-digest` work offline from one consistent snapshot. Run it again at any time to refresh the snapshot.
+Downloads everything a remote source knows about a ticket into the ticket's `raw/` directory, so `ticket-digest` works offline from one consistent snapshot. Run it again at any time to refresh the snapshot.
 
 End state: a complete, fresh `raw/` and a refreshed `ticket.json`, plus a report of where the ticket is filed, any filing the fetch contradicts, any type note, and every attachment that failed to download.
 

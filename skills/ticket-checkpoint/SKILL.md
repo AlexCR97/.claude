@@ -1,13 +1,13 @@
 ---
 name: ticket-checkpoint
-description: Records the current session's state on a ticket as an entry in journal.md — where the code is, what was done, what was decided and why, what is blocking, and the single next action. Run it before switching away from a ticket so a later /ticket-resume can pick the work up.
+description: Records the current session's state on a ticket as a new entry in the ticket's journal — where the code is, what was done, what was decided and why, what is blocking, and the single next action. Run it before switching away from a ticket so a later /ticket-resume can pick the work up.
 argument-hint: "[ref] [note]"
 allowed-tools: Read Write Edit Bash(python *ticket.py:*) Bash(python *collect-git-state.py:*)
 ---
 
-Records the current session's state on a ticket as a new entry at the top of its `journal.md` — where the code is, what was done, what was decided and why, what is blocking, and the single next action — so a later `/ticket-resume` can pick the work up. `plan.md` records what the work is; it cannot record what a session learned, and that dies with the session unless this skill writes it down. It is the only skill that writes `journal.md`, so an unrecorded session leaves nothing behind but its step statuses.
+Records the current session's state on a ticket as a new entry file in its `journal/` directory — where the code is, what was done, what was decided and why, what is blocking, and the single next action — so a later `/ticket-resume` can pick the work up. `plan.md` records what the work is; it cannot record what a session learned, and that dies with the session unless this skill writes it down. It is the only skill that writes the journal, so an unrecorded session leaves nothing behind but its step statuses.
 
-End state: one new entry at the top of `journal.md`, every existing entry untouched, any stale `**Status:**` line in `plan.md` corrected, and nothing else changed.
+End state: one new file in `journal/` — after a legacy `journal.md` is migrated into entries and kept as `journal.md.bak` — every existing entry untouched, any stale `**Status:**` line in `plan.md` corrected, the ticket's pull request record refreshed, and nothing else changed.
 
 This skill is a **driver**: it contains no field names, URLs, API versions, credential commands, markup dialects, or type-specific rules of its own. Everything specific lives alongside it in three directories, and each step names the file to read.
 
@@ -31,8 +31,8 @@ A fact that needs a particular ticket system belongs in `ticket-providers/{sourc
 ## Ground rules
 
 1. **Record state; change no code.** Never create, edit or delete a source code file.
-2. **Write only `journal.md`**, plus the `**Status:**` lines and Progress rows in `plan.md` that Step 6 corrects. Never touch `digest.md`, `raw/` or anything under `artifacts/`.
-3. **Run only read-only commands.** `collect-git-state.py` and `ticket.py` are read-only; never run `git fetch`, `pull`, `add`, `stash` or any other command that changes repository state — the developer decides when to commit, stash or push.
+2. **Write only a new journal entry**, or the migration of a legacy `journal.md` that precedes it, plus the `**Status:**` lines and Progress rows in `plan.md` that Step 6 corrects and the `pulls.md` that Step 7 refreshes. Never touch `digest.md`, `raw/` or anything under `artifacts/`.
+3. **Change no repository state.** `collect-git-state.py` only reads, and the only `ticket.py` verbs that write are `journal` and `pulls`. Run git only as `ticket-common/GUARD.md` allows, and never commit, stash or push — the developer decides when.
 4. **Record local state only.** Never re-fetch the ticket or check its source; `/ticket-resume` is what checks for drift.
 
 ---
@@ -43,9 +43,9 @@ A fact that needs a particular ticket system belongs in `ticket-providers/{sourc
 
 With a session context, pass `--context {context}` on every `ticket.py` call below that takes one and open the first output line with `Ticket context: {context}` — `ticket-common/RESOLUTION.md` → *The session context* covers overrides.
 
-Take `[ref]` from the invocation, or else the ticket this session has been working on — a `/ticket-implement` or `/ticket-resume` run earlier in the conversation, or a `plan.md` already read. Never infer it from the branch name: a wrong guess attaches a session's account of itself to the wrong ticket, and `journal.md` is the one file nothing can regenerate.
+Take `[ref]` from the invocation, or else the ticket this session has been working on — a `/ticket-implement` or `/ticket-resume` run earlier in the conversation, or a `plan.md` already read. Never infer it from the branch name: a wrong guess attaches a session's account of itself to the wrong ticket, and the journal is the one record nothing can regenerate.
 
-**Failing both, ask. Never guess.** Run `python "{skills}/ticket-common/ticket.py" list [--context {context}]` and print the candidates as a table with **Product** and **Source** columns, each with its title and the modification times of its `journal.md` and `plan.md`, newest first. With a session context, print only the tickets whose `in_context` is true, and say how many are outside it with an offer to show them all. Then ask which to checkpoint.
+**Failing both, ask. Never guess.** Run `python "{skills}/ticket-common/ticket.py" list [--context {context}]` and print the candidates as a table with **Product** and **Source** columns, each with its title and its latest journal entry's date (`last_journal_entry`) and `plan.md`'s modification time, newest first. With a session context, print only the tickets whose `in_context` is true, and say how many are outside it with an offer to show them all. Then ask which to checkpoint.
 
 ```bash
 python "{skills}/ticket-common/ticket.py" resolve "{ref}" --require ticket_dir [--context {context}]
@@ -111,9 +111,21 @@ When nothing is pending — every phase done — write that plainly: `**Next:** 
 
 Read [`journal-template.md`](./journal-template.md) and follow its structure: fill every `{camelCase}` placeholder, and replace every `<!-- guidance -->` comment with the content it asks for.
 
-**If `journal.md` does not exist**, create it with the header from the template — the title line and the note about entry ordering — then write this entry as the first one. `{ticketUrl}` is `ticket.json`'s `url`; where it is `null`, write the title as plain text rather than a broken link.
+Write the entry body to a scratch file outside the ticket directory — the system temp directory — then create the entry with the resolver:
 
-**If it exists**, insert the new entry immediately after the header block, above the existing newest entry, separated by `---`. Entries run newest first so the current state is the top of the file rather than the end of a growing scroll.
+```bash
+python "{skills}/ticket-common/ticket.py" journal write {ref} --file {scratch}
+```
+
+The resolver names the new file `journal/{UTC timestamp}.md`, never opens an existing entry for writing, and moves a same-second collision to the next free second. Each entry is a file of its own, so there is no header to maintain and no ordering to keep. `{ticketUrl}` is `ticket.json`'s `url`; where it is `null`, write the title as plain text rather than a broken link.
+
+**A ticket that still has a single `journal.md`** is migrated first, so its history is kept as entries and the latest is easy to find:
+
+```bash
+python "{skills}/ticket-common/ticket.py" journal migrate {ref}
+```
+
+The original is kept beside it as `journal.md.bak`.
 
 Rules for an entry:
 
@@ -121,6 +133,7 @@ Rules for an entry:
 - Name the phase and step the session was in, so the heading alone locates the work.
 - `**Where:**`, `**Worktree state:**`, `**Stopped at:**` and `**Next:**` are always present. Where a fact is unavailable, say so explicitly rather than omitting the line.
 - Omit any of the `### Done`, `### Decisions`, `### Inferences`, `### Open questions` and `### Blockers` sections that would be empty. Do not pad an entry with a heading over nothing.
+- **Carry forward what is still open.** Copy every question and blocker from the previous entry that is not resolved into this one, so the latest entry stands alone. Drop one only when this session resolved it, and say how under `### Decisions`.
 - **Never edit or delete an existing entry.** A session's account of itself is not regenerable — the one thing here that no later run can reconstruct. A correction is a new entry saying what it corrects.
 - **Write a reference to another ticket the way a stored one is written**: short (`{source}:{id}`) when it is filed in the same product as this ticket, qualified (`{namespace}/{product}/{source}:{id}`) when it is not — `ticket-common/RESOLUTION.md` → *How a reference resolves*.
 - **Do not record where this ticket is filed.** Its directory already says so, and an entry that did would go stale on the first `/ticket-move` with no way to correct it.
@@ -138,6 +151,20 @@ The vocabulary, the note rules and the phase-derivation table are in `ticket-com
 
 If no status line needs changing, leave `plan.md` untouched.
 
-### Step 7 — Report
+### Step 7 — Record and refresh the pull requests
 
-Report in two lines at most. Do not print the entry body in chat — it was just written to a file the user can open. The first line names the ticket, the `journal.md` path, the phase and step, and the Next line condensed; the second names each step Step 6 changed and its new status, or says `plan.md` is unchanged.
+A pull request opened or named in this session that delivers this ticket belongs in its pull request record. Record each one by address, then discover any the plan's worktrees already have, then refresh every status:
+
+```bash
+python "{skills}/ticket-common/ticket.py" pulls add "{ref}" "{url}"
+python "{skills}/ticket-common/ticket.py" pulls discover "{ref}"
+python "{skills}/ticket-common/ticket.py" pulls refresh "{ref}"
+```
+
+A pull request counts for this ticket when it was opened for it in this session, or the user said it was. Never record one because its branch looks like the ticket; `discover` matches only the branches the Workspace section of `plan.md` lists. Where it is unclear which ticket a pull request belongs to, ask.
+
+On a non-zero exit from `refresh`, report its message: the previous statuses were kept and the record says the refresh failed. Do not retry in a loop, and do not stop the checkpoint — the entry is already written.
+
+### Step 8 — Report
+
+Report in two lines at most. Do not print the entry body in chat — it was just written to a file the user can open. The first line names the ticket, the new entry's path, the phase and step, and the Next line condensed; the second names each step Step 6 changed and its new status, or says `plan.md` is unchanged. Where the pull request record changed, add the number of pull requests it lists, or that its refresh failed.

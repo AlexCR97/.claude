@@ -4,7 +4,7 @@
 
 A task is a **bounded change that is already understood**. Someone has decided what to do; the work is doing it. There is no user whose experience changes in a way worth describing, no defect to reproduce, and no question to answer.
 
-This is the lightest file in the directory on purpose. A task's whole risk is ceremony: running a five-round refinement and a six-phase plan over forty minutes of work costs more than the work. **The correct output for most tasks is a single phase with two or three steps.**
+This is the lightest file in the directory on purpose. A task's whole risk is ceremony: running a long interview and a six-phase plan over forty minutes of work costs more than the work. **The correct output for most tasks is a single phase with two or three steps.**
 
 It is also the fallback. When a source's native type maps to nothing, the type is `task` — and the driver says so in one line rather than silently.
 
@@ -12,7 +12,7 @@ A task may optionally belong to **one parent user story** — the story it helps
 
 ---
 
-## What refine must establish
+## What the ticket must establish
 
 Two things almost always, and a third when this task is part of a larger story:
 
@@ -60,4 +60,4 @@ Do not add an acceptance bar the ticket did not ask for.
 
 Code changes and the driver's standard report.
 
-Where the task turned out to be larger than its description — the boundary refine agreed on did not hold — that is worth reporting explicitly. A task that grew is usually a story or a piece of tech debt that was labelled wrong, and saying so is more useful than quietly absorbing the extra work.
+Where the task turned out to be larger than its description — the boundary the ticket drew did not hold — that is worth reporting explicitly. A task that grew is usually a story or a piece of tech debt that was labelled wrong, and saying so is more useful than quietly absorbing the extra work.

@@ -11,7 +11,6 @@ references uploaded files by URL with no enumerable attachment list.
 import argparse
 import json
 import re
-import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -43,6 +42,15 @@ LABEL_TYPE_MAP = {
 }
 
 FALLBACK_TYPE = "task"
+
+# The label that makes `LABEL_TYPE_MAP` read a created issue back as the type it
+# was created as. A task has none: it is what an unlabelled issue falls back to.
+NATIVE_LABEL_BY_TYPE = {
+    "bug": "bug",
+    "spike": "spike",
+    "tech-debt": "tech-debt",
+    "user-story": "enhancement",
+}
 
 _gh = providers.load_private(SOURCE, "_gh")
 
@@ -189,39 +197,162 @@ def fetch(ctx: dict, extra: list[str]) -> dict:
     }
 
 
-def publish(ctx: dict, text: str, extra: list[str]) -> dict:
+def propose_new(ctx: dict, title: str, ticket_type: str | None, extra: list[str]) -> dict:
+    """What `new` would send, built without touching GitHub."""
+    parser = argparse.ArgumentParser(prog="ticket.py new --source github")
+    parser.add_argument("--body-file")
+    parser.add_argument("--criteria-file")
+    parser.add_argument("--label", action="append", default=[])
+    args = parser.parse_args(extra)
+
     repo = _gh.repository(ctx)
-    _gh.require_auth()
+    description = read_text(args.body_file)
+    criteria = read_text(args.criteria_file)
+    body = description
+    if criteria:
+        body = f"{description}\n\n## Acceptance Criteria\n\n{criteria}".strip()
 
-    # `gh issue comment` takes a file rather than an argument, which also keeps
-    # a long markdown body off the command line.
-    with tempfile.NamedTemporaryFile(
-        "w", suffix=".md", delete=False, encoding="utf-8"
-    ) as handle:
-        handle.write(text)
-        body_path = Path(handle.name)
+    labels = list(args.label)
+    native = NATIVE_LABEL_BY_TYPE.get(ticket_type or "")
+    if native and native.lower() not in (label.lower() for label in labels):
+        labels.append(native)
 
-    try:
-        code, stdout, stderr = _gh.run(
-            [
-                "issue",
-                "comment",
-                str(ctx["id"]),
-                "--repo",
-                repo,
-                "--body-file",
-                str(body_path),
-            ]
-        )
-    finally:
-        body_path.unlink(missing_ok=True)
+    return {
+        "repository": repo,
+        "title": title,
+        "type": ticket_type,
+        "native_type": native,
+        "labels": labels,
+        "body": body,
+        "parent": None,
+    }
 
-    if code != 0:
+
+def read_text(path: str | None) -> str:
+    if not path:
+        return ""
+    source = Path(path).expanduser()
+    if not source.is_file():
+        raise TicketError(f"file not found: {source}", EXIT_ERROR)
+    return source.read_text(encoding="utf-8").strip()
+
+
+def new(ctx: dict, title: str, ticket_type: str | None, extra: list[str]) -> dict:
+    proposal = propose_new(ctx, title, ticket_type, extra)
+    issue = _gh.post(
+        f"repos/{proposal['repository']}/issues",
+        {"title": title, "body": proposal["body"], "labels": proposal["labels"]},
+    )
+    if not isinstance(issue, dict) or not issue.get("number"):
+        raise TicketError("GitHub did not report the number of the issue it created")
+    return {"id": str(issue["number"]), "url": issue.get("html_url"), **proposal}
+
+
+ACCEPTANCE_HEADING = re.compile(r"^(#{2,3})[ \t]+acceptance criteria[ \t]*$", re.IGNORECASE | re.MULTILINE)
+
+
+def split_body(body: str) -> tuple[str, str, str, str]:
+    """
+    An issue body as (description, acceptance criteria, what follows them, heading marker).
+
+    An issue has no field for acceptance criteria, so they are the section under
+    an `## Acceptance Criteria` heading, ending at the next heading of the same
+    or a higher level.
+    """
+    found = ACCEPTANCE_HEADING.search(body)
+    if not found:
+        return body.strip(), "", "", "##"
+    level = len(found.group(1))
+    after = body[found.end() :]
+    following = re.search(rf"^#{{1,{level}}}[ \t]", after, re.MULTILINE)
+    criteria = after[: following.start()] if following else after
+    tail = after[following.start() :] if following else ""
+    return body[: found.start()].strip(), criteria.strip(), tail.strip(), found.group(1)
+
+
+def join_body(description: str, criteria: str, tail: str, marker: str) -> str:
+    parts = [description] if description else []
+    if criteria:
+        parts.append(f"{marker} Acceptance Criteria\n\n{criteria}")
+    if tail:
+        parts.append(tail)
+    return "\n\n".join(parts)
+
+
+def propose_update(ctx: dict, extra: list[str]) -> dict:
+    """
+    The before and after of an update, built from the local snapshot and written nowhere.
+
+    `before` is the snapshot, which the front door has already checked is not
+    stale, so the diff is against what is really upstream.
+    """
+    parser = argparse.ArgumentParser(prog="ticket.py update (github)")
+    parser.add_argument("--title")
+    parser.add_argument("--description-file")
+    parser.add_argument("--criteria-file")
+    parser.add_argument("--state", choices=("open", "closed"))
+    parser.add_argument("--add-label", action="append", default=[])
+    parser.add_argument("--remove-label", action="append", default=[])
+    args = parser.parse_args(extra)
+
+    repo = _gh.repository(ctx)
+    raw = config.read_json(ctx["location"].dir / "raw" / "raw.json")
+    issue = raw.get("issue") or {}
+    if not issue:
         raise TicketError(
-            f"could not post the comment — {stderr.strip() or f'exit code {code}'}"
+            f"no fetched data for {repo}#{ctx['id']}",
+            EXIT_ERROR,
+            f"Run `/ticket-fetch github:{ctx['id']}` first.",
         )
 
-    return {"repository": repo, "url": stdout.strip() or None}
+    description, criteria, tail, marker = split_body(issue.get("body") or "")
+    labels = [str((label or {}).get("name") or "") for label in issue.get("labels") or []]
+
+    new_description = read_text(args.description_file) if args.description_file else description
+    new_criteria = read_text(args.criteria_file) if args.criteria_file else criteria
+    new_labels = [
+        label for label in labels if label.lower() not in {l.lower() for l in args.remove_label}
+    ]
+    new_labels += [
+        label for label in args.add_label if label.lower() not in {l.lower() for l in new_labels}
+    ]
+
+    after = {
+        "title": args.title if args.title is not None else issue.get("title"),
+        "description": new_description,
+        "acceptance_criteria": new_criteria,
+        "state": args.state or issue.get("state"),
+        "labels": new_labels,
+    }
+    before = {
+        "title": issue.get("title"),
+        "description": description,
+        "acceptance_criteria": criteria,
+        "state": issue.get("state"),
+        "labels": labels,
+    }
+    changes = [
+        {"field": field, "before": before[field], "after": after[field]}
+        for field in before
+        if before[field] != after[field]
+    ]
+
+    payload: dict = {}
+    for field in ("title", "state", "labels"):
+        if before[field] != after[field]:
+            payload[field] = after[field]
+    if before["description"] != after["description"] or before["acceptance_criteria"] != after["acceptance_criteria"]:
+        payload["body"] = join_body(new_description, new_criteria, tail, marker)
+
+    return {"repository": repo, "changes": changes, "payload": payload}
+
+
+def update(ctx: dict, extra: list[str]) -> dict:
+    proposal = propose_update(ctx, extra)
+    if not proposal["payload"]:
+        return {**proposal, "written": False}
+    _gh.patch(f"repos/{proposal['repository']}/issues/{ctx['id']}", proposal["payload"])
+    return {**proposal, "written": True}
 
 
 def drift(ctx: dict, extra: list[str]) -> dict:

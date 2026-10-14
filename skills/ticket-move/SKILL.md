@@ -31,8 +31,8 @@ A fact that needs a particular ticket system belongs in `ticket-providers/{sourc
 ## Ground rules
 
 1. **Never move without the dry run and an explicit yes.** Show the dry run first; anything short of yes moves nothing.
-2. **Rename; never copy or merge.** `journal.md` cannot be regenerated, and a rename carries every byte of it or none — never into an existing ticket directory.
-3. **Never rewrite a link, and never edit `journal.md`.** Report every broken link instead.
+2. **Rename; never copy or merge.** The journal cannot be regenerated, and a rename carries every byte of it or none — never into an existing ticket directory.
+3. **Never rewrite a link, and never edit a journal entry.** Report every broken link instead.
 4. **Never re-file a ticket under a product bound to other coordinates than its own.**
 5. **Never infer the ticket from the branch name.** Use the argument, or ask.
 
@@ -100,6 +100,6 @@ Report that the ticket moved from `from` to `to`, and its new directory `to_dir`
 
 - The references rewritten.
 - **Every reference that could not be rewritten**, when `result` is `moved_with_errors`: each entry in `references_failed`, with the `parent` it should now hold and why it failed, so it can be set by hand. The ticket has moved either way.
-- The links left broken, by file, with the replacement for each, so they can be fixed by hand. For a link inside `journal.md`, say that journal entries are never edited, so it stays as written.
+- The links left broken, by file, with the replacement for each, so they can be fixed by hand. For a link inside a journal entry, say that journal entries are never edited, so it stays as written.
 - When a session context is set and the ticket is now outside it, say so.
 - How to undo it: move it back with `/ticket-move`, from `to` to the product in `from`.

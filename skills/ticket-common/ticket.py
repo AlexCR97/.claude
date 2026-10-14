@@ -21,9 +21,15 @@ Usage:
     python ticket.py init --in NS[/PRODUCT]
     python ticket.py fetch <ref> [--source S] [--in X] [--context X]
     python ticket.py new --source S --title "..." [--id SLUG] [--type T] [--in X] [--context X] [--propose] [provider flags...]
-    python ticket.py publish <ref> --file F [--delete-after-post]
     python ticket.py drift <ref>
+    python ticket.py prepare <ref>
+    python ticket.py update <ref> [--propose | --confirm] [provider flags...]
     python ticket.py move <ref> --to NS/PRODUCT [--dry-run]
+    python ticket.py guard check --op OP [--branch B] [--repo DIR] [--in X] | protected [--branch B] [--repo DIR] | fast-forward --branch B [--repo DIR]
+    python ticket.py worktree survey|propose|create|adopt <ref> --repo DIR [--repo DIR ...] [--add-ignore]
+    python ticket.py script-check <file> [--in X] [--context X]
+    python ticket.py journal write <ref> --file F [--at ISO] | latest <ref> | list <ref> | migrate <ref>
+    python ticket.py pulls add <ref> URL | refresh <ref> | discover <ref>
     python ticket.py auth-status [--source S] [--in X]
     python ticket.py scan-roots [--in NS[/PRODUCT]] [--set [DIR ...]]
 
@@ -36,6 +42,7 @@ Exit codes:
     1  error / not initialized
     2  `--require` unmet, or `drift` found the ticket moved
     3  ambiguous reference or filing, or the source declares this capability absent
+    4  `guard check` refused the operation, or `guard fast-forward` could not do it safely
     5  ticket, namespace or product not found
 """
 
@@ -58,17 +65,25 @@ from ticketlib import (
     bindings,
     config,
     filing,
+    guard,
+    journal,
     layout,
     moves,
     paths,
     providers,
+    pulls,
+    scripteffect,
     sources,
     tickets,
+    worktrees,
+    workspace,
 )
 from ticketlib.errors import (
+    EXIT_DRIFTED,
     EXIT_ERROR,
     EXIT_NOT_FOUND,
     EXIT_OK,
+    EXIT_REFUSED,
     TicketError,
 )
 from ticketlib.layout import Location, Product, Scope
@@ -519,6 +534,9 @@ def verb_new(args: argparse.Namespace) -> int:
     if not args.title:
         raise TicketError("--title is required", EXIT_ERROR)
 
+    if providers.load_manifest(source).get("kind") == "remote":
+        return new_remote(args, source, module, restrict, context)
+
     ticket_id = args.id or slugify(args.title)
     if not ticket_id:
         raise TicketError(
@@ -562,29 +580,70 @@ def verb_new(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
-def verb_publish(args: argparse.Namespace) -> int:
-    location = require_filed(locate(args))
-    module = provider_for(location.source, "publish")
+def new_remote(args, source, module, restrict, context) -> int:
+    """
+    Create a ticket in a system that assigns its own id, then file the fetched result.
 
-    # Neither Python nor a quoted shell argument expands a leading ~.
-    comment_path = Path(args.file).expanduser()
-    if not comment_path.is_file():
-        raise TicketError(f"comment file not found: {comment_path}", EXIT_NOT_FOUND)
+    Nothing is written upstream without `--confirm`: the ticket outlives this
+    session and is visible to everyone who can see the project. The id is only
+    known once the system has made it, so the ticket is fetched and filed under
+    that, exactly as any other fetched ticket.
+    """
+    if not args.type:
+        raise TicketError(
+            "--type is required to create a ticket upstream",
+            EXIT_ERROR,
+            "Ask the user; the type decides the native type it is created as.",
+        )
+    known = providers.list_types()
+    if known and args.type not in known:
+        raise TicketError(
+            f"unknown ticket type '{args.type}'", EXIT_ERROR, "Known types: " + ", ".join(known) + "."
+        )
 
-    text = comment_path.read_text(encoding="utf-8").strip()
-    if not text:
-        raise TicketError(f"comment file is empty: {comment_path}", EXIT_ERROR)
+    choice = filing.choose(source, restrict=restrict, context=context, cwd=Path.cwd())
+    ctx = sources.provider_context(source, choice.product)
+    proposal = module.propose_new(ctx, args.title, args.type, args.extra)
 
-    result = module.publish(ticket_context(location), text, args.extra)
-    result.setdefault("source", location.source)
-    result.setdefault("id", location.id)
-    result["qualified_ref"] = location.qualified
+    if args.propose:
+        emit(
+            {
+                "source": source,
+                "product": choice.product.ref,
+                "filing": choice.as_dict(),
+                "proposal": proposal,
+                "confirmation_required": True,
+            }
+        )
+        return EXIT_OK
 
-    if args.delete_after_post:
-        comment_path.unlink()
-        result["deleted"] = str(comment_path)
+    if not args.confirm:
+        raise TicketError(
+            f"creating a {source} ticket writes to a remote system and needs explicit confirmation",
+            EXIT_REFUSED,
+            "Show the proposal (`--propose`), and re-run with --confirm only after the user says yes.",
+        )
 
-    emit(result)
+    created = module.new(ctx, args.title, args.type, args.extra)
+    location = Location(choice.product, source, str(created["id"]))
+    fetch_ctx = sources.provider_context(
+        source, choice.product, location, ctx["coordinates"]
+    )
+    (location.dir / "raw").mkdir(parents=True, exist_ok=True)
+    fetched = module.fetch(fetch_ctx, [])
+    tickets.update(location, type=args.type)
+    if created.get("parent"):
+        tickets.update(location, parent=created["parent"])
+
+    emit(
+        {
+            **location_report(sources.Target(location, filed=False, filing=choice)),
+            "created": created,
+            "fetched": fetched,
+            "paths": location.paths(),
+            "ticket_json": tickets.load(location),
+        }
+    )
     return EXIT_OK
 
 
@@ -601,6 +660,293 @@ def verb_drift(args: argparse.Namespace) -> int:
     from ticketlib.errors import EXIT_DRIFTED
 
     return EXIT_DRIFTED if result.get("is_stale") else EXIT_OK
+
+
+def verb_prepare(args: argparse.Namespace) -> int:
+    """
+    What a skill must do first: fetch what was never fetched, digest what was never digested.
+
+    `--for digest` stops at the fetch: a digest is what that skill writes, and
+    refreshing an existing one is not its call to make.
+
+    A snapshot and a digest only ever write inside the ticket directory, so
+    they need no confirmation. Refreshing a digest that already exists does,
+    because it may have been refined by hand — `ask_before_refresh` says so.
+    """
+    target = locate(args)
+    location = target.location
+    manifest = providers.load_manifest(location.source)
+    capabilities = manifest.get("capabilities") or {}
+    survey = tickets.on_disk(location, True)
+
+    steps: list[str] = []
+    if capabilities.get("fetch") and not survey["raw"]:
+        steps.append("fetch")
+    for_digest = args.for_skill == "digest"
+    if not for_digest and not survey["digest"]:
+        steps.append("digest")
+
+    drift_report = None
+    if not for_digest and not steps and capabilities.get("drift"):
+        module = provider_for(location.source, "drift")
+        drift_report = module.drift(ticket_context(location, target.address), [])
+
+    stale = bool(drift_report and drift_report.get("is_stale"))
+    emit(
+        {
+            "qualified_ref": location.qualified,
+            "filed": target.filed,
+            "steps": steps,
+            "drift": drift_report,
+            "ask_before_refresh": stale,
+            "refresh_steps": ["fetch", "digest"] if stale and capabilities.get("fetch") else ["digest"] if stale else [],
+        }
+    )
+    return EXIT_OK
+
+
+def verb_script_check(args: argparse.Namespace) -> int:
+    path = Path(args.file).expanduser()
+    if not path.is_file():
+        raise TicketError(f"script not found: {path}", EXIT_NOT_FOUND)
+    scope = restrict_of(args) or context_of(args)
+    merged = config.effective(
+        scope.namespace if scope else None, scope.product if scope else None
+    )[0]
+    listed = merged.get("sensitive")
+    sensitive = [str(item) for item in listed] if isinstance(listed, list) else []
+    report = scripteffect.check(path, sensitive).as_dict()
+    report["file"] = str(path)
+    emit(report)
+    return EXIT_OK
+
+
+def verb_update(args: argparse.Namespace) -> int:
+    """
+    Change an upstream ticket: drift check, show the diff, require a yes, write, re-fetch.
+
+    The drift check comes first because the diff is computed against the local
+    snapshot: writing over a ticket someone else has since edited would silently
+    discard their change.
+    """
+    location = require_filed(locate(args))
+    module = provider_for(location.source, "update")
+    drift_module = provider_for(location.source, "drift")
+    ctx = ticket_context(location)
+
+    drift_report = drift_module.drift(ctx, [])
+    if drift_report.get("is_stale"):
+        emit({"qualified_ref": location.qualified, "refused": "drifted", "drift": drift_report})
+        raise TicketError(
+            f"{location.qualified} changed upstream since it was fetched",
+            EXIT_DRIFTED,
+            f"Run `/ticket-fetch {location.qualified}` and redo the update against the current ticket.",
+        )
+
+    proposal = module.propose_update(ctx, args.extra)
+    has_changes = bool(proposal["changes"])
+    if args.propose or not has_changes:
+        emit(
+            {
+                "qualified_ref": location.qualified,
+                "changes": proposal["changes"],
+                "confirmation_required": has_changes,
+                "written": False,
+            }
+        )
+        return EXIT_OK
+
+    if not args.confirm:
+        raise TicketError(
+            f"updating a {location.source} ticket writes to a remote system and needs explicit confirmation",
+            EXIT_REFUSED,
+            "Show the changes (`--propose`), and re-run with --confirm only after the user says yes.",
+        )
+
+    result = module.update(ctx, args.extra)
+    refreshed = module.fetch(ticket_context(location), [])
+    emit(
+        {
+            "qualified_ref": location.qualified,
+            "changes": proposal["changes"],
+            "written": result.get("written", True),
+            "fetched": refreshed,
+            "ticket_json": tickets.load(location),
+        }
+    )
+    return EXIT_OK
+
+
+def verb_guard(args: argparse.Namespace) -> int:
+    repo = Path(args.repo).expanduser().resolve() if args.repo else Path.cwd()
+    guard.require_repository(repo)
+    scope = restrict_of(args) or context_of(args)
+    config_values = config.effective(
+        scope.namespace if scope else None, scope.product if scope else None
+    )[0]
+    patterns = guard.patterns_from(config_values)
+
+    if args.action == "fast-forward":
+        if not args.branch:
+            raise TicketError("fast-forward needs --branch", EXIT_ERROR)
+        report = guard.fast_forward(repo, args.branch)
+        emit(report)
+        return EXIT_REFUSED if report["refused"] else EXIT_OK
+
+    default = guard.default_branch(repo)
+    branch = args.branch or guard.current_branch(repo)
+    if args.action == "protected":
+        emit(
+            {
+                "branch": branch,
+                "default_branch": default,
+                "patterns": patterns,
+                "protected": guard.is_protected(branch, default, patterns),
+            }
+        )
+        return EXIT_OK
+
+    if not args.op:
+        raise TicketError("check needs --op", EXIT_ERROR)
+    verdict = guard.classify(args.op, branch, default, patterns)
+    emit(verdict.as_dict())
+    return EXIT_OK if verdict.allowed else EXIT_REFUSED
+
+
+def verb_worktree(args: argparse.Namespace) -> int:
+    location = require_filed(locate(args))
+    record = tickets.load(location)
+    branch = worktrees.branch_name(record.get("type"), location.id, record.get("title"))
+
+    config_values = config.effective(
+        location.product.namespace, location.product.name
+    )[0]
+    patterns = guard.patterns_from(config_values)
+    root = config_values.get("worktree_root")
+
+    if args.action == "adopt":
+        only = {worktrees.repository_root(Path(r).expanduser().resolve()) for r in args.repo} if args.repo else None
+        plan_file = location.dir / "plan.md"
+        if not plan_file.is_file():
+            raise TicketError(f"{location.qualified} has no plan.md", EXIT_NOT_FOUND, "Run /ticket-plan first.")
+        if args.create:
+            report = workspace.swap_protected(
+                location.dir, patterns, branch, str(root) if root else None, only, args.add_ignore
+            )
+            emit({"qualified_ref": location.qualified, "ok": True, **report})
+            return EXIT_OK
+        rows, _ = workspace.parse_rows(plan_file.read_text(encoding="utf-8").split(chr(10)))
+        inspected = workspace.inspect(rows, patterns)
+        blocked = [row for row in inspected if row["protected"]]
+        proposals = []
+        for repo_root in sorted({row["repository_root"] for row in blocked}):
+            proposals.append(
+                worktrees.propose(Path(repo_root), branch, patterns, str(root) if root else None).as_dict()
+            )
+        emit(
+            {
+                "qualified_ref": location.qualified,
+                "ok": not blocked,
+                "worktrees": inspected,
+                "proposals": proposals,
+            }
+        )
+        return EXIT_REFUSED if blocked else EXIT_OK
+
+    if not args.repo:
+        raise TicketError(f"worktree {args.action} needs --repo", EXIT_ERROR)
+
+    if args.action == "survey":
+        surveys = []
+        for repo in args.repo:
+            report = worktrees.survey(Path(repo).expanduser().resolve(), patterns)
+            if report["offer"]:
+                report["proposal"] = worktrees.propose(
+                    Path(report["repository"]),
+                    branch,
+                    patterns,
+                    str(root) if root else None,
+                ).as_dict()
+            surveys.append(report)
+        emit({"qualified_ref": location.qualified, "branch": branch, "repositories": surveys})
+        return EXIT_OK
+
+    plans = [
+        worktrees.propose(
+            Path(repo).expanduser().resolve(), branch, patterns, str(root) if root else None
+        )
+        for repo in args.repo
+    ]
+    if len({plan.repository for plan in plans}) != len(plans):
+        raise TicketError("a repository was given more than once", EXIT_ERROR)
+
+    if args.action == "propose":
+        emit({"qualified_ref": location.qualified, "branch": branch, "plans": [p.as_dict() for p in plans]})
+        return EXIT_OK
+
+    # Every plan is checked before the first repository is touched.
+    for plan in plans:
+        if plan.refusal:
+            raise TicketError(plan.refusal, EXIT_REFUSED)
+    created = [worktrees.create(plan, args.add_ignore) for plan in plans]
+    emit({"qualified_ref": location.qualified, "branch": branch, "created": created})
+    return EXIT_OK
+
+
+def verb_journal(args: argparse.Namespace) -> int:
+    location = require_filed(locate(args))
+    report = {"qualified_ref": location.qualified}
+
+    if args.action == "write":
+        entry_path = Path(args.file).expanduser()
+        if not entry_path.is_file():
+            raise TicketError(f"entry file not found: {entry_path}", EXIT_NOT_FOUND)
+        at = journal.parse_moment(args.at) if args.at else None
+        written = journal.write(location, entry_path.read_text(encoding="utf-8"), at)
+        report.update({"path": str(written), "name": written.name})
+    elif args.action == "latest":
+        newest = journal.latest(location)
+        report.update(
+            {
+                "path": str(newest) if newest else None,
+                "at": journal.timestamp_of(newest) if newest else None,
+                "entries": len(journal.entries(location)),
+            }
+        )
+    elif args.action == "list":
+        report["entries"] = [
+            {"path": str(path), "at": journal.timestamp_of(path)}
+            for path in reversed(journal.entries(location))
+        ]
+    else:
+        report.update(journal.migrate(location))
+
+    emit(report)
+    return EXIT_OK
+
+
+def verb_pulls(args: argparse.Namespace) -> int:
+    location = require_filed(locate(args))
+    if args.action == "add":
+        if not args.url:
+            raise TicketError("pulls add needs the pull request's address", EXIT_ERROR)
+        pulls.add(location, args.url)
+    elif args.action == "discover":
+        config_values = config.effective(location.product.namespace, location.product.name)[0]
+        pulls.discover(location, guard.patterns_from(config_values))
+    else:
+        pulls.refresh(location)
+    emit(
+        {
+            "qualified_ref": location.qualified,
+            "path": str(pulls.path(location)),
+            "pull_requests": [
+                {"label": pr.label, "url": pr.url, "status": pr.status}
+                for pr in pulls.entries(location)
+            ],
+        }
+    )
+    return EXIT_OK
 
 
 def verb_move(args: argparse.Namespace) -> int:
@@ -746,9 +1092,15 @@ VERBS = {
     "init": verb_init,
     "fetch": verb_fetch,
     "new": verb_new,
-    "publish": verb_publish,
     "drift": verb_drift,
     "move": verb_move,
+    "journal": verb_journal,
+    "pulls": verb_pulls,
+    "guard": verb_guard,
+    "update": verb_update,
+    "script-check": verb_script_check,
+    "prepare": verb_prepare,
+    "worktree": verb_worktree,
     "auth-status": verb_auth_status,
     "scan-roots": verb_scan_roots,
 }
@@ -843,19 +1195,16 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p.add_argument("--type")
     p.add_argument(
+        "--confirm",
+        action="store_true",
+        help="remote sources: the user has seen the proposal and said yes",
+    )
+    p.add_argument(
         "--propose",
         action="store_true",
         help="report where it would be filed and whether the id is taken; create nothing",
     )
     add_restrict(p, "file it under this namespace or product")
-    add_context(p)
-
-    p = sub.add_parser("publish", help="post a refinement summary back to the source")
-    p.add_argument("ref")
-    p.add_argument("--source")
-    p.add_argument("--file", required=True)
-    p.add_argument("--delete-after-post", action="store_true")
-    add_restrict(p, "only look in this namespace or product")
     add_context(p)
 
     p = sub.add_parser("drift", help="has the ticket moved since it was fetched?")
@@ -871,6 +1220,73 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument(
         "--dry-run", action="store_true", help="report what would change, move nothing"
     )
+    add_restrict(p, "only look in this namespace or product")
+    add_context(p)
+
+    p = sub.add_parser("journal", help="read or append a ticket's journal entries")
+    p.add_argument("action", choices=("write", "latest", "list", "migrate"))
+    p.add_argument("ref")
+    p.add_argument("--source")
+    p.add_argument("--file", help="write: the entry text")
+    p.add_argument("--at", help="write: the entry's UTC time, default now")
+    add_restrict(p, "restrict the lookup to a namespace or product")
+    add_context(p)
+
+    p = sub.add_parser(
+        "guard",
+        help="may this git operation run against this branch? (protected branches)",
+    )
+    p.add_argument("action", choices=("check", "protected", "fast-forward"))
+    p.add_argument("--op", help="check: the operation to classify")
+    p.add_argument("--branch", help="default: the repository's current branch")
+    p.add_argument("--repo", help="default: the current directory")
+    add_restrict(p, "the namespace or product whose `protected_branches` apply")
+    add_context(p)
+
+    p = sub.add_parser(
+        "worktree", help="propose or create a ticket branch and worktree per repository"
+    )
+    p.add_argument("action", choices=("survey", "propose", "create", "adopt"))
+    p.add_argument("ref")
+    p.add_argument("--source")
+    p.add_argument("--repo", action="append", help="a repository the work changes; repeat for several")
+    p.add_argument("--create", action="store_true", help="adopt: replace each protected-branch row with a new ticket worktree")
+    p.add_argument("--add-ignore", action="store_true", help="create: also add the worktrees directory to .gitignore")
+    add_restrict(p, "restrict the lookup to a namespace or product")
+    add_context(p)
+
+    p = sub.add_parser(
+        "prepare", help="what ticket-plan or ticket-digest must fetch or digest first"
+    )
+    p.add_argument("ref")
+    p.add_argument("--for", dest="for_skill", choices=("plan", "digest"), default="plan")
+    p.add_argument("--source")
+    add_restrict(p, "only look in, and only file under, this namespace or product")
+    add_context(p)
+
+    p = sub.add_parser(
+        "script-check",
+        help="may this script artifact run without asking? (its effect header, verified)",
+    )
+    p.add_argument("file")
+    add_restrict(p, "the namespace or product whose `sensitive` targets apply")
+    add_context(p)
+
+    p = sub.add_parser("pulls", help="record and refresh a ticket's pull requests")
+    p.add_argument("action", choices=("add", "refresh", "discover"))
+    p.add_argument("ref")
+    p.add_argument("url", nargs="?", help="add: the pull request's address")
+    p.add_argument("--source")
+    add_restrict(p, "restrict the lookup to a namespace or product")
+    add_context(p)
+
+    p = sub.add_parser(
+        "update", help="change an upstream ticket (title, description, acceptance criteria, state, labels)"
+    )
+    p.add_argument("ref")
+    p.add_argument("--source")
+    p.add_argument("--propose", action="store_true", help="show the before and after; write nothing")
+    p.add_argument("--confirm", action="store_true", help="the user has seen the diff and said yes")
     add_restrict(p, "only look in this namespace or product")
     add_context(p)
 

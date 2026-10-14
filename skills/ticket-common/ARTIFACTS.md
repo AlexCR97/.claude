@@ -9,7 +9,7 @@ Read by `ticket-plan` and `ticket-implement`. Everything a run produces that is 
 └── step-{N}.{M}/      ← everything one plan step produced
 ```
 
-`artifacts/` and its subdirectories are created lazily — only when a run actually produces a file. The ticket directory holds nothing but its six entries: **never write a generated file directly into `{ticket-dir}/`.**
+`artifacts/` and its subdirectories are created lazily — only when a run actually produces a file. The ticket directory holds nothing but its seven entries: **never write a generated file directly into `{ticket-dir}/`.**
 
 Nothing here belongs in the workspace. An artifact is a record of how this ticket was investigated, not a deliverable — never copy one into a repository unless a plan step explicitly says to.
 
@@ -72,12 +72,29 @@ Cite a research artifact on the `**Artifacts:**` line of every step whose estima
 
 ---
 
-## Running a script is always a separate permission
+## Running a script: read-only runs unasked, anything else asks
 
-Writing a script artifact needs no permission. **Running one always does**, every time, for every script. Write it first, then show what it does, what it reads, and where its output will land, and ask. Approval covers the run in front of the user, not the script forever.
+Writing a script artifact needs no permission. **Running one needs permission unless it only reads.** The reasoning is in [ADR 0002](../../docs/adr/0002-read-only-scripts-run-without-approval.md).
+
+**Every script opens with a header** — in the language's own comment syntax, within its first 15 lines:
+
+```
+# effect: read-only        (or: effect: writes)
+# cost: heavy              (optional)
+```
+
+A script is `read-only` when it writes nothing outside the ticket's `artifacts/` directory, mutates no external system, changes no git state, and installs nothing. It prints its result; the skill captures that output beside the script, which is allowed. Anything else is `writes`. `cost: heavy` marks a read that could overload what it reads.
+
+**Before running, verify the header against the code:**
+
+```bash
+python "{skills}/ticket-common/ticket.py" script-check {script} [--context {context}]
+```
+
+`run_without_asking: true` means the header says read-only, nothing in the code contradicts it, it is not `cost: heavy`, and it names no target the effective config lists under `sensitive` (a list that ships empty). Run it without asking. Otherwise `reasons` says why it must ask: a `writes` script, a header that is missing or that the code disagrees with, `cost: heavy`, or a sensitive target. Then write it first, show what it does, what it reads, and where its output will land, and ask. Approval covers the run in front of the user, not the script forever.
 
 A plan step authorizing the *work* is not authorization to *execute* a script that step happens to produce — the plan was written before the script existed. Build commands are not script artifacts and are unaffected by this rule.
 
-Script artifacts must be **read-only** with respect to any external system they touch. A probe that reads a production database is in scope; anything that writes to one is a change to the environment and is not.
+A script that writes to an external system is a change to the environment and is out of scope for a probe, however it is approved.
 
 If what an artifact establishes contradicts the plan, do not quietly implement the plan anyway. Record the contradiction in the artifact, tell the user, and ask whether to revise the plan before continuing.

@@ -1,6 +1,6 @@
 # github — schema
 
-Read by `ticket-digest` and `ticket-refine`. Answers the six questions in `ticket-providers/README.md`.
+Read by `ticket-digest`. Answers the six questions in `ticket-providers/README.md`.
 
 ## 1. Where the content lives
 

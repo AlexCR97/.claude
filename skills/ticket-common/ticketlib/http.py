@@ -46,12 +46,19 @@ def get_json(url: str, auth_header: str, hint: str = "") -> dict:
         raise
 
 
-def post_json(url: str, auth_header: str, payload: dict, hint: str = "") -> dict:
+def post_json(
+    url: str,
+    auth_header: str,
+    payload: dict | list,
+    hint: str = "",
+    content_type: str = "application/json",
+    method: str = "POST",
+) -> dict:
     request = urllib.request.Request(
         url,
         data=json.dumps(payload).encode("utf-8"),
-        method="POST",
-        headers={"Authorization": auth_header, "Content-Type": "application/json"},
+        method=method,
+        headers={"Authorization": auth_header, "Content-Type": content_type},
     )
     try:
         with urllib.request.urlopen(request) as response:

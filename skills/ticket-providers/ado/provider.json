@@ -16,8 +16,10 @@
   },
   "url": {
     "patterns": [
-      "https?://dev\\.azure\\.com/(?P<organization>[^/]+)/(?P<project>[^/]+)/_workitems/edit/(?P<id>[1-9][0-9]*)(?:[/?#]|$)"
-    ]
+      "https?://dev\\.azure\\.com/(?P<organization>[^/]+)/(?P<project>[^/]+)/_workitems/edit/(?P<id>[1-9][0-9]*)(?:[/?#]|$)",
+      "https?://(?P<organization>[^./]+)\\.visualstudio\\.com/(?P<project>[^/]+)/_workitems/edit/(?P<id>[1-9][0-9]*)(?:[/?#]|$)"
+    ],
+    "canonical": "https://dev.azure.com/{organization}/{project}/_workitems/edit/{id}"
   },
   "id": {
     "pattern": "[1-9][0-9]*",
@@ -29,8 +31,8 @@
   },
   "capabilities": {
     "fetch": true,
-    "new": false,
-    "publish": true,
+    "new": true,
+    "update": true,
     "drift": true,
     "related": true,
     "attachments": true

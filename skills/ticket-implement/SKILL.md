@@ -6,7 +6,7 @@ argument-hint: "<ref> [phases | all]"
 
 Implements one, several or all phases of a ticket's `plan.md`: makes the code changes each step names, in the worktrees the plan's Workspace section confirms, builds each affected project, and keeps every step's status in `plan.md` current as it goes. What this run has to show before a phase is done — and whether a phase with no code change is complete — comes from the ticket's type.
 
-End state: each selected phase's steps done and marked `Done`, or stopped with an accurate status and note; the affected projects building; `plan.md` and `artifacts/` matching what the run produced; no git operation run; and a report of what the run produced, decided and inferred.
+End state: each selected phase's steps done and marked `Done`, or stopped with an accurate status and note; the affected projects building; `plan.md` and `artifacts/` matching what the run produced; no write to a protected branch and no commit or push the developer did not ask for; and a report of what the run produced, decided and inferred.
 
 This skill is a **driver**: it contains no field names, URLs, API versions, credential commands, markup dialects, or type-specific rules of its own. Everything specific lives alongside it in three directories, and each step names the file to read.
 
@@ -34,15 +34,16 @@ No `allowed-tools` here: this skill's whole purpose is to change code and build 
 1. **Stay inside the selected phases.** Never implement beyond them, and never use `digest.md` to expand scope beyond the plan.
 2. **Never redo finished work.** Skip a phase marked `[x] Done` or a step marked `Done`, with a warning; resume a step marked `In Progress` rather than restarting it.
 3. **Run only read-only and build commands.** Never install a package or global tool, change the environment, or alter state outside the project being built. Run tests only where the type's file makes them its completion test.
-4. **Never run a git operation** — commit, push, pull, rebase, merge, reset, stash or any other. The developer reviews the diff and decides when to commit.
-5. **Never run a script artifact without approval of that run.** Write it, show it, ask, then run.
-6. **Never read or write `journal.md`.** It belongs to `ticket-checkpoint` and `ticket-resume`, and `ticket-resume` has already brought what matters into the session.
+4. **Run git only as `ticket-common/GUARD.md` allows.** Never write to a protected branch or edit a file in a worktree that has one checked out — ask the guard with `--op edit`. Commit and push only when the developer asks; otherwise they review the diff and decide.
+5. **Run a script artifact only as `ticket-common/ARTIFACTS.md` allows.** One that `ticket.py script-check` verifies as read-only runs without asking; any other needs approval of that run — write it, show it, ask, then run.
+6. **Never read or write the journal.** It belongs to `ticket-checkpoint` and `ticket-resume`, and `ticket-resume` has already brought what matters into the session.
 7. **Never read a provider file.** By now `digest.md` holds what the ticket said and `plan.md` what the work is; needing a provider file means the abstraction leaked — report it as a bug.
 8. **Keep `plan.md` honest.** Mark a step `In Progress` before its first edit — only what is on disk survives an interrupted session. Never write a bare `In Progress` or `Blocked` status, keep every `**Artifacts:**` line accurate, and never mark a phase `[x] Done` while a step is not `Done`. `ticket-common/STATUS.md` has the vocabulary and the note rules.
 9. **Write non-code files only under `artifacts/step-{N}.{M}/` or `artifacts/shared/`.** Never into `artifacts/planning/`, which belongs to `ticket-plan`, the ticket directory or the workspace; never delete or overwrite an existing artifact. `ticket-common/ARTIFACTS.md` has the layout.
 10. **State every decision and inference in chat as it is made.** The report is the only record this skill produces, and `ticket-checkpoint` builds its entry from the conversation.
 11. **Honour the type's completion rule both ways.** Never report a document-only run as incomplete where the type's deliverable is a written finding, and never report a violated type invariant as progress — stop and report it.
-12. **Renumber in one pass.** When the plan's shape changes, finish the rename so nothing points at an old number — `ticket-common/ARTIFACTS.md` → *Renumbering is a rename*.
+12. **Record every pull request you open for this ticket.** When the developer asks for one, add its address to the ticket's pull request record and refresh the statuses with `ticket.py pulls add` then `pulls refresh`. Never open one unasked, and where it is unclear which ticket a pull request delivers, ask. Step 9 refreshes the record on every run.
+13. **Renumber in one pass.** When the plan's shape changes, finish the rename so nothing points at an old number — `ticket-common/ARTIFACTS.md` → *Renumbering is a rename*.
 
 ---
 
@@ -74,7 +75,17 @@ The terms in that section, and throughout this skill, mean exactly what **`ticke
 
 Then list the ticket's `artifacts/`. Every `**Artifacts:**` line that names a directory should have one on disk, and every directory on disk should be named by some step's `**Artifacts:**` line. Where they disagree, trust the disk and correct `plan.md`.
 
-A step marked `In Progress` or `Blocked` was left mid-flight by an earlier session. Its `**Status:**` note is what this skill goes on, together with anything about that session already in this conversation — `ticket-resume` puts it there when it briefs the session. Do not open `journal.md` to look for more.
+A step marked `In Progress` or `Blocked` was left mid-flight by an earlier session. Its `**Status:**` note is what this skill goes on, together with anything about that session already in this conversation — `ticket-resume` puts it there when it briefs the session. Do not open the journal to look for more.
+
+**Implement only on a ticket branch.** Before any phase is chosen, check the workspace against the guard (`ticket-common/GUARD.md`):
+
+```bash
+python "{skills}/ticket-common/ticket.py" worktree adopt {ref} [--context {context}]
+```
+
+Exit `0` means no worktree in the Workspace section has a protected branch checked out — a workspace already on a current ticket branch proceeds with no offer. Exit `4` **refuses to start**: report each worktree it names with its `reason`, show each `proposals` entry (the branch, its worktree, and `origin/{default branch}` as the base), and ask whether to create them. Ask once for all of them — one ticket branch and worktree is made per repository the phases change; pass `--repo {directory}` for each repository to limit the swap to those. If the developer declines, stop: nothing is implemented on a protected branch. Any other exit: report the message and its hint verbatim and stop.
+
+On a yes, run the same command with `--create` (add `--add-ignore` only if the report's `ignore_offer` was shown and accepted). It cuts each ticket branch from the freshly fetched default branch, replaces that worktree's row in the plan's Workspace section with the new one and a one-line note saying why, and rewrites every reference to the old worktree in `plan.md` and under `artifacts/` in the same pass, as `ticket-common/ARTIFACTS.md` → *Renumbering is a rename* requires of a rename. Re-read the Workspace section from the rewritten `plan.md`; everything after this works in the new worktrees.
 
 ### Step 3 — Resolve which phases to implement
 
@@ -150,11 +161,11 @@ A step may need to produce something that is **not** a change to the workspace �
 Follow `ticket-common/ARTIFACTS.md` for placement, naming and the run-approval rule. In outline:
 
 1. Create `artifacts/step-{N}.{M}/` for the step being implemented, or `artifacts/shared/` when the file serves more than one step.
-2. Write the script there. Ask the user before running it — show what it does, what it reads, and that it writes nothing outside `artifacts/`. On approval, run it and capture its output beside it.
+2. Write the script there with its `effect:` header, and run `ticket.py script-check` on it. If `run_without_asking` is `true`, run it and capture its output beside it. Otherwise ask the user first — show what it does, what it reads, and that it writes nothing outside `artifacts/` — and on approval run it.
 3. If the artifacts would not explain themselves to a later reader — what was run, against what, when, and what it showed — add a `README.md` to that directory saying so.
 4. Set the step's `**Artifacts:**` line in `plan.md` to the paths just created.
 
-The approval in point 2 is required for every run of every script artifact, and a contradicting artifact stops the step — both per `ticket-common/ARTIFACTS.md` → *Running a script is always a separate permission*.
+Approval in point 2 is required for every run of a script that asks, and a contradicting artifact stops the step — both per `ticket-common/ARTIFACTS.md` → *Running a script*.
 
 #### Keeping the step's status current
 
@@ -176,7 +187,7 @@ Saying it out loud is what preserves it. This skill does not write the session's
 
 - Do not add features, abstractions, or refactors beyond what the step requires.
 - Do not add comments unless the WHY is non-obvious (a hidden constraint, subtle invariant, or workaround for a specific bug).
-- Do not install packages or run any shell command that modifies the workspace or environment. Read-only commands are permitted, and anything they produce is stored as an artifact — but never run a script artifact without the user's approval.
+- Do not install packages or run any shell command that modifies the workspace or environment. Read-only commands are permitted, and anything they produce is stored as an artifact — but run a script artifact only as `ticket-common/ARTIFACTS.md` allows.
 
 ### Step 7 — Build the affected projects
 
@@ -222,6 +233,8 @@ Start with whatever the type file's *"What implement must produce"* section requ
 2. **The file's worktree** — for a modified file no project row holds, walk up from it to the directory holding a `.git` entry: a directory in a main worktree, a file in a linked one. That directory is the worktree; report it, referred to as the glossary says, in place of a project.
 
 **Where the run changed no source file**, say what it produced instead — the artifact paths, and what they establish. Do not report an empty project list, and do not imply something is missing; for a type whose deliverable is a written finding, that is a complete run. Check the type file before writing this sentence, not after.
+
+Then bring the pull request record up to date: `ticket.py pulls discover {ref}` to record pull requests on the Workspace section's branches, then `ticket.py pulls refresh {ref}` — skip both when the plan names no ticket worktree and the record does not exist. A non-zero exit from `refresh` is reported verbatim and does not fail the run: the previous statuses were kept.
 
 Then report what this run decided and assumed, each naming the step it affects. This report is the only place either list is written down, so state it even when it feels obvious — `ticket-checkpoint` builds the session's journal entry from this conversation, and what was never said cannot be recorded.
 

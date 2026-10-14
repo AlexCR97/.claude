@@ -1,12 +1,12 @@
 ---
 name: ticket-plan
-description: Turns a ticket's digest.md into a phased, file-level implementation plan in plan.md, discovering the repositories, worktrees and projects the work spans from its scan roots. Researches unknowns under artifacts/planning/, asking before running any script. Re-run, it updates step status.
+description: Turns a ticket's digest.md into a phased, file-level implementation plan in plan.md, discovering repositories, worktrees and projects from its scan roots. Researches unknowns under artifacts/planning/, running read-only scripts unasked. Re-run, it updates step status.
 argument-hint: "<ref> [dir ...] [--type type]"
 ---
 
 Turns a ticket's `digest.md` into a phased, file-level implementation plan in `plan.md`. It discovers the workspace — the repositories, worktrees and projects the work spans — from the ticket's scan roots, researches the facts the plan's shape rests on, and shapes the phases by the ticket's type. Run again on a ticket that has a plan, it shows progress and updates step status. It plans only: research artifacts under `artifacts/planning/` are part of planning — a plan built on an unverified assumption is worth less than the hour spent verifying it — but no change to the workspace is. The terms for code mean what `ticket-common/GLOSSARY.md` says; read it before discovering anything.
 
-End state: `plan.md` written from `digest.md` and the confirmed workspace, every research artifact under `artifacts/planning/` cited by the steps that rest on it, and the workspace unchanged — or, on a later run, `plan.md` updated as the user asked.
+End state: `plan.md` written from `digest.md` and the confirmed workspace, every research artifact under `artifacts/planning/` cited by the steps that rest on it, and the workspace's code unchanged — or, on a later run, `plan.md` updated as the user asked.
 
 This skill is a **driver**: it contains no field names, URLs, API versions, credential commands, markup dialects, or type-specific rules of its own. Everything specific lives alongside it in three directories, and each step names the file to read.
 
@@ -18,7 +18,7 @@ This skill is a **driver**: it contains no field names, URLs, API versions, cred
 
 A fact that needs a particular ticket system belongs in `ticket-providers/{source}/`, and one that needs a ticket type belongs in `ticket-types/{type}.md` — never in this file.
 
-No `allowed-tools`: Step 8 runs user-approved probe scripts whose commands cannot be known in advance.
+No `allowed-tools`: Step 8 runs probe scripts whose commands cannot be known in advance.
 
 ---
 
@@ -33,12 +33,12 @@ No `allowed-tools`: Step 8 runs user-approved probe scripts whose commands canno
 ## Ground rules
 
 1. **Plan only.** Never create, edit or delete a source code file, and never run a command that changes the workspace — no `dotnet`, `npm install`, migrations or commits.
-2. **Run read-only git only.** Discovery uses `rev-parse`, `worktree list`, `remote get-url` and `branch --show-current` — never `fetch`, `checkout`, or `worktree add`, `remove` or `prune`.
-3. **Plan from `digest.md`, never from the raw data.** Derive content from `digest.md`, the attachments it references, `artifacts/`, the confirmed workspace and the type file; never fabricate a file or class name. Where `digest.md` lacks what the plan needs, ask, or point at `/ticket-refine` then `/ticket-digest`.
-4. **Never read or write `journal.md`.** It belongs to `ticket-checkpoint` and `ticket-resume`.
+2. **Run git only as `ticket-common/GUARD.md` allows.** Discovery uses `rev-parse`, `worktree list`, `remote get-url` and `branch --show-current`. Never write to a protected branch, and never commit or push unless the developer asks.
+3. **Plan from `digest.md`, never from the raw data.** Derive content from `digest.md`, the attachments it references, `artifacts/`, the confirmed workspace and the type file; never fabricate a file or class name. Where `digest.md` lacks what the plan needs, ask, or point at editing the ticket then `/ticket-digest`.
+4. **Never read or write the journal.** It belongs to `ticket-checkpoint` and `ticket-resume`.
 5. **Use the glossary's terms exactly**, in `plan.md` and in chat — never a synonym it retires.
 6. **Write only `plan.md` and `artifacts/planning/`.** A renumbering pass is the one exception: it renames step directories and fixes references under `artifacts/`. `artifacts/step-{N}.{M}/` and `artifacts/shared/` belong to implementation.
-7. **Never run a script without approval of that run.** Write it, show it, ask, then run; never run anything that writes to an external system.
+7. **Run a script only as `ticket-common/ARTIFACTS.md` allows.** A script whose `script-check` verifies it as read-only runs without asking; every other one needs approval of that run. Never run anything that writes to an external system.
 8. **Never break the type's rules.** A phase requirement, phase prohibition or Activity prohibition in the resolved type's file wins over this file.
 9. **Never write a bare `In Progress` or `Blocked` status.** Each needs a one-line note, and a phase's Progress row is always derived from its steps.
 
@@ -46,17 +46,30 @@ No `allowed-tools`: Step 8 runs user-approved probe scripts whose commands canno
 
 ## Execution Steps
 
-### Step 1 — Resolve the ticket
+### Step 1 — Resolve the ticket, and do the groundwork it is missing
 
-With a session context, pass `--context {context}` on every `ticket.py` call below that takes one and open the first output line with `Ticket context: {context}` — `ticket-common/RESOLUTION.md` → *The session context* covers overrides.
+With a session context, pass `--context {context}` on every `ticket.py` call below that takes one and open the first output line with `Ticket context: {context}` — `ticket-common/RESOLUTION.md` → *How a reference resolves* covers overrides. A pasted web address is a valid `<ref>` even for a ticket not on disk yet.
+
+Ask what planning needs first:
+
+```bash
+python "{skills}/ticket-common/ticket.py" prepare "<ref>" [--context {context}]
+```
+
+Its `steps` are what is missing, in order. Do each by following the named skill's own steps in this session, without confirmation: both write only inside the ticket directory. On a non-zero exit from `prepare`, report the message and its hint verbatim and stop.
+
+- **`fetch`** — follow `ticket-fetch/SKILL.md`. It is absent for a source with no fetch capability, such as a local ticket.
+- **`digest`** — follow `ticket-digest/SKILL.md`.
+
+Where `steps` is empty and `ask_before_refresh` is `true`, the ticket changed upstream since it was fetched. Show what `drift` reports and **ask** before refreshing: a refresh re-fetches and re-digests, replacing a digest that may have been edited. On a yes, run `refresh_steps`; on a no, plan from what is on disk and say so. Where it is `false`, go on without asking.
+
+Then resolve it:
 
 ```bash
 python "{skills}/ticket-common/ticket.py" resolve "<ref>" --require digest [--type type] [--context {context}]
 ```
 
 Everything below uses the paths, type, `product` and `ticket.json` it returns; **every path it prints is absolute**, so nothing here needs expanding. On a non-zero exit, report the message and its hint verbatim and stop. `ticket-common/RESOLUTION.md` carries the full contract — open it only when the output is disputed.
-
-An unmet `digest` requirement means there is nothing to plan from; the hint names the skill that fixes it.
 
 The resolver's `artifacts_dir` may not exist yet — it is absent on a first run.
 
@@ -119,18 +132,28 @@ If nothing matches, report the directories searched and the identifiers tried, a
 
 ### Step 5 — Discover the workspace
 
-A ticket's workspace can span several repositories and plain directories. Map it, beginning at the scan roots. Use only read-only git commands (`rev-parse`, `worktree list`, `remote get-url`, `branch --show-current`), and do **not** read source file contents at this stage: file names, paths and directory structure are enough. Build and deployment files may be read, but only for references that point outside their own repository.
+A ticket's workspace can span several repositories and plain directories. Map it, beginning at the scan roots. Discover it with `rev-parse`, `worktree list`, `remote get-url` and `branch --show-current`, within the policy in `ticket-common/GUARD.md`, and do **not** read source file contents at this stage: file names, paths and directory structure are enough. Build and deployment files may be read, but only for references that point outside their own repository.
 
 **Repositories.** Record the repository holding each scan root, and each repository beneath one, once each however many scan roots reach it. Name each as the glossary says: from its remote's URL, or from its main worktree's directory name where it has no remote.
 
 A repository holding a directory the user gave or the invocation directory is kept regardless. Every other repository is ranked against the digest's identifiers as the search in Step 4 does, and carried forward only when it matches: that covers everything reached only through a default scan root, and each repository beneath a directory of repositories the user named.
 
-**Worktrees.** Run `git worktree list --porcelain` in each repository, skipping entries git marks `prunable`. The workspace holds only the worktrees the work happens in, one or several per repository; a ticket that lands on more than one branch, such as a fix on `main` backported to a release branch, needs a worktree for each:
+**Worktrees.** Run `git worktree list --porcelain` in each repository, skipping entries git marks `prunable`. A ticket worktree under a repository's `.worktrees/` directory (or under `worktree_root`) is one of that repository's worktrees, never a second repository or a project of the one that holds it: skip `.worktrees/` when looking for projects, so a nested copy of the code is not mistaken for another. The workspace holds only the worktrees the work happens in, one or several per repository; a ticket that lands on more than one branch, such as a fix on `main` backported to a release branch, needs a worktree for each:
 
 - Every worktree holding a scan root is in the workspace.
 - Otherwise, for a related repository or a directory holding several worktrees of one, list each worktree with its branch and ask in Step 6 which ones the work will happen in. A branch that names this ticket is a sensible default to propose, never one to assume.
 
 Where a worktree left out of the workspace sits on a branch that names this ticket, mention it in Step 6 and offer to add it: the work may already be under way there.
+
+**Staleness and the offer.** Plan against current code. For each repository in the workspace, run
+
+```bash
+python "{skills}/ticket-common/ticket.py" worktree survey {ref} --repo {repositoryDirectory} [--repo ...]
+```
+
+It fetches — which changes no worktree — and reports each worktree's branch, whether it is protected, and how many commits it is `behind` the remote default branch, with a `status` of `current`, `behind`, `diverged` or `detached`. Planning against an up-to-date `main` worktree is fine and changes nothing in it. Show the behind count next to every worktree in Step 6. On a non-zero exit, report the message and its hint verbatim and stop.
+
+Where a repository's report has `offer: true` — no worktree of it is a non-protected branch that is already current — it carries a `proposal`. Offer it in Step 6: a ticket branch and worktree cut from the up-to-date default branch, showing its branch name and path. Create it with `worktree create` (`ticket-common/GUARD.md`) only on a yes, then add the new worktree to the workspace and to the Workspace section. Where `offer` is `false`, use the current ticket branch with no question asked.
 
 **Related repositories.** Follow evidence out of the scan roots, not proximity:
 
@@ -210,13 +233,13 @@ A plan built on a false assumption is wrong in its *shape*, not just its estimat
 
 Before estimating, name the facts the plan's shape rests on that neither `digest.md` nor the workspace settles — a production row count, whether an index exists, which of two code paths actually runs, the true size of a data set, how long something currently takes. For each, ask: **if this turned out to be wrong by an order of magnitude, would the plan change?** If not, record it as a stated assumption in the plan and move on. If it would, research it now rather than discovering it during implementation.
 
-Reading files needs no permission — a file in the workspace, a local export, an attachment. Writing a script does not need permission either. **Running one always does.**
+Reading files needs no permission — a file in the workspace, a local export, an attachment. Writing a script does not need permission either. **Running one needs permission unless it only reads.**
 
-A script artifact is never executed until the user has approved that specific script. Write it first, then show what it does, what it reads, and where its output will land, and ask:
+Give every script the `effect:` header `ticket-common/ARTIFACTS.md` describes, then run `ticket.py script-check` on it. Where `run_without_asking` is `true`, run it and capture its output beside it. Otherwise, a script is not executed until the user has approved that specific script. Write it first, then show what it does, what it reads, and where its output will land, and ask:
 
 > To size Phase 2 I need the real number of `UserAuthorization` documents in production — the ticket states ~21,000 but nothing has confirmed it. I have written a read-only query at `artifacts/planning/count-authorizations.js`; it runs one `countDocuments` against `analytics-svc-userauthorizations` and writes nothing. May I run it against production?
 
-- **Approved** → run it. Ask again for each later run — approval covers the run in front of the user, not the script forever.
+- **Approved** → run it. Ask again for each later run of a script that asks — approval covers the run in front of the user, not the script forever.
 - **Declined** → do not run it. Record the fact as a stated assumption in the plan, as for a fact that would not change the plan.
 
 Never write to an external system under any circumstance.

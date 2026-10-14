@@ -8,7 +8,7 @@ Everything awkward about this type follows from one fact: **the run can succeed 
 
 ---
 
-## What refine must establish
+## What the ticket must establish
 
 Four things. A spike that starts without all four will run until someone notices it has no end condition.
 

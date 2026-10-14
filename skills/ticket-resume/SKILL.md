@@ -1,6 +1,6 @@
 ---
 name: ticket-resume
-description: Rebuilds the context for a ticket in a fresh session — reads journal.md, plan.md, digest.md and prior artifacts, inspects the live git state, and checks whether the ticket changed since it was last fetched. Outputs a briefing ending in the single next action.
+description: Rebuilds the context for a ticket in a fresh session — reads the latest journal entry, plan.md, digest.md and prior artifacts, inspects the live git state, and checks whether the ticket changed since it was last fetched. Outputs a briefing ending in the single next action.
 argument-hint: "[ref]"
 allowed-tools: Read Grep Glob Bash(python *ticket.py:*) Bash(python *collect-git-state.py:*)
 ---
@@ -29,9 +29,9 @@ A fact that needs a particular ticket system belongs in `ticket-providers/{sourc
 
 ## Ground rules
 
-1. **Write nothing.** No code, no `journal.md`, no `plan.md`, no artifacts — `/ticket-checkpoint` records state and `/ticket-implement` changes code.
-2. **Run only read-only commands:** `collect-git-state.py`, `ticket.py` `resolve`, `list` and `drift`, and reads of the files the steps name. Never `git fetch`, `pull`, `checkout`, `stash` or any command that changes repository state.
-3. **Never run a script under `artifacts/`.** A captured output already on disk is the answer; re-running a probe against a live system needs the user's approval in the session that needs it.
+1. **Write nothing.** No code, no journal entry, no `plan.md`, no artifacts — `/ticket-checkpoint` records state and `/ticket-implement` changes code.
+2. **Run only read-only commands:** `collect-git-state.py`, `ticket.py` `resolve`, `list`, `drift` and `journal latest` or `list`, and reads of the files the steps name. Run git only as `ticket-common/GUARD.md` allows, which here means reading: no `checkout`, `stash`, `commit`, `push` or any command that changes repository state.
+3. **Never run a script under `artifacts/`, not even a read-only one.** A captured output already on disk is the answer, and a briefing has no side effects; re-running a probe is a job for a session that needs it.
 4. **Never read the source's raw data for ticket content.** `digest.md` is the source of truth; the drift check reads the snapshot for comparison only.
 5. **Never correct `plan.md`, even when it is visibly stale.** Report the discrepancy and let `/ticket-checkpoint` or `/ticket-plan` fix it.
 6. **Never chain into another skill.** Step 5 recommends and Step 7 offers; the user chooses.
@@ -63,9 +63,11 @@ Open `ticket-common/RESOLUTION.md` only when the output is disputed. Then settle
 
 Read, in this order, and stop reading a file once the briefing has what it needs:
 
-**`journal.md`** — the newest entry in full, and enough of the two before it to see decisions and blockers that are still open. This is the primary source: it is the only file that records *why* things are the way they are. If it does not exist, note that and continue — Step 3 reconstructs what it can, and the briefing says the reconstruction is partial.
+**The latest journal entry** — find it with `ticket.py journal latest {ref}` and read that one file in full. Each entry carries forward the questions and blockers still open, so it stands alone: read an older entry only when the user asks for one, and find them with `journal list {ref}`. This is the primary source: it is the only record of *why* things are the way they are. If the journal does not exist, note that and continue — Step 3 reconstructs what it can, and the briefing says the reconstruction is partial. A ticket whose journal is still a single legacy file has no entries yet: say so, and recommend `/ticket-checkpoint {ref}`, which migrates it.
 
 **`plan.md`** — the Progress table, the Workspace section, and every step whose `**Status:**` is `In Progress` or `Blocked`, in full including its note. Then the first `Pending` step after them, since that is where work resumes if nothing is in flight. Do not read every phase. The status vocabulary is in `ticket-common/STATUS.md` if a line needs interpreting.
+
+**`pulls.md`** — the pull request record, read as a file, when the ticket directory has one. Its statuses are as of the time it states; report them with that time and never look them up, since a resume runs no `pulls` verb.
 
 **`digest.md`** — the Description and Acceptance Criteria, for the two or three sentences of the briefing that say what the work actually is. Skip the metadata table, the attachments and the discussion.
 
@@ -75,7 +77,7 @@ Read, in this order, and stop reading a file once the briefing has what it needs
 
 Prefer the journal's `**Stopped at:**` and `**Next:**` lines. They were written by the session that was there.
 
-When `journal.md` is absent or its newest entry predates later work, reconstruct instead, and say in the briefing that it is a reconstruction:
+When the journal is absent or its latest entry predates later work, reconstruct instead, and say in the briefing that it is a reconstruction:
 
 - The in-flight step is the first step that is `In Progress` or `Blocked`; failing that, the first `Pending` step after the last `Done` one.
 - Modification times under `artifacts/` and the branch's recent commit subjects indicate what was most recently worked on.
@@ -128,6 +130,7 @@ Rules:
 
 - Link `{title}` to `ticket.json`'s `url`. Where it is `null`, print the title as plain text — this source has no web address, and a broken link is worse than none.
 - Collapse a long Progress table: every `Done` and `Blocked` phase, the in-flight phase, and the next two `Pending` ones. Summarize the rest as `… {N} more phases pending`.
+- List each pull request in the record as its link with the recorded status and the record's time. Where a status is old enough to matter, say so and point at `/ticket-checkpoint`, which refreshes it.
 - Quote the journal's `**Next:**` line verbatim. Do not improve it — it was written with context this session does not have.
 - Mark reconstructed facts as reconstructed. Never present an inference as a record.
 - Do not print the plan, the digest, or a file's contents wholesale. This is a briefing, not a dump.

@@ -95,6 +95,31 @@ def url_patterns(source: str) -> list[str]:
     return [str(pattern) for pattern in manifest_url.get("patterns") or []]
 
 
+def refused_urls(source: str) -> list[dict]:
+    manifest_url = providers.load_manifest(source).get("url") or {}
+    return list(manifest_url.get("refused") or [])
+
+
+def canonical_url(source: str, coordinates: dict, ticket_id: str) -> str | None:
+    """
+    The one address a source prefers for a ticket, whichever form was pasted.
+
+    Only a source that declares a `url.canonical` template has one; the rest
+    record whatever their fetch learns.
+    """
+    template = (providers.load_manifest(source).get("url") or {}).get("canonical")
+    if not template:
+        return None
+    values = {
+        name: urllib.parse.quote(str(value), safe="")
+        for name, value in coordinates.items()
+    }
+    try:
+        return str(template).format(**values, id=ticket_id)
+    except KeyError:
+        return None
+
+
 def url_hint() -> str:
     accepted = [source for source in providers.list_sources() if url_patterns(source)]
     if not accepted:
@@ -116,6 +141,13 @@ def match_url(ref: str) -> Reference:
     """
     address = ref.strip()
     for source in providers.list_sources():
+        for refusal in refused_urls(source):
+            if re.match(refusal["pattern"], address, re.IGNORECASE):
+                raise TicketError(
+                    f"'{ref}' is not a {source} ticket — {refusal['reason']}",
+                    EXIT_ERROR,
+                    "Pass the address of an issue, or `{source}:{id}`.",
+                )
         for pattern in url_patterns(source):
             match = re.match(pattern, address, re.IGNORECASE)
             if not match:
@@ -534,7 +566,12 @@ def resolve(
             "native_type": record.get("native_type"),
             "title": record.get("title"),
             "state": record.get("state"),
-            "url": record.get("url"),
+            "url": record.get("url")
+            or (
+                canonical_url(location.source, coordinates, location.id)
+                if target.address
+                else None
+            ),
             "last_fetched_at": record.get("last_fetched_at"),
             "type_file": type_file_for(record.get("type")),
             "coordinates": coordinates,

@@ -1,13 +1,13 @@
 ---
 name: ticket-digest
-description: Reads a fetched ticket by reference, analyzes its description, acceptance criteria, attached files and images, and related tickets, then writes a structured digest to digest.md.
+description: Reads a ticket by reference, fetching it first if it never was, analyzes its description, acceptance criteria, attached files and images, and related tickets, then writes a structured digest to digest.md.
 argument-hint: "<ref> [--type type]"
 allowed-tools: Read Grep Glob Write Bash(python *ticket.py:*)
 ---
 
 Turns a fetched, source-shaped snapshot into `digest.md`, the one readable document every later skill works from. `digest.md` is the single source of truth for the ticket's content during planning and implementation; nothing downstream reads the raw snapshot again.
 
-End state: `digest.md` written at the resolved `digest` path from the snapshot alone, and a one-line confirmation, plus a line for any fallback type, failed download or capability the source lacks.
+End state: `digest.md` written at the resolved `digest` path from the snapshot alone, and a one-line confirmation, plus a line for a fetch it had to do first, and for any fallback type, failed download or capability the source lacks.
 
 This skill is a **driver**: it contains no field names, URLs, API versions, credential commands, markup dialects, or type-specific rules of its own. Everything specific lives alongside it in three directories, and each step names the file to read.
 
@@ -39,9 +39,19 @@ A fact that needs a particular ticket system belongs in `ticket-providers/{sourc
 
 ## Execution Steps
 
-### Step 1 — Resolve the ticket
+### Step 1 — Resolve the ticket, and fetch it if it never was
 
-With a session context, pass `--context {context}` on every `ticket.py` call below and open the first output line with `Ticket context: {context}` — `ticket-common/RESOLUTION.md` → *The session context* covers overrides.
+With a session context, pass `--context {context}` on every `ticket.py` call below and open the first output line with `Ticket context: {context}` — `ticket-common/RESOLUTION.md` → *The session context* covers overrides. A pasted web address is a valid `<ref>` even for a ticket not on disk yet.
+
+Ask whether anything must come first:
+
+```bash
+python "{skills}/ticket-common/ticket.py" prepare "<ref>" --for digest [--context {context}]
+```
+
+Where its `steps` is `["fetch"]`, follow `ticket-fetch/SKILL.md` in this session, without confirmation: it writes only inside the ticket directory. It is empty when the ticket was fetched already, or when the source has no fetch capability, such as a local ticket. Say in the confirmation that the ticket was fetched first. On a non-zero exit from `prepare`, report the message and its hint verbatim and stop.
+
+Then resolve it:
 
 ```bash
 python "{skills}/ticket-common/ticket.py" resolve "<ref>" --require raw [--type type] [--context {context}]
@@ -49,7 +59,7 @@ python "{skills}/ticket-common/ticket.py" resolve "<ref>" --require raw [--type 
 
 Everything below uses the paths, type and `ticket.json` it returns; **every path it prints is absolute**, so nothing here needs expanding. On a non-zero exit, report the message and its hint verbatim and stop. `ticket-common/RESOLUTION.md` carries the full contract — open it only when the output is disputed.
 
-An unmet `raw` requirement means there is nothing to digest yet; the hint names the skill that fixes it.
+An unmet `raw` requirement here means the fetch did not leave a snapshot; the hint names the skill that fixes it.
 
 ### Step 2 — Read the two contracts this skill needs
 

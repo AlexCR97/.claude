@@ -8,7 +8,7 @@ The defining constraint is the one that makes this type hard to verify: **succes
 
 ---
 
-## What refine must establish
+## What the ticket must establish
 
 - **The current structure.** What is there now, concretely: the classes, the flow, the duplication, the coupling. Named, not characterised.
 - **The target structure.** What it should look like afterwards, in the same terms, so the difference is inspectable rather than a matter of taste.

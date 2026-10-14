@@ -23,7 +23,6 @@ python "{skills}/ticket-common/ticket.py" <verb> [<ref>] [--source S] [--in X] [
 | `init --in NS[/PRODUCT]`                                         | Creates a namespace or product with no binding.                                                                                                                                                    |
 | `fetch <ref>`                                                    | Refreshes the local snapshot. Remote sources only. A ticket not yet on disk is filed first.                                                                                                        |
 | `new --source S --title "…" [--id SLUG] [--type T] [--propose]`  | Creates a ticket in a store that supports it, filed by the filing rules. `--propose` reports where it would be filed and whether the id is taken, and creates nothing.                             |
-| `publish <ref> --file F [--delete-after-post]`                   | Posts a summary back to the source.                                                                                                                                                                |
 | `drift <ref>`                                                    | Has the ticket moved since it was fetched?                                                                                                                                                         |
 | `move <ref> --to NS/PRODUCT [--dry-run]`                         | Re-files a ticket: renames its directory, rewrites every `parent` that would stop resolving, reports the links the move breaks. See [Moving](#moving).                                             |
 | `auth-status [--source S]`                                       | Each source's credential state, once per credential, never the credential.                                                                                                                         |
@@ -41,7 +40,7 @@ Flags a verb does not recognise are passed through to the provider untouched, so
 
 **Every driver, when the session has one:**
 
-- passes `--context {context}` on every `ticket.py` call that takes it — `resolve`, `list`, `fetch`, `new`, `publish`, `drift`, `move`;
+- passes `--context {context}` on every `ticket.py` call that takes it — `resolve`, `list`, `fetch`, `new`, `drift`, `move`;
 - starts its first output line with `Ticket context: {context}`, which keeps it visible in the transcript and in any summary of it;
 - lets an explicit `--in` or qualified reference in the invocation override it for that one call, and says so in one line;
 - takes everything about a resolved ticket — its scan roots, its bindings — from that ticket's own product, never from the context.
@@ -108,7 +107,7 @@ Every result names the product, the rule that chose it — `named`, `address`, `
 
 Exit 3 on an absent capability is structural, not advisory: the verb refuses before any provider code loads. Report it as a gap. Never substitute another source's behaviour for it, and never hand-roll the call the provider declined to make.
 
-`--require` takes a comma-separated subset of `config, ticket_dir, ticket_json, raw, digest, plan, journal`. `config` means the source is bound where the ticket is filed: every coordinate its manifest declares is known. An unmet requirement exits 2 with a hint naming the skill that would satisfy it.
+`--require` takes a comma-separated subset of `config, ticket_dir, ticket_json, raw, digest, plan, journal`; `journal` is met once the journal holds an entry. `config` means the source is bound where the ticket is filed: every coordinate its manifest declares is known. An unmet requirement exits 2 with a hint naming the skill that would satisfy it.
 
 ---
 
@@ -128,13 +127,15 @@ Exit 3 on an absent capability is structural, not advisory: the verb refuses bef
             └── {id}/
                 ├── ticket.json  source, id, title, type, native_type, state, url, last_fetched_at, coordinates
                 ├── digest.md    ← ticket-digest
-                ├── journal.md   ← ticket-checkpoint only; read only by ticket-resume
+                ├── journal/     ← ticket-checkpoint only; ticket-resume reads the latest entry
+                │   └── 2026-10-11T09-30-00Z.md
                 ├── plan.md      ← ticket-plan
+                ├── pulls.md     ← the pull request record: ticket-checkpoint and ticket-implement
                 ├── raw/         ← ticket-fetch, or the source of truth for a local store
                 └── artifacts/   ← ticket-plan and ticket-implement (see ARTIFACTS.md)
 ```
 
-A ticket directory holds **nothing but those six entries**. Never write a generated file directly into it.
+A ticket directory holds **nothing but those seven entries**. Never write a generated file directly into it.
 
 Every `config.json` is optional; an absent one reads as empty. Objects merge key by key across levels, anything else set at an inner level replaces what an outer one set, and `[]` clears an inherited list. `default_namespace` is read from the root alone, `default_product` from its namespace alone. The resolver's `config_sources` names the file each effective value came from.
 
