@@ -1,30 +1,37 @@
 # github — update
 
-Read by `ticket-update`. Changing an issue writes to GitHub, so it is **gated behind an explicit confirmation**, and **refused when the issue has changed upstream** since it was fetched.
+A **recipe**. Read by `ticket-update`. Changing an issue writes to GitHub, and the skill's own gates apply first: the drift check (`drift.md`), a before and after, and an explicit yes. This file is only how to write. The commands are examples, not an allowlist: use whatever `gh` call the change needs.
 
-## The flow
-
-```
-python "{skills}/ticket-common/ticket.py" update "{qualified_ref}" [flags] --propose
-python "{skills}/ticket-common/ticket.py" update "{qualified_ref}" [flags] --confirm
-```
-
-1. **Drift check.** The front door runs this source's drift check first (`drift.md`). A stale snapshot exits 2 with the instruction to re-fetch, and writes nothing: the diff is computed against the snapshot, and writing over an upstream edit would discard it.
-2. **Propose.** `--propose` reports `changes` — one `{field, before, after}` per field that differs — and writes nothing. Show every one as a before and after.
-3. **Ask.** Require an explicit yes. Without `--confirm` the front door refuses to write, exiting 4.
-4. **Write.** `--confirm` sends one `PATCH` carrying only the fields that changed.
-5. **Re-fetch.** The snapshot is re-fetched, so `raw/` and `ticket.json` match upstream.
+`{owner}` and `{repository}` are the `coordinates` the resolver reports. Always pass `--repo {owner}/{repository}`; never rely on the repository the invocation directory happens to belong to.
 
 ## What can change
 
-| Field | Flag | Notes |
-| --- | --- | --- |
-| Title | `--title` | |
-| Description | `--description-file` | The part of the body before the acceptance criteria |
-| Acceptance criteria | `--criteria-file` | The `## Acceptance Criteria` section of the body — an issue has no field for them (`schema.md`). Created at the end of the description when there is none |
-| State | `--state open\|closed` | This source has only these two |
-| Labels | `--add-label`, `--remove-label` | Repeatable; compared case-insensitively. A label decides the ticket's type (`types.md`), so a label change can change the type the next fetch records |
+| Field               | How                                                                                                                                                     |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Title               | `gh issue edit {number} --repo {owner}/{repository} --title "…"`                                                                                        |
+| Description         | the part of the body before the acceptance criteria — see [The body](#the-body)                                                                         |
+| Acceptance criteria | the `## Acceptance Criteria` section of the body — an issue has no field for them (`schema.md`)                                                         |
+| State               | `gh issue close {number} --repo …` (optionally `--reason "not planned"`), or `gh issue reopen {number} --repo …` — this source has only open and closed |
+| Labels              | `gh issue edit {number} --repo … --add-label "…" --remove-label "…"`, repeatable                                                                        |
 
-Whatever follows the acceptance criteria in the body is carried through untouched. Comments are not changed here: they are not changed by this skill.
+Comments are not changed here. Assignee, milestone and project are out of scope.
 
-Assignee, milestone and project are out of scope.
+## The body
+
+An issue's body is one markdown string. The acceptance criteria are the section under an `## Acceptance Criteria` heading (two or three `#`), ending at the next heading of the same or a higher level; the description is what precedes it and whatever follows the section is carried through untouched.
+
+To change the description or the criteria, build the **whole new body** from the snapshot's `issue.body`, replacing only the part that changed, write it to a scratch file outside the ticket directory, and send it:
+
+```bash
+gh issue edit {number} --repo {owner}/{repository} --body-file {file}
+```
+
+Where there is no criteria section yet, a new one goes at the end of the description, before anything that followed it. Show the user the part that changed as a before and after, not the whole body.
+
+## Labels
+
+Compare case-insensitively; adding a label the issue already has changes nothing. `--add-label` fails for a label the repository does not have. Creating one is a second write, so say so and ask before running `gh label create`. A label decides the ticket's type (`types.md`), so a label change can change the type the next fetch records; say so when a requested label is one of those.
+
+## There is no revision guard
+
+GitHub offers no way to make an edit conditional on the issue not having moved. So run the drift check **immediately before the write**, and compare `updated_at` once more if time has passed since: that narrows the window, and a very small one remains. Say so only if the check shows the issue moved in between.

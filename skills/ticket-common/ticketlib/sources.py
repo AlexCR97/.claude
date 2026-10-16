@@ -4,8 +4,9 @@ Turning a reference the user typed into a ticket's location and a set of paths.
 
 The resolution order is implemented here once and restated in prose nowhere:
 
-1. A web address — matched against the `url.patterns` each source declares.
-   Its coordinates decide where it is filed when it is not on disk yet.
+1. A web address is not a reference: the driver reads it, and passes the
+   source, id and `--coordinate` flags it finds. Explicit coordinates decide
+   where a ticket not on disk yet is filed.
 2. A qualified reference — `{namespace}/{product}/{source}:{id}` — names one
    directory exactly.
 3. `{source}:{id}` or a bare id — the nearest ticket directory of that name:
@@ -90,16 +91,6 @@ def looks_like_url(ref: str) -> bool:
     return ref.strip().lower().startswith(("http://", "https://"))
 
 
-def url_patterns(source: str) -> list[str]:
-    manifest_url = providers.load_manifest(source).get("url") or {}
-    return [str(pattern) for pattern in manifest_url.get("patterns") or []]
-
-
-def refused_urls(source: str) -> list[dict]:
-    manifest_url = providers.load_manifest(source).get("url") or {}
-    return list(manifest_url.get("refused") or [])
-
-
 def canonical_url(source: str, coordinates: dict, ticket_id: str) -> str | None:
     """
     The one address a source prefers for a ticket, whichever form was pasted.
@@ -120,63 +111,64 @@ def canonical_url(source: str, coordinates: dict, ticket_id: str) -> str | None:
         return None
 
 
-def url_hint() -> str:
-    accepted = [source for source in providers.list_sources() if url_patterns(source)]
-    if not accepted:
-        return "No installed source recognises a web address. Pass `{source}:{id}`."
-    return (
-        "Sources that recognise an address: "
-        + ", ".join(accepted)
-        + ". Otherwise pass `{source}:{id}`."
+def web_address_error(ref: str) -> TicketError:
+    """
+    Why a pasted web address is refused, and what to pass instead.
+
+    Reading an address is the driver's job, not a pattern's: a form this module
+    did not list would otherwise be a hard failure, and reading one needs no
+    guarantee of byte-identical output.
+    """
+    return TicketError(
+        f"'{ref}' is a web address, which resolve does not read",
+        EXIT_ERROR,
+        "Read the address, then pass `{source}:{id}` and one "
+        "`--coordinate {name}={value}` for each coordinate it carries. "
+        + known_sources_hint(),
     )
 
 
-def match_url(ref: str) -> Reference:
-    """
-    A pasted web address -> its source, id and coordinates, by the patterns the manifests declare.
+def parse_coordinates(
+    values: list[str] | None, source: str | None, ref: str
+) -> dict[str, str]:
+    """`--coordinate name=value` flags as a dict, each name one the source declares."""
+    given: dict[str, str] = {}
+    for entry in values or []:
+        name, equals, value = entry.partition("=")
+        name, value = name.strip(), value.strip()
+        if not equals or not name or not value:
+            raise TicketError(
+                f"--coordinate '{entry}' is not name=value",
+                EXIT_ERROR,
+                "Pass e.g. `--coordinate organization=edwire`.",
+            )
+        given[name] = value
 
-    The patterns live in `provider.json` and not here for the same reason the
-    prefixes do: this module must stay ignorant of what any one ticket system's
-    addresses look like.
-    """
-    address = ref.strip()
-    for source in providers.list_sources():
-        for refusal in refused_urls(source):
-            if re.match(refusal["pattern"], address, re.IGNORECASE):
-                raise TicketError(
-                    f"'{ref}' is not a {source} ticket — {refusal['reason']}",
-                    EXIT_ERROR,
-                    "Pass the address of an issue, or `{source}:{id}`.",
-                )
-        for pattern in url_patterns(source):
-            match = re.match(pattern, address, re.IGNORECASE)
-            if not match:
-                continue
-            found = {
-                name: urllib.parse.unquote(value)
-                for name, value in match.groupdict().items()
-                if value is not None
-            }
-            ticket_id = found.pop("id", "")
-            if not ticket_id:
-                raise TicketError(
-                    f"{source}'s address pattern captured no id from '{ref}'",
-                    EXIT_ERROR,
-                    "Its `url.patterns` in provider.json needs an `id` group.",
-                )
-            require_segment(ticket_id, ref)
-            return Reference(ticket_id, source, coordinates=found)
+    if not given:
+        return given
+    if source is None:
+        raise TicketError(
+            f"--coordinate needs a source, and '{ref}' names none",
+            EXIT_ERROR,
+            "Pass `{source}:{id}` or --source. " + known_sources_hint(),
+        )
 
-    raise TicketError(
-        f"no source recognises the address '{ref}'", EXIT_ERROR, url_hint()
-    )
+    declared = providers.coordinates(source)
+    unknown = sorted(set(given) - set(declared))
+    if unknown:
+        raise TicketError(
+            f"{source} has no coordinate named {', '.join(unknown)}",
+            EXIT_ERROR,
+            f"Its coordinates are: {', '.join(declared) or 'none'}.",
+        )
+    return given
 
 
 def parse(ref: str) -> Reference:
-    """`[{namespace}/{product}/][{source}:]{id}`, or a web address."""
+    """`[{namespace}/{product}/][{source}:]{id}`."""
     text = ref.strip()
     if looks_like_url(text):
-        return match_url(text)
+        raise web_address_error(ref)
 
     head, colon, tail = text.partition(":")
     scoped, ticket_id = (head, tail) if colon else ("", head)
@@ -379,6 +371,7 @@ def locate(
     restrict: Scope | None = None,
     context: Scope | None = None,
     cwd: Path | None = None,
+    coordinates: list[str] | None = None,
 ) -> Target:
     require_sources()
     reference = parse(ref)
@@ -396,6 +389,7 @@ def locate(
     # source's pattern admits can name a ticket directory rather than another.
     if reference.source:
         validate_id(reference.source, reference.id)
+    reference.coordinates = parse_coordinates(coordinates, reference.source, ref)
 
     scope = narrow(restrict, reference.product, ref)
     found = find_existing(reference, scope, context, ref)
@@ -513,6 +507,7 @@ def resolve(
     restrict: Scope | None = None,
     context: Scope | None = None,
     cwd: Path | None = None,
+    coordinates: list[str] | None = None,
 ) -> dict:
     """The full resolver output — every path absolute, every secret redacted."""
     if ref is None:
@@ -527,7 +522,7 @@ def resolve(
         resolved["paths"] = {"tickets_home": str(paths.tickets_home())}
         return resolved
 
-    target = locate(ref, explicit_source, restrict, context, cwd)
+    target = locate(ref, explicit_source, restrict, context, cwd, coordinates)
     location = target.location
     record = tickets.load(location)
 
@@ -544,8 +539,8 @@ def resolve(
         else:
             record = {**record, "type": type_override}
 
-    coordinates = ticket_coordinates(location, record, target.address)
-    survey = tickets.on_disk(location, is_usable(location.source, coordinates))
+    located = ticket_coordinates(location, record, target.address)
+    survey = tickets.on_disk(location, is_usable(location.source, located))
     merged, origins = config.effective(
         location.product.namespace, location.product.name
     )
@@ -568,13 +563,13 @@ def resolve(
             "state": record.get("state"),
             "url": record.get("url")
             or (
-                canonical_url(location.source, coordinates, location.id)
+                canonical_url(location.source, located, location.id)
                 if target.address
                 else None
             ),
             "last_fetched_at": record.get("last_fetched_at"),
             "type_file": type_file_for(record.get("type")),
-            "coordinates": coordinates,
+            "coordinates": located,
             "paths": location.paths(),
             "ticket_json": record,
             "config": config.redact(merged),

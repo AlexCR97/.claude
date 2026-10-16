@@ -2,7 +2,7 @@
 name: ticket-resume
 description: Rebuilds the context for a ticket in a fresh session — reads the latest journal entry, plan.md, digest.md and prior artifacts, inspects the live git state, and checks whether the ticket changed since it was last fetched. Outputs a briefing ending in the single next action.
 argument-hint: "[ref]"
-allowed-tools: Read Grep Glob Bash(python *ticket.py:*) Bash(python *collect-git-state.py:*)
+allowed-tools: Read Grep Glob Bash(python *ticket.py:*) Bash(python *collect-git-state.py:*) Bash(az rest --method get:*) Bash(gh api repos/*:*)
 ---
 
 Rebuilds a ticket's context in a fresh session. Everything needed is on disk — the digest, the plan, the artifacts, the journal — but two things no file holds have usually drifted since: the state of the worktree, and the ticket itself. This skill reads it all back and prints one briefing: what the work is, where it stopped, the next action, what the code looks like now, and what changed at the source while attention was elsewhere.
@@ -30,7 +30,7 @@ A fact that needs a particular ticket system belongs in `ticket-providers/{sourc
 ## Ground rules
 
 1. **Write nothing.** No code, no journal entry, no `plan.md`, no artifacts — `/ticket-checkpoint` records state and `/ticket-implement` changes code.
-2. **Run only read-only commands:** `collect-git-state.py`, `ticket.py` `resolve`, `list`, `drift` and `journal latest` or `list`, and reads of the files the steps name. Run git only as `ticket-common/GUARD.md` allows, which here means reading: no `checkout`, `stash`, `commit`, `push` or any command that changes repository state.
+2. **Run only read-only commands:** `collect-git-state.py`, `ticket.py` `resolve`, `list`, `drift` and `journal latest` or `list`, the reads the source's `drift.md` names, and reads of the files the steps name. A write through a source's CLI is never one of them. Run git only as `ticket-common/GUARD.md` allows, which here means reading: no `checkout`, `stash`, `commit`, `push` or any command that changes repository state.
 3. **Never run a script under `artifacts/`, not even a read-only one.** A captured output already on disk is the answer, and a briefing has no side effects; re-running a probe is a job for a session that needs it.
 4. **Never read the source's raw data for ticket content.** `digest.md` is the source of truth; the drift check reads the snapshot for comparison only.
 5. **Never correct `plan.md`, even when it is visibly stale.** Report the discrepancy and let `/ticket-checkpoint` or `/ticket-plan` fix it.
@@ -105,22 +105,14 @@ If `is_repository` is `false`, report that the invocation directory is outside e
 
 Where the resolver reported `capabilities.drift` is **false**, skip this step and say so in one line in the briefing — that source cannot tell whether the ticket moved, and a gap reported is worth more than a check silently omitted.
 
-Otherwise run:
+Otherwise read `ticket-providers/{source}/drift.md` and follow it. It is read-only against both the source and the local snapshot: it says what to compare, what to read from the source and how, and why some fields are reported as context rather than as diff rows. It ends in one of three verdicts:
 
-```bash
-python "{skills}/ticket-common/ticket.py" drift "{qualified_ref}"
-```
-
-It is read-only against both the source and the local snapshot. What it compares, and why some fields are reported as context rather than as diff rows, is in `ticket-providers/{source}/drift.md` — read that only when a result needs interpreting.
-
-Interpret the exit code:
-
-- **0** — the local copy is current. Say nothing beyond one line confirming it.
-- **2** — the ticket changed. Report each field change, and each new comment with its author, age, and snippet. Then recommend, without running either, `/ticket-fetch` and then `/ticket-digest` on the ticket: `digest.md` predates these changes.
+- **Current** — the local copy is current. Say nothing beyond one line confirming it.
+- **Changed** — report each field change, and each new comment with its author, age, and snippet. Then recommend, without running either, `/ticket-fetch` and then `/ticket-digest` on the ticket: `digest.md` predates these changes.
 
   A new comment answering an open question from the journal is the single most valuable thing this check can surface — call that out explicitly when it happens.
 
-- **1** — the check could not be made. Report the reason in one line and continue with the rest of the briefing. A failed drift check does not block a resume.
+- **Could not be checked** — report the reason in one line and continue with the rest of the briefing. A failed drift check does not block a resume.
 
 ### Step 6 — Print the briefing
 

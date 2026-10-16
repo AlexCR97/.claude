@@ -19,27 +19,27 @@ flowchart LR
 
 ## Skills
 
-| Skill               | Runs                                                   | Prerequisite     |
-| ------------------- | ------------------------------------------------------ | ---------------- |
-| `ticket-setup`      | Once per binding, or to create a namespace or product  | None             |
-| `ticket-context`    | Optional; once per session, to work in one product     | a product        |
-| `ticket-create`     | To create a ticket — locally, or upstream after a yes  | `init`           |
-| `ticket-fetch`      | Once per ticket; re-run to refresh the snapshot        | `init`           |
-| `ticket-update`     | To change an upstream ticket's fields; re-fetches      | `fetch`          |
-| `ticket-digest`     | Once per ticket                                        | `fetch` or `new` |
-| `ticket-plan`       | Once to generate; re-run to view/update progress       | a ticket; it fetches and digests what is missing |
-| `ticket-implement`  | Once or multiple times; only on a ticket branch        | `plan`           |
-| `ticket-checkpoint` | Whenever attention leaves the ticket                   | a ticket on disk |
-| `ticket-resume`     | First thing in a new session on an existing ticket     | a ticket on disk |
-| `ticket-move`       | To re-file a ticket under another product              | a ticket on disk |
+| Skill               | Runs                                                  | Prerequisite                                     |
+| ------------------- | ----------------------------------------------------- | ------------------------------------------------ |
+| `ticket-setup`      | Once per binding, or to create a namespace or product | None                                             |
+| `ticket-context`    | Optional; once per session, to work in one product    | a product                                        |
+| `ticket-create`     | To create a ticket — locally, or upstream after a yes | `init`                                           |
+| `ticket-fetch`      | Once per ticket; re-run to refresh the snapshot       | `init`                                           |
+| `ticket-update`     | To change an upstream ticket's fields; re-fetches     | `fetch`                                          |
+| `ticket-digest`     | Once per ticket                                       | `fetch` or `new`                                 |
+| `ticket-plan`       | Once to generate; re-run to view/update progress      | a ticket; it fetches and digests what is missing |
+| `ticket-implement`  | Once or multiple times; only on a ticket branch       | `plan`                                           |
+| `ticket-checkpoint` | Whenever attention leaves the ticket                  | a ticket on disk                                 |
+| `ticket-resume`     | First thing in a new session on an existing ticket    | a ticket on disk                                 |
+| `ticket-move`       | To re-file a ticket under another product             | a ticket on disk                                 |
 
-**Two skills write to a system outside this machine** — `ticket-create` creates an upstream ticket, and `ticket-update` changes one. Each has the same load-bearing gate: nothing is written without the user's explicit yes, shown the exact content first.
+**Two skills write to a system outside this machine** — `ticket-create` creates an upstream ticket, and `ticket-update` changes one. Each follows the source's recipe with `gh` or `az`, and each has the same load-bearing gate: nothing is written without the user's explicit yes, shown the exact content first. `ticket-update` also compares the live ticket with the snapshot before writing, and sends the revision guard the recipe names.
 
 `fetch` and `digest` each own one output. `plan` and `implement` additionally write any files their research or steps produce along the way. `checkpoint` owns the `journal/` directory outright — it is the only skill that writes it, and `resume` the only one that reads it. `resume` writes nothing at all. See [Data Layout](#data-layout).
 
 ## Skills are drivers
 
-No `ticket-*/SKILL.md` contains a field name, a URL, an API version, a credential command, a markup dialect, or a rule that only holds for one kind of work. Each states the workflow and names which file to read. Everything specific lives in one of three places:
+No `ticket-*/SKILL.md` contains a field name, a URL, an API version, a credential command, a markup dialect, or a rule that only holds for one kind of work. (An `allowed-tools` entry naming `az` or `gh` pre-approves the source's CLI; it names no field or URL.) Each states the workflow and names which file to read. Everything specific lives in one of three places:
 
 | Directory                    | Holds                                                                                                                             | Not a skill   |
 | ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------- | ------------- |
@@ -53,23 +53,23 @@ Every driver invokes exactly one command — `ticket-common/ticket.py` — so a 
 
 ## Sources
 
-| Role file                                                    | `ado` | `github` | `local` |
-| ------------------------------------------------------------ | :---: | :------: | :-----: |
-| `provider.json` — capabilities, prefixes, id shape, nouns    |   ✅   |    ✅     |    ✅    |
-| `config.md` — what is stored, how the credential is acquired |   ✅   |    ✅     |    ✅    |
-| `fetch.md` — how raw data lands on disk                      |   ✅   |    ✅     |    ❌    |
-| `new.md` — how a ticket is created here                      |   ✅   |    ✅     |    ✅    |
-| `update.md` — how an upstream ticket is changed              |   ✅   |    ✅     |    ❌    |
-| `schema.md` — where the content is, and the field map        |   ✅   |    ✅     |    ✅    |
-| `types.md` — this source's vocabulary → a canonical type     |   ✅   |    ✅     |    ✅    |
-| `links.md` — ticket / comment / attachment URL patterns      |   ✅   |    ✅     |    ✅    |
-| `drift.md` — how to tell the local snapshot is stale         |   ✅   |    ✅     |    ✅    |
+| Role file                                                                | `ado` | `github` | `local` |
+| ------------------------------------------------------------------------ | ----- | -------- | ------- |
+| `provider.json` — capabilities, prefixes, id shape, nouns                | ✅    | ✅       | ✅      |
+| `config.md` — what is stored, what the CLI must have                     | ✅    | ✅       | ✅      |
+| `fetch.md` — how raw data lands on disk                                  | ✅    | ✅       | ❌      |
+| `new.md` — how a ticket is created here (a recipe upstream)              | ✅    | ✅       | ✅      |
+| `update.md` — how an upstream ticket is changed (a recipe)               | ✅    | ✅       | ❌      |
+| `schema.md` — where the content is, and the field map                    | ✅    | ✅       | ✅      |
+| `types.md` — this source's vocabulary → a canonical type                 | ✅    | ✅       | ✅      |
+| `links.md` — reading an address; ticket / comment / attachment URLs      | ✅    | ✅       | ✅      |
+| `drift.md` — how to tell the local snapshot is stale (a recipe upstream) | ✅    | ✅       | ✅      |
 
 **The absences are the mechanism, not an oversight.**
 
 `local` has no `fetch.md` and no `update.md`, and its `capabilities.fetch` and `capabilities.update` are `false` — so `/ticket-fetch local:x` and `/ticket-update local:x` refuse, structurally, with no `if source == "local"` anywhere in any driver. There is nothing upstream to fetch from or to change: a local ticket's `raw/ticket.md` *is* the source of truth, and it is edited directly.
 
-A source without a `new.md` or `update.md` is refused the same way, with a reported gap: no skill improvises an API call.
+A source without a `new.md` or `update.md` is refused the same way, with a reported gap: no skill improvises a write another way. Where the file exists it is a **recipe** (a contract is what a script must produce; a recipe is how to use the source's own CLI), and its commands are examples, not an allowlist.
 
 A missing role file is always a **reported gap**, never a licence to substitute another source's.
 
@@ -112,7 +112,7 @@ Each maps onto what the source already has, through a **binding** recorded in th
 
 A product can be bound to several sources or to none: EW.Educate holds its ADO work items and the local tickets written about it side by side, and a side project with nothing upstream is a product with only local tickets.
 
-**Where a new ticket goes** is decided in two steps. First, which products can hold it — a pasted address goes where its coordinates are bound, and a remote ticket needs a product bound to its source. Then, among those, the session context, the invocation directory and the configured default product, in that order. A ticket nothing places lands in a namespace's `default` product, or in `default/default`. Every filing is reported, and `/ticket-move` re-files a ticket at any time.
+**Where a new ticket goes** is decided in two steps. First, which products can hold it — a ticket whose coordinates were given goes where they are bound, and a remote ticket needs a product bound to its source. Then, among those, the session context, the invocation directory and the configured default product, in that order. A ticket nothing places lands in a namespace's `default` product, or in `default/default`. Every filing is reported, and `/ticket-move` re-files a ticket at any time.
 
 **`/ticket-context` sets where a session works.** Once set, every skill prefers that product when resolving a reference, files new tickets there, and narrows its ticket listings to it. `/ticket-resume` adopts the resumed ticket's product when nothing is set. It lives in the conversation and nowhere else.
 
@@ -140,7 +140,6 @@ Four levels, always: namespace, product, source, ticket.
 ```txt
 ~/.tickets/
 ├── config.json                           {"default_source": "ado", "default_namespace": "edwire"}
-├── .credentials/ado/edwire.json          cached token, keyed by organization — never merged, never printed
 ├── default/default/local/{slug}/         where a ticket nothing places lands
 ├── edwire/                               namespace ⇄ ADO organization "edwire"
 │   ├── config.json                       {"default_product": "ew-educate", "scan_roots": ["C:\\src\\edwire"], "sources": {"ado": {"organization": "edwire"}}}
@@ -166,7 +165,7 @@ Four levels, always: namespace, product, source, ticket.
 
 Keeping `{source}/` directly above the id is what keeps ids unique and relative links between sibling tickets working, as long as they are filed together.
 
-`ticket.json` is what keeps source-specific URL patterns out of every driver and every template. A skill reads `ticket.json.url` and **degrades to plain text when it is `null`** — a local store has no web address, and a digest that prints a broken link is worse than one that prints a plain title.
+`ticket.json` is what keeps source-specific URLs out of every driver and every template. A skill reads `ticket.json.url` and **degrades to plain text when it is `null`** — a local store has no web address, and a digest that prints a broken link is worse than one that prints a plain title.
 
 A reference resolves to the nearest ticket directory of that name — in the session context's product, then its namespace, then everywhere. Exactly one at the nearest level wins; **two or more is an error that lists them**, because guessing here attaches work to the wrong ticket. A qualified reference, `{namespace}/{product}/{source}:{id}`, is never ambiguous.
 

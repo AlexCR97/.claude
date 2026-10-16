@@ -46,14 +46,16 @@ No `allowed-tools`: Step 8 runs probe scripts whose commands cannot be known in 
 
 ## Execution Steps
 
-### Step 1 — Resolve the ticket, and do the groundwork it is missing
+### Step 1 — Read the reference, resolve the ticket, and do the groundwork it is missing
+
+**Read `<ref>` first.** `resolve` takes only a qualified reference or `{source}:{id}`. Where the user gave anything else — a web address in any form, `#42`, `owner/repo#42` — turn it into one and its coordinates as `ticket-common/RESOLUTION.md` → *Reading what the user gave* says, and echo what you took it to mean in one line. `{ref}` below is the reference you settled on: what the user gave where it was already a qualified reference or `{source}:{id}`, else the one you read it into. Pass each coordinate as `--coordinate {name}={value}` on every `ticket.py` call below that takes one.
 
 With a session context, pass `--context {context}` on every `ticket.py` call below that takes one and open the first output line with `Ticket context: {context}` — `ticket-common/RESOLUTION.md` → *How a reference resolves* covers overrides. A pasted web address is a valid `<ref>` even for a ticket not on disk yet.
 
 Ask what planning needs first:
 
 ```bash
-python "{skills}/ticket-common/ticket.py" prepare "<ref>" [--context {context}]
+python "{skills}/ticket-common/ticket.py" prepare "{ref}" [--coordinate {name}={value} ...] [--context {context}]
 ```
 
 Its `steps` are what is missing, in order. Do each by following the named skill's own steps in this session, without confirmation: both write only inside the ticket directory. On a non-zero exit from `prepare`, report the message and its hint verbatim and stop.
@@ -61,12 +63,12 @@ Its `steps` are what is missing, in order. Do each by following the named skill'
 - **`fetch`** — follow `ticket-fetch/SKILL.md`. It is absent for a source with no fetch capability, such as a local ticket.
 - **`digest`** — follow `ticket-digest/SKILL.md`.
 
-Where `steps` is empty and `ask_before_refresh` is `true`, the ticket changed upstream since it was fetched. Show what `drift` reports and **ask** before refreshing: a refresh re-fetches and re-digests, replacing a digest that may have been edited. On a yes, run `refresh_steps`; on a no, plan from what is on disk and say so. Where it is `false`, go on without asking.
+Where `steps` is empty and the resolver reports `capabilities.drift`, ask whether the ticket changed upstream since it was fetched: read `ticket-providers/{source}/drift.md` and follow it. Where it reports the ticket **changed**, show what it found and **ask** before refreshing: a refresh re-fetches (where the source can fetch) and re-digests, replacing a digest that may have been edited. On a yes, follow `ticket-fetch/SKILL.md` and then `ticket-digest/SKILL.md`; on a no, plan from what is on disk and say so. Where it is current, or could not be checked, go on without asking, and say in one line when it could not be checked.
 
 Then resolve it:
 
 ```bash
-python "{skills}/ticket-common/ticket.py" resolve "<ref>" --require digest [--type type] [--context {context}]
+python "{skills}/ticket-common/ticket.py" resolve "{ref}" --require digest [--coordinate {name}={value} ...] [--type type] [--context {context}]
 ```
 
 Everything below uses the paths, type, `product` and `ticket.json` it returns; **every path it prints is absolute**, so nothing here needs expanding. On a non-zero exit, report the message and its hint verbatim and stop. `ticket-common/RESOLUTION.md` carries the full contract — open it only when the output is disputed.

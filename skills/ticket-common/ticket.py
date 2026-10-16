@@ -13,24 +13,22 @@ exit-code mapping.
 
 Usage:
     python ticket.py sources [--check]
-    python ticket.py resolve [<ref>] [--source S] [--type T] [--require a,b] [--in X] [--context X]
+    python ticket.py resolve [<ref>] [--source S] [--coordinate N=V ...] [--type T] [--require a,b] [--in X] [--context X]
     python ticket.py list [--in X] [--context X]
     python ticket.py namespaces [--in X]
     python ticket.py defaults [--namespace NS] [--product NS/PRODUCT]
     python ticket.py init --source S [--in NS/PRODUCT] [--propose] [provider flags...]
     python ticket.py init --in NS[/PRODUCT]
-    python ticket.py fetch <ref> [--source S] [--in X] [--context X]
+    python ticket.py fetch <ref> [--source S] [--coordinate N=V ...] [--in X] [--context X]
     python ticket.py new --source S --title "..." [--id SLUG] [--type T] [--in X] [--context X] [--propose] [provider flags...]
     python ticket.py drift <ref>
     python ticket.py prepare <ref>
-    python ticket.py update <ref> [--propose | --confirm] [provider flags...]
     python ticket.py move <ref> --to NS/PRODUCT [--dry-run]
     python ticket.py guard check --op OP [--branch B] [--repo DIR] [--in X] | protected [--branch B] [--repo DIR] | fast-forward --branch B [--repo DIR]
     python ticket.py worktree survey|propose|create|adopt <ref> --repo DIR [--repo DIR ...] [--add-ignore]
     python ticket.py script-check <file> [--in X] [--context X]
     python ticket.py journal write <ref> --file F [--at ISO] | latest <ref> | list <ref> | migrate <ref>
     python ticket.py pulls add <ref> URL | refresh <ref> | discover <ref>
-    python ticket.py auth-status [--source S] [--in X]
     python ticket.py scan-roots [--in NS[/PRODUCT]] [--set [DIR ...]]
 
 `--in` restricts to a namespace or product; `--context` only prefers one — it
@@ -123,7 +121,12 @@ def context_of(args: argparse.Namespace) -> Scope | None:
 
 def locate(args: argparse.Namespace) -> sources.Target:
     return sources.locate(
-        args.ref, args.source, restrict_of(args), context_of(args), Path.cwd()
+        args.ref,
+        args.source,
+        restrict_of(args),
+        context_of(args),
+        Path.cwd(),
+        getattr(args, "coordinate", None),
     )
 
 
@@ -201,6 +204,7 @@ def verb_resolve(args: argparse.Namespace) -> int:
         restrict=restrict_of(args),
         context=context_of(args),
         cwd=Path.cwd(),
+        coordinates=args.coordinate,
     )
     emit(resolved)
     return EXIT_OK
@@ -535,7 +539,8 @@ def verb_new(args: argparse.Namespace) -> int:
         raise TicketError("--title is required", EXIT_ERROR)
 
     if providers.load_manifest(source).get("kind") == "remote":
-        return new_remote(args, source, module, restrict, context)
+        return propose_filing(args, source, restrict, context)
+    providers.require_script(source, "new", "new.md")
 
     ticket_id = args.id or slugify(args.title)
     if not ticket_id:
@@ -580,68 +585,23 @@ def verb_new(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
-def new_remote(args, source, module, restrict, context) -> int:
+def propose_filing(args, source, restrict, context) -> int:
     """
-    Create a ticket in a system that assigns its own id, then file the fetched result.
+    Where a ticket created in a remote source would be filed, and nothing else.
 
-    Nothing is written upstream without `--confirm`: the ticket outlives this
-    session and is visible to everyone who can see the project. The id is only
-    known once the system has made it, so the ticket is fetched and filed under
-    that, exactly as any other fetched ticket.
+    The source assigns the id, and creating it is a recipe the agent follows
+    with the source's own CLI, so only the filing is mechanical.
     """
-    if not args.type:
-        raise TicketError(
-            "--type is required to create a ticket upstream",
-            EXIT_ERROR,
-            "Ask the user; the type decides the native type it is created as.",
-        )
-    known = providers.list_types()
-    if known and args.type not in known:
-        raise TicketError(
-            f"unknown ticket type '{args.type}'", EXIT_ERROR, "Known types: " + ", ".join(known) + "."
-        )
+    if not args.propose:
+        providers.require_script(source, "new", "new.md")
 
     choice = filing.choose(source, restrict=restrict, context=context, cwd=Path.cwd())
-    ctx = sources.provider_context(source, choice.product)
-    proposal = module.propose_new(ctx, args.title, args.type, args.extra)
-
-    if args.propose:
-        emit(
-            {
-                "source": source,
-                "product": choice.product.ref,
-                "filing": choice.as_dict(),
-                "proposal": proposal,
-                "confirmation_required": True,
-            }
-        )
-        return EXIT_OK
-
-    if not args.confirm:
-        raise TicketError(
-            f"creating a {source} ticket writes to a remote system and needs explicit confirmation",
-            EXIT_REFUSED,
-            "Show the proposal (`--propose`), and re-run with --confirm only after the user says yes.",
-        )
-
-    created = module.new(ctx, args.title, args.type, args.extra)
-    location = Location(choice.product, source, str(created["id"]))
-    fetch_ctx = sources.provider_context(
-        source, choice.product, location, ctx["coordinates"]
-    )
-    (location.dir / "raw").mkdir(parents=True, exist_ok=True)
-    fetched = module.fetch(fetch_ctx, [])
-    tickets.update(location, type=args.type)
-    if created.get("parent"):
-        tickets.update(location, parent=created["parent"])
-
     emit(
         {
-            **location_report(sources.Target(location, filed=False, filing=choice)),
-            "created": created,
-            "fetched": fetched,
-            "paths": location.paths(),
-            "ticket_json": tickets.load(location),
+            "source": source,
+            "product": choice.product.ref,
+            "filing": choice.as_dict(),
+            "recipe": providers.role_file(source, "new.md"),
         }
     )
     return EXIT_OK
@@ -650,14 +610,13 @@ def new_remote(args, source, module, restrict, context) -> int:
 def verb_drift(args: argparse.Namespace) -> int:
     location = require_filed(locate(args))
     module = provider_for(location.source, "drift")
+    providers.require_script(location.source, "drift", "drift.md")
 
     result = module.drift(ticket_context(location), args.extra)
     result.setdefault("source", location.source)
     result.setdefault("id", location.id)
     result["qualified_ref"] = location.qualified
     emit(result)
-
-    from ticketlib.errors import EXIT_DRIFTED
 
     return EXIT_DRIFTED if result.get("is_stale") else EXIT_OK
 
@@ -670,8 +629,8 @@ def verb_prepare(args: argparse.Namespace) -> int:
     refreshing an existing one is not its call to make.
 
     A snapshot and a digest only ever write inside the ticket directory, so
-    they need no confirmation. Refreshing a digest that already exists does,
-    because it may have been refined by hand — `ask_before_refresh` says so.
+    they need no confirmation. Whether either is stale is not asked here: that
+    is the source's `drift.md`, which the driver follows once `steps` is empty.
     """
     target = locate(args)
     location = target.location
@@ -682,24 +641,14 @@ def verb_prepare(args: argparse.Namespace) -> int:
     steps: list[str] = []
     if capabilities.get("fetch") and not survey["raw"]:
         steps.append("fetch")
-    for_digest = args.for_skill == "digest"
-    if not for_digest and not survey["digest"]:
+    if args.for_skill != "digest" and not survey["digest"]:
         steps.append("digest")
 
-    drift_report = None
-    if not for_digest and not steps and capabilities.get("drift"):
-        module = provider_for(location.source, "drift")
-        drift_report = module.drift(ticket_context(location, target.address), [])
-
-    stale = bool(drift_report and drift_report.get("is_stale"))
     emit(
         {
             "qualified_ref": location.qualified,
             "filed": target.filed,
             "steps": steps,
-            "drift": drift_report,
-            "ask_before_refresh": stale,
-            "refresh_steps": ["fetch", "digest"] if stale and capabilities.get("fetch") else ["digest"] if stale else [],
         }
     )
     return EXIT_OK
@@ -718,62 +667,6 @@ def verb_script_check(args: argparse.Namespace) -> int:
     report = scripteffect.check(path, sensitive).as_dict()
     report["file"] = str(path)
     emit(report)
-    return EXIT_OK
-
-
-def verb_update(args: argparse.Namespace) -> int:
-    """
-    Change an upstream ticket: drift check, show the diff, require a yes, write, re-fetch.
-
-    The drift check comes first because the diff is computed against the local
-    snapshot: writing over a ticket someone else has since edited would silently
-    discard their change.
-    """
-    location = require_filed(locate(args))
-    module = provider_for(location.source, "update")
-    drift_module = provider_for(location.source, "drift")
-    ctx = ticket_context(location)
-
-    drift_report = drift_module.drift(ctx, [])
-    if drift_report.get("is_stale"):
-        emit({"qualified_ref": location.qualified, "refused": "drifted", "drift": drift_report})
-        raise TicketError(
-            f"{location.qualified} changed upstream since it was fetched",
-            EXIT_DRIFTED,
-            f"Run `/ticket-fetch {location.qualified}` and redo the update against the current ticket.",
-        )
-
-    proposal = module.propose_update(ctx, args.extra)
-    has_changes = bool(proposal["changes"])
-    if args.propose or not has_changes:
-        emit(
-            {
-                "qualified_ref": location.qualified,
-                "changes": proposal["changes"],
-                "confirmation_required": has_changes,
-                "written": False,
-            }
-        )
-        return EXIT_OK
-
-    if not args.confirm:
-        raise TicketError(
-            f"updating a {location.source} ticket writes to a remote system and needs explicit confirmation",
-            EXIT_REFUSED,
-            "Show the changes (`--propose`), and re-run with --confirm only after the user says yes.",
-        )
-
-    result = module.update(ctx, args.extra)
-    refreshed = module.fetch(ticket_context(location), [])
-    emit(
-        {
-            "qualified_ref": location.qualified,
-            "changes": proposal["changes"],
-            "written": result.get("written", True),
-            "fetched": refreshed,
-            "ticket_json": tickets.load(location),
-        }
-    )
     return EXIT_OK
 
 
@@ -955,58 +848,6 @@ def verb_move(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
-def verb_auth_status(args: argparse.Namespace) -> int:
-    """
-    Each source's credential state, once per credential rather than once per product.
-
-    Products in one namespace share their namespace-level coordinate, which
-    is what a credential is keyed by; listing each would repeat one status.
-    """
-    restrict = restrict_of(args)
-    names = [args.source] if args.source else providers.list_sources()
-    statuses = []
-
-    for source in names:
-        sources.require_installed(source, "--source names")
-        module = providers.load_module(source)
-
-        if not providers.coordinates(source):
-            status = module.auth_status(sources.provider_context(source, None))
-            status.setdefault("source", source)
-            status["initialized"] = True
-            statuses.append(status)
-            continue
-
-        by_key: dict[str, list[Product]] = {}
-        for product in layout.products():
-            if restrict and not restrict.contains(product):
-                continue
-            binding = config.binding(source, product.namespace, product.name)
-            if sources.is_usable(source, binding):
-                key = providers.credential_key(source, binding) or product.ref
-                by_key.setdefault(key, []).append(product)
-
-        if not by_key:
-            statuses.append(
-                {
-                    "source": source,
-                    "initialized": False,
-                    "hint": f"Run `/ticket-setup {source}` to bind it.",
-                }
-            )
-            continue
-
-        for bound in by_key.values():
-            status = module.auth_status(sources.provider_context(source, bound[0]))
-            status.setdefault("source", source)
-            status["initialized"] = True
-            status["products"] = [product.ref for product in bound]
-            statuses.append(status)
-
-    emit({"sources": statuses})
-    return EXIT_OK
-
-
 def verb_scan_roots(args: argparse.Namespace) -> int:
     scope = restrict_of(args)
     namespace, product = (scope.namespace, scope.product) if scope else (None, None)
@@ -1097,17 +938,25 @@ VERBS = {
     "journal": verb_journal,
     "pulls": verb_pulls,
     "guard": verb_guard,
-    "update": verb_update,
     "script-check": verb_script_check,
     "prepare": verb_prepare,
     "worktree": verb_worktree,
-    "auth-status": verb_auth_status,
     "scan-roots": verb_scan_roots,
 }
 
 
 def add_restrict(parser: argparse.ArgumentParser, help_text: str) -> None:
     parser.add_argument("--in", dest="within", metavar="NS[/PRODUCT]", help=help_text)
+
+
+def add_coordinate(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--coordinate",
+        action="append",
+        metavar="NAME=VALUE",
+        help="where the ticket lives upstream, e.g. organization=edwire; repeat for each "
+        "coordinate. Decides where a ticket not on disk yet is filed",
+    )
 
 
 def add_context(parser: argparse.ArgumentParser) -> None:
@@ -1136,9 +985,10 @@ def build_parser() -> argparse.ArgumentParser:
         "resolve", help="resolve a reference to a location, paths and config"
     )
     p.add_argument(
-        "ref", nargs="?", help="[namespace/product/][source:]id, or a web address"
+        "ref", nargs="?", help="[namespace/product/][source:]id; never a web address"
     )
     p.add_argument("--source")
+    add_coordinate(p)
     p.add_argument("--type", help="override the ticket type and record it")
     p.add_argument(
         "--require",
@@ -1184,21 +1034,17 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("fetch", help="refresh the local snapshot (remote sources)")
     p.add_argument("ref")
     p.add_argument("--source")
+    add_coordinate(p)
     add_restrict(p, "only look in, and only file under, this namespace or product")
     add_context(p)
 
-    p = sub.add_parser("new", help="create a ticket in a store that supports it")
+    p = sub.add_parser("new", help="create a ticket in a local store")
     p.add_argument("--source")
     p.add_argument("--title", required=True)
     p.add_argument(
         "--id", help="the slug or id to use; derived from the title if absent"
     )
     p.add_argument("--type")
-    p.add_argument(
-        "--confirm",
-        action="store_true",
-        help="remote sources: the user has seen the proposal and said yes",
-    )
     p.add_argument(
         "--propose",
         action="store_true",
@@ -1207,9 +1053,12 @@ def build_parser() -> argparse.ArgumentParser:
     add_restrict(p, "file it under this namespace or product")
     add_context(p)
 
-    p = sub.add_parser("drift", help="has the ticket moved since it was fetched?")
+    p = sub.add_parser(
+        "drift", help="has the ticket moved since it was fetched? (local sources)"
+    )
     p.add_argument("ref")
     p.add_argument("--source")
+    add_coordinate(p)
     add_restrict(p, "only look in this namespace or product")
     add_context(p)
 
@@ -1261,6 +1110,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("ref")
     p.add_argument("--for", dest="for_skill", choices=("plan", "digest"), default="plan")
     p.add_argument("--source")
+    add_coordinate(p)
     add_restrict(p, "only look in, and only file under, this namespace or product")
     add_context(p)
 
@@ -1279,20 +1129,6 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--source")
     add_restrict(p, "restrict the lookup to a namespace or product")
     add_context(p)
-
-    p = sub.add_parser(
-        "update", help="change an upstream ticket (title, description, acceptance criteria, state, labels)"
-    )
-    p.add_argument("ref")
-    p.add_argument("--source")
-    p.add_argument("--propose", action="store_true", help="show the before and after; write nothing")
-    p.add_argument("--confirm", action="store_true", help="the user has seen the diff and said yes")
-    add_restrict(p, "only look in this namespace or product")
-    add_context(p)
-
-    p = sub.add_parser("auth-status", help="report each source's credential state")
-    p.add_argument("--source")
-    add_restrict(p, "only the bindings in this namespace or product")
 
     p = sub.add_parser(
         "scan-roots", help="show or replace the default scan roots at one level"

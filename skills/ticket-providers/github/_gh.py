@@ -67,29 +67,6 @@ def repository(ctx: dict) -> str:
     return f"{owner}/{name}"
 
 
-def write(method: str, path: str, payload: dict) -> object:
-    """One `gh api` write, the JSON payload passed on stdin so a long body stays off the command line."""
-    require_auth()
-    code, stdout, stderr = run(
-        ["api", "-X", method, "-H", "Accept: application/vnd.github+json", path, "--input", "-"],
-        stdin_text=json.dumps(payload),
-    )
-    if code != 0:
-        raise TicketError(f"`gh api {method} {path}` failed — {stderr.strip() or f'exit code {code}'}")
-    try:
-        return json.loads(stdout)
-    except json.JSONDecodeError as exc:
-        raise TicketError(f"`gh api {method} {path}` returned output that is not JSON — {exc}") from exc
-
-
-def post(path: str, payload: dict) -> object:
-    return write("POST", path, payload)
-
-
-def patch(path: str, payload: dict) -> object:
-    return write("PATCH", path, payload)
-
-
 def api(path: str, paginate: bool = False) -> object:
     """One `gh api` call, returning parsed JSON."""
     require_auth()
