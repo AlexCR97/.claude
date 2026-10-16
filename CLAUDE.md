@@ -1,5 +1,9 @@
 # Global Claude Code Instructions
 
+## Asking the User
+
+When input from the user is needed, use the `AskUserQuestion` tool whenever the question fits it: a decision with two to four distinct options, or a set of related choices. Fall back to a plain-text question for open-ended input that has no sensible options.
+
 ## Command Line
 
 In Windows prefer using PowerShell. If a command cannot be executed fallback to the OS's configured shell, e.g. bash.
