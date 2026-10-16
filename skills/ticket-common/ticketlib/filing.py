@@ -5,7 +5,7 @@ Choosing the product a ticket not yet on disk is filed under.
 Two steps, in this order:
 
 1. **Which products can hold it.** A product named with `--in` or a qualified
-   reference, alone. A pasted address, the product bound to its coordinates —
+   reference, alone. Explicit coordinates, the product bound to them —
    or, where only the namespace is, that namespace's `default` product — and
    nothing further applies. Otherwise every product whose bindings give the
    source every coordinate it needs; for a source that needs none, every product.

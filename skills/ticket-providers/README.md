@@ -4,6 +4,8 @@ This directory is **not a skill** — it holds no `SKILL.md` and is never invoke
 
 A provider directory is trusted **code**, not configuration. `provider.py` is imported and executed by `ticket-common/ticket.py`. Add a source the way you would add a module to the suite, not the way you would drop in a config file.
 
+**Scripts are for work whose result must be byte-identical every run**: downloading a ticket into `raw/`, creating a local one, hashing a file. Anything that talks to a ticket system's write API, or that is a judgement about what changed, is a recipe the agent follows with the source's own CLI. See [Contracts and recipes](#contracts-and-recipes).
+
 ---
 
 ## The two halves
@@ -35,20 +37,29 @@ A provider directory is trusted **code**, not configuration. `provider.py` is im
 
 **The role `.md` files are the expensive references.** A driver opens only the one role file for its own step, only for the resolved source, and **never another source's files**.
 
-| Role file                         | Answers                                                                                          | Read by                                             | Gates capability |
-| --------------------------------- | ------------------------------------------------------------------------------------------------ | --------------------------------------------------- | ---------------- |
-| `provider.json`                   | capabilities, prefixes, coordinates, canonical address, id shape, nouns, comment format          | all, via `resolve`                                  | —                |
-| `config.md`                       | what a binding holds and at which level, how credentials are acquired and validated              | `ticket-setup`                                      | —                |
-| `fetch.md`                        | how raw data lands in `raw/`, traversal policy, attachment rules, how `ticket.json` is refreshed | `ticket-fetch`                                      | `fetch`          |
-| `new.md`                          | how a ticket is created here — locally, or upstream behind an explicit confirmation               | `ticket-create`                                     | `new`            |
-| `update.md`                       | how an upstream ticket is changed: which fields, which flags, the drift and confirmation gates    | `ticket-update`                                     | `update`         |
-| `schema.md`                       | where the content is on disk and the logical→physical field map                                  | `ticket-digest`                                      | —                |
-| `types.md`                        | this source's native type and tag/label vocabulary → one canonical type                          | `ticket-fetch`, `ticket-create`                     | —                |
-| `links.md`                        | how to read a pasted address, and ticket / comment / attachment URL patterns                     | `ticket-fetch`, `ticket-digest`, `ticket-plan`, `ticket-checkpoint` | —                |
-| `drift.md`                        | how to tell the local snapshot is stale, as exit 0/1/2                                           | `ticket-resume`                                     | `drift`          |
-| `provider.py` (+ private `_*.py`) | every network call and every credential                                                          | never read — invoked via `ticket.py`                | —                |
+| Role file                         | Answers                                                                                          | Kind     | Read by                                                             | Gates capability |
+| --------------------------------- | ------------------------------------------------------------------------------------------------ | -------- | ------------------------------------------------------------------- | ---------------- |
+| `provider.json`                   | capabilities, prefixes, coordinates, canonical address, id shape, nouns, comment format          | —        | all, via `resolve`                                                  | —                |
+| `config.md`                       | what a binding holds and at which level, what the CLI must have, how a sign-in is checked        | contract | `ticket-setup`                                                      | —                |
+| `fetch.md`                        | how raw data lands in `raw/`, traversal policy, attachment rules, how `ticket.json` is refreshed | contract | `ticket-fetch`                                                      | `fetch`          |
+| `new.md`                          | how a ticket is created here — a local script, or upstream with the source's CLI behind a yes    | both     | `ticket-create`                                                     | `new`            |
+| `update.md`                       | how an upstream ticket is changed: the fields, the commands, what guards the write               | recipe   | `ticket-update`                                                     | `update`         |
+| `schema.md`                       | where the content is on disk and the logical→physical field map                                  | contract | `ticket-digest`                                                     | —                |
+| `types.md`                        | this source's native type and tag/label vocabulary → one canonical type                          | contract | `ticket-fetch`, `ticket-create`                                     | —                |
+| `links.md`                        | how to read a pasted address, and ticket / comment / attachment URL patterns                     | contract | `ticket-fetch`, `ticket-plan`, `ticket-digest`, `ticket-checkpoint` | —                |
+| `drift.md`                        | how to tell the local snapshot is stale, ending in current, changed or could not be checked      | both     | `ticket-resume`, `ticket-plan`, `ticket-digest`, `ticket-update`    | `drift`          |
+| `provider.py` (+ private `_*.py`) | the script halves: binding, init, fetch, and a local store's new and drift                       | —        | never read — invoked via `ticket.py`                                | —                |
 
-`config.md`, `schema.md`, `types.md` and `links.md` are **required of every source**. The others are present exactly when the matching capability is `true`. `python ticket-common/ticket.py sources --check` validates that agreement, and that `coordinates` names real levels; a mismatch is an error.
+`config.md`, `schema.md`, `types.md` and `links.md` are **required of every source**. The others are present exactly when the matching capability is `true`: a capability means *this source has a role file for it*, whether that file is a contract or a recipe. `python ticket-common/ticket.py sources --check` validates that agreement and that `coordinates` names real levels; a mismatch is an error.
+
+### Contracts and recipes
+
+A role file is one of two things, and the glossary defines both:
+
+- A **contract** defines what a script must produce or what a ticket on disk must hold. The script and every later skill depend on it exactly, so it is precise and it changes with care. `fetch.md`, `schema.md`, `types.md`, `links.md`, `config.md`, and `drift.md` and `new.md` where a script is behind them (`local`).
+- A **recipe** tells the agent how to do something with the source's own CLI: `gh` or `az`. Its commands are examples, not an allowlist, so the agent can use any call the task needs, and a task the recipe never imagined — adding a tag, say — needs no new script. `update.md`, and `drift.md` and `new.md` for `github` and `ado`.
+
+A recipe never replaces a gate. The skill that follows it asks for an explicit yes before a write, checks the ticket has not moved, and uses whatever guard the recipe names. A source's CLI holds the sign-in; nothing here reads or stores a token.
 
 ### Absence is the mechanism
 
@@ -88,23 +99,20 @@ Then write `types.md`, `links.md`, `config.md`, `provider.py`, and whichever of 
 
 ### What `provider.py` must expose
 
-`ticket.py` calls these and nothing else. Each is handed a `ctx` dict and the list of unrecognised command-line flags, so a provider can take its own options without the front door knowing about them. `ctx` carries the source, the id, the manifest, the `product` the ticket is filed under, that product's effective `config` and `binding`, the ticket's `coordinates` — its own where `ticket.json` records them, else the binding, else a pasted address's — and, for a ticket, its `location` and absolute `paths`.
+`ticket.py` calls these and nothing else. Each is handed a `ctx` dict and the list of unrecognised command-line flags, so a provider can take its own options without the front door knowing about them. `ctx` carries the source, the id, the manifest, the `product` the ticket is filed under, that product's effective `config` and `binding`, the ticket's `coordinates` — its own where `ticket.json` records them, else the binding, else the `--coordinate` flags given — and, for a ticket, its `location` and absolute `paths`.
 
 **A provider reads its coordinates from `ctx["coordinates"]` and nowhere else.** It never opens a `config.json` or builds a ticket path itself; that is what lets one source be bound in any number of products. It stores no credential: the source's own CLI (`az`, `gh`) holds it.
 
 | Function                              | Returns                                                                                                                                                                                                                                                                  |
 | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `binding(ctx, extra)`                 | `{"coordinates", "defaults_applied", "inherited"}` — what an init would bind: from the flags, else `ctx["binding"]`, else this source's defaults. Validates nothing                                                                                                      |
-| `init(ctx, extra)`                    | a report dict; validates `ctx["coordinates"]` and acquires any credential. The front door writes the binding                                                                                                                                                             |
-| `fetch(ctx, extra)`                   | a report dict; writes `raw/` and refreshes `ticket.json`, including its `coordinates`                                                                                                                                                                                    |
-| `new(ctx, title, ticket_type, extra)` | a report dict; creates the ticket directory and `ticket.json`                                                                                                                                                                                                            |
-| `propose_new(ctx, title, type, extra)` | remote sources with `new`: what `new` would send, built without writing — the front door shows it and requires `--confirm` before calling `new`                                                                                                                         |
-| `propose_update(ctx, extra)` / `update(ctx, extra)` | sources with `update`: the `changes` (`{field, before, after}`) computed from the snapshot, then the write. The front door runs `drift` first and re-fetches after                                                                                          |
-| `drift(ctx, extra)`                   | a report dict carrying `is_stale`; `ticket.py` maps it to exit 0 or 2                                                                                                                                                                                                    |
-| `auth_status(ctx)`                    | a report dict; **never** a credential                                                                                                                                                                                                                                    |
+| `init(ctx, extra)`                    | a report dict; checks the CLI is installed, signed in and has what the recipes need, and validates `ctx["coordinates"]` through it. The front door writes the binding                                                                                                    |
+| `fetch(ctx, extra)`                   | a report dict; writes `raw/` and refreshes `ticket.json`, including its `coordinates`. Only a source with `fetch`                                                                                                                                                        |
+| `new(ctx, title, ticket_type, extra)` | a report dict; creates the ticket directory and `ticket.json`. **Only a source whose `new.md` is a script** — a remote source's is a recipe, and `ticket.py new` refuses it with the path of the file to read                                                            |
+| `drift(ctx, extra)`                   | a report dict carrying `is_stale`; `ticket.py` maps it to exit 0 or 2. **Only a source whose `drift.md` is a script**, for the same reason                                                                                                                               |
 | `set_parent(ctx, ref, dry_run=False)` | optional; rewrites a stored `parent` in this source's own record, for `move`, raising `TicketError` where it cannot. `dry_run` fails exactly where a real run would and writes nothing, so `move` can check before renaming. Without it, only `ticket.json` is rewritten |
 
-`binding`, `init` and `auth_status` always exist. The capability-gated ones need to exist only when their capability is `true`.
+`binding` and `init` always exist. The others need to exist only where the capability is a script.
 
 ---
 
