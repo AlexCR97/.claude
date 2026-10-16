@@ -32,7 +32,7 @@ A fact that needs a particular ticket system belongs in `ticket-providers/{sourc
 ## Ground rules
 
 1. **Write config only through `ticket.py`.** Never write or modify a config file directly.
-2. **Never handle a credential.** Never ask for one, print one, paste one into a command, or run a credential command — the provider acquires and refreshes it.
+2. **Never print or read a token.** Never ask for one, print one, paste one into a command, or read one from a file or a command. The source's CLI (`az`, `gh`) holds the sign-in; setup only checks it works.
 3. **Pass a provider option only when the user supplied its value.** Every omitted option keeps what the product inherits, then the source's own default.
 4. **Enumerate; never assume.** Take the sources, namespaces and products from Step 1's output, never from a fixed list.
 5. **Confirm before binding.** Never bind without confirming the namespace and product, and never over a reported problem.
@@ -91,7 +91,7 @@ python "{skills}/ticket-common/ticket.py" init --source {source} --in "{namespac
 
 Always pass the confirmed product with `--in`, so what is written is exactly what the user agreed to in Step 3. Pass a provider option only for a value the user explicitly supplied.
 
-Never ask the user for a credential, and never run a credential command. Credential handling belongs to the provider module, which is why this skill has no way to see one.
+The init checks what the source's `config.md` lists as its prerequisites — the CLI is installed, is signed in, and has any extension the recipes need — and validates the binding through it. Never ask the user for a credential: where a check fails, report its message and the command it names for the user to run.
 
 On a non-zero exit, report the error output verbatim and stop. Write no file.
 
@@ -151,7 +151,7 @@ On a binding, report that `{source}` is bound under `{product}`, and name the co
 - **Which values were used, and which came from a default or were inherited** — so a default is never applied silently. Both lists are in the init's own output.
 - **Whether `default_source` was set**, and to what. The front door sets it only when the root had none; an init for a second source **never silently repoints it**. Where a default already existed, say which source it is and that bare ids not on disk still resolve there.
 - **The default namespace and product**, and whether they changed.
-- Anything the source's `config.md` says is worth reporting — a credential's expiry, how it refreshes, what the user must keep doing to stay signed in.
+- Anything the source's `config.md` says is worth reporting — what is stored, and what the user must keep doing to stay signed in.
 - **The default scan roots as saved**, at which level, or that the list is empty and `ticket-plan` will fall back to its invocation directory.
 
 Where the binding or re-initialization was declined in Step 3, or this run only created a namespace or product, report only what did change: what was created, the defaults, and the scan roots.

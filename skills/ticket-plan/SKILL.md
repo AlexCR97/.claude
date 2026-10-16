@@ -63,7 +63,7 @@ Its `steps` are what is missing, in order. Do each by following the named skill'
 - **`fetch`** — follow `ticket-fetch/SKILL.md`. It is absent for a source with no fetch capability, such as a local ticket.
 - **`digest`** — follow `ticket-digest/SKILL.md`.
 
-Where `steps` is empty and `ask_before_refresh` is `true`, the ticket changed upstream since it was fetched. Show what `drift` reports and **ask** before refreshing: a refresh re-fetches and re-digests, replacing a digest that may have been edited. On a yes, run `refresh_steps`; on a no, plan from what is on disk and say so. Where it is `false`, go on without asking.
+Where `steps` is empty and the resolver reports `capabilities.drift`, ask whether the ticket changed upstream since it was fetched: read `ticket-providers/{source}/drift.md` and follow it. Where it reports the ticket **changed**, show what it found and **ask** before refreshing: a refresh re-fetches (where the source can fetch) and re-digests, replacing a digest that may have been edited. On a yes, follow `ticket-fetch/SKILL.md` and then `ticket-digest/SKILL.md`; on a no, plan from what is on disk and say so. Where it is current, or could not be checked, go on without asking, and say in one line when it could not be checked.
 
 Then resolve it:
 

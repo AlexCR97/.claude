@@ -85,29 +85,6 @@ def get_json(
             raise AzRestError(f"{url} returned output that is not JSON — {exc}") from exc
 
 
-def send_json(
-    method: str,
-    url: str,
-    body: object,
-    content_type: str = "application/json",
-) -> dict:
-    with tempfile.TemporaryDirectory() as scratch:
-        payload = Path(scratch) / "body.json"
-        payload.write_text(json.dumps(body), encoding="utf-8")
-        output = Path(scratch) / "response.json"
-        _run(
-            method.lower(),
-            url,
-            [],
-            output,
-            ["--body", f"@{payload}", "--headers", f"Content-Type={content_type}"],
-        )
-        try:
-            return json.loads(output.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError) as exc:
-            raise AzRestError(f"{url} returned output that is not JSON — {exc}") from exc
-
-
 def download(url: str, dest: Path) -> tuple[bool, str]:
     """
     Returns (succeeded, error_message). A sign-in failure raises rather than returning.

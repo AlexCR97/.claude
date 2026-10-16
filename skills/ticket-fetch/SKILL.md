@@ -33,7 +33,7 @@ A fact that needs a particular ticket system belongs in `ticket-providers/{sourc
 1. **Never modify the ticket upstream.** Fetching is read-only, including every related ticket it walks.
 2. **Keep attachment files already on disk.** The fetch downloads only what is new; never delete one.
 3. **Report a missing capability or role file as a gap.** Never improvise a fetch, and never substitute another source's file for a missing one — `ticket-providers/README.md` → *Absence is the mechanism*.
-4. **Never handle a credential.** Never print one, pass one to a command, or read one from a config.
+4. **Never print or read a token.** The source's CLI holds the sign-in and attaches it; never pass one to a command or read one from a file.
 5. **Stop on a non-zero exit.** The one exception is exit 3 on filing in Step 1, which asks and runs again.
 6. **Move bytes, never read them.** Reading, summarizing or acting on the fetched content is `ticket-digest`'s job.
 

@@ -18,12 +18,12 @@ The patterns above are the fallback, and they assume the public host. Take `{own
 
 `resolve` never reads an address; the driver does, into `github:{number}` plus `--coordinate owner={owner} --coordinate repository={repository}`.
 
-| Form                                                      | Is                                                                                                         |
-| --------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| Form                                                      | Is                                                                                                        |
+| --------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
 | `https://github.com/{owner}/{repository}/issues/{number}` | an issue. `http`, `www.`, a trailing slash, a query, a fragment or a comment anchor all name the same one |
-| `{owner}/{repository}#{number}`                           | an issue, in that repository                                                                               |
-| `#{number}`, or a bare number                             | an issue in the product the session is in; pass `github:{number}` and no coordinates                       |
-| `https://github.com/{owner}/{repository}/pull/{number}`   | **not an issue** — say so and stop. A pull request is recorded with `ticket.py pulls add`                  |
+| `{owner}/{repository}#{number}`                           | an issue, in that repository                                                                              |
+| `#{number}`, or a bare number                             | an issue in the product the session is in; pass `github:{number}` and no coordinates                      |
+| `https://github.com/{owner}/{repository}/pull/{number}`   | **not an issue** — say so and stop. A pull request is recorded with `ticket.py pulls add`                 |
 
 An address on another host is an enterprise instance: take `{owner}` and `{repository}` the same way. The ticket is recorded under the address the API reports, whichever form was pasted, and the repository's own binding files it; a repository that is not bound yet is reported with how to bind it.
 

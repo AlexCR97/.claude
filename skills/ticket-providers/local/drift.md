@@ -1,6 +1,6 @@
 # local — drift
 
-Read by `ticket-resume`.
+A **contract**: the script is the check. Read by `ticket-resume`, `ticket-plan` and `ticket-digest`.
 
 ```
 python "{skills}/ticket-common/ticket.py" drift "{qualified_ref}"
@@ -10,11 +10,11 @@ Read-only. Nothing is rewritten.
 
 ## Exit contract
 
-| Exit | Means                                                     |
-| ---- | --------------------------------------------------------- |
-| 0    | the recorded fingerprint matches the file                 |
-| 1    | the comparison could not be made — no ticket body on disk |
-| 2    | the file changed since it was last recorded               |
+| Exit | Means                                                                                |
+| ---- | ------------------------------------------------------------------------------------ |
+| 0    | the recorded fingerprint matches the file — **current**                              |
+| 1    | the comparison could not be made — no ticket body on disk — **could not be checked** |
+| 2    | the file changed since it was last recorded — **changed**                            |
 
 ## What is compared
 

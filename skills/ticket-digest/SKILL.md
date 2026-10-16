@@ -2,7 +2,7 @@
 name: ticket-digest
 description: Reads a ticket by reference, fetching it first if it never was, analyzes its description, acceptance criteria, attached files and images, and related tickets, then writes a structured digest to digest.md.
 argument-hint: "<ref> [--type type]"
-allowed-tools: Read Grep Glob Write Bash(python *ticket.py:*)
+allowed-tools: Read Grep Glob Write Bash(python *ticket.py:*) Bash(az rest --method get:*) Bash(gh api repos/*:*)
 ---
 
 Turns a fetched, source-shaped snapshot into `digest.md`, the one readable document every later skill works from. `digest.md` is the single source of truth for the ticket's content during planning and implementation; nothing downstream reads the raw snapshot again.
@@ -52,6 +52,8 @@ python "{skills}/ticket-common/ticket.py" prepare "{ref}" --for digest [--coordi
 ```
 
 Where its `steps` is `["fetch"]`, follow `ticket-fetch/SKILL.md` in this session, without confirmation: it writes only inside the ticket directory. It is empty when the ticket was fetched already, or when the source has no fetch capability, such as a local ticket. Say in the confirmation that the ticket was fetched first. On a non-zero exit from `prepare`, report the message and its hint verbatim and stop.
+
+Where `steps` is empty and the resolver reports `capabilities.drift`, ask whether the ticket changed upstream since it was fetched: read `ticket-providers/{source}/drift.md` and follow it. Where it reports the ticket **changed**, say what moved and ask whether to follow `ticket-fetch/SKILL.md` first, so the digest is not built from a stale snapshot. Where it is current, or could not be checked, go on, and say in one line when it could not be checked.
 
 Then resolve it:
 

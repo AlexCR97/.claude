@@ -11,7 +11,6 @@ rather than found by walking the tree.
 """
 
 import os
-import re
 from pathlib import Path
 
 # Overriding the tickets home lets a test run against a scratch tree without touching

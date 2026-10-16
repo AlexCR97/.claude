@@ -44,6 +44,10 @@ python "{skills}/ticket-common/ticket.py" init --source ado [--in {namespace}/{p
 
 Where the binding is filed when `--in` is omitted: the product already bound to exactly these coordinates, else a new product in the namespace already bound to the organization, else names derived from the coordinates — `edwire`, `ew-educate`.
 
+## Prerequisites
+
+The Azure CLI (`az`), signed in, with its `azure-devops` extension. The init checks all three before anything is written, and the recipes in this directory use `az rest` and `az boards`. Where the extension is missing, the init says to run `az extension add --name azure-devops`.
+
 ## How the credential is held
 
 **There is no PAT, and nothing is cached.** The user is never asked for a credential — they only need to stay signed in with `az login`. Every call this suite makes goes through `az rest --resource 499b84ac-1321-427f-aa17-267ca6975798`, and that resource id is the audience a token must be issued for to be accepted by `dev.azure.com`. `az` attaches and refreshes the token itself.
@@ -60,11 +64,11 @@ az rest --resource 499b84ac-1321-427f-aa17-267ca6975798 --method get --url https
 
 The failure modes are distinguished, because they call for different fixes:
 
-| Failure      | Means                                                                |
-| ------------ | -------------------------------------------------------------------- |
-| sign-in      | `az login` has expired — run `az login --scope 499b84ac-1321-427f-aa17-267ca6975798/.default` |
-| Forbidden    | Access denied to that project in that organization                   |
-| Not Found    | No such project in that organization — usually a typo in `--project` |
+| Failure   | Means                                                                                         |
+| --------- | --------------------------------------------------------------------------------------------- |
+| sign-in   | `az login` has expired — run `az login --scope 499b84ac-1321-427f-aa17-267ca6975798/.default` |
+| Forbidden | Access denied to that project in that organization                                            |
+| Not Found | No such project in that organization — usually a typo in `--project`                          |
 
 A missing Azure CLI or an expired `az login` surfaces as a clear error rather than a hang. Nothing is written when validation fails. `--propose` validates nothing: it only reports the coordinates and where they would be filed.
 
