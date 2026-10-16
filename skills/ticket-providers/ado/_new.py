@@ -10,12 +10,8 @@ project actually has, never assumed.
 
 import urllib.parse
 
-from ticketlib import http
+from ticketlib import azrest
 from ticketlib.errors import EXIT_ERROR, TicketError
-
-API_VERSION = "7.1"
-
-AUTH_HINT = "If it came from the Azure CLI it has expired — re-run 'az login' and try again."
 
 # Most specific first. Spike and tech debt are not native types here, so they are
 # created as a task and told apart by the tag in TAG_BY_TYPE.
@@ -35,12 +31,12 @@ DESCRIPTION_FIELD = "System.Description"
 CRITERIA_FIELD = "Microsoft.VSTS.Common.AcceptanceCriteria"
 
 
-def project_types(org: str, project: str, header: str) -> list[str]:
+def project_types(org: str, project: str) -> list[str]:
     url = (
         f"https://dev.azure.com/{org}/{urllib.parse.quote(project, safe='')}"
-        f"/_apis/wit/workitemtypes?api-version={API_VERSION}"
+        "/_apis/wit/workitemtypes"
     )
-    payload = http.get_json(url, header, AUTH_HINT)
+    payload = azrest.get_json(url)
     return [str(entry.get("name")) for entry in payload.get("value") or [] if entry.get("name")]
 
 
@@ -91,11 +87,11 @@ def patch_document(
     return operations
 
 
-def create(org: str, project: str, header: str, native: str, operations: list[dict]) -> dict:
+def create(org: str, project: str, native: str, operations: list[dict]) -> dict:
     url = (
         f"https://dev.azure.com/{org}/{urllib.parse.quote(project, safe='')}"
-        f"/_apis/wit/workitems/${urllib.parse.quote(native, safe='')}?api-version={API_VERSION}"
+        f"/_apis/wit/workitems/${urllib.parse.quote(native, safe='')}"
     )
-    return http.post_json(
-        url, header, operations, AUTH_HINT, content_type="application/json-patch+json"
+    return azrest.send_json(
+        "post", url, operations, content_type="application/json-patch+json"
     )

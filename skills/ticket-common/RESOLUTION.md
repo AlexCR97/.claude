@@ -129,7 +129,6 @@ Exit 3 on an absent capability is structural, not advisory: the verb refuses bef
 ```
 ~/.tickets/
 ├── config.json                  root level: default_namespace, default_source, scan_roots
-├── .credentials/{source}/       cached credentials, keyed by namespace-level coordinate — never merged, never printed
 └── {namespace}/
     ├── config.json              default_product, default_source, scan_roots, sources.{source}.{namespace coordinates}
     └── {product}/
@@ -179,9 +178,9 @@ A record may also carry a source-specific `fingerprint` (whatever that source's 
 
 ## Credentials
 
-A credential is cached under `.credentials/{source}/{key}.json`, keyed by the value of the source's namespace-level coordinate — one Azure DevOps organization's token is never handed to another. The file is created readable by its owner alone (`0600`, its directories `0700`); on Windows the user profile's own permissions protect it. It is kept out of every `config.json` because those are hand-edited and merged, and a credential must be neither.
+`az` and `gh` own every credential: they sign each request and refresh their own tokens, and nothing in the tickets home holds one. Never print or read a token — not from `az account get-access-token`, not from a config, not from an environment variable. A request that needs a credential goes through the CLI, which attaches it.
 
-No verb emits a credential, and no driver reads one: acquiring, caching and refreshing all happen inside the provider module.
+When a call fails because the sign-in has expired, report that and the sign-in command the failure names; never work around it.
 
 ---
 

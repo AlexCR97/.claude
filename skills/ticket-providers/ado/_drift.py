@@ -17,11 +17,11 @@ import urllib.parse
 from datetime import datetime, timezone
 from pathlib import Path
 
-from ticketlib import http
+from ticketlib import azrest
+from ticketlib.azrest import AzRestError
 from ticketlib.errors import EXIT_ERROR, TicketError
 from ticketlib.layout import Location
 
-API_VERSION = "7.1"
 COMMENTS_API_VERSION = "7.1-preview.4"
 
 # Fields whose change is worth surfacing in a resume briefing. Everything else
@@ -55,8 +55,6 @@ HTML_FIELDS = frozenset(
 # a row reading "ChangedBy: Ana -> Bob" says who typed, not what changed, and
 # the revision delta already reports that something did.
 CONSEQUENCE_FIELDS = frozenset({"System.ChangedDate", "System.ChangedBy"})
-
-AUTH_HINT = "Re-run 'az login' and try again."
 
 
 def strip_html(html: str) -> str:
@@ -127,24 +125,21 @@ def read_local(raw_path: Path, ticket_id: str) -> dict:
     }
 
 
-def fetch_live(ticket_id: str, org: str, project: str, header: str) -> dict:
+def fetch_live(ticket_id: str, org: str, project: str) -> dict:
     fields = ",".join(TRACKED_FIELDS)
     project_encoded = urllib.parse.quote(project, safe="")
 
     try:
-        work_item = http.get_json(
-            f"https://dev.azure.com/{org}/_apis/wit/workItems/{ticket_id}"
-            f"?fields={fields}&api-version={API_VERSION}",
-            header,
-            AUTH_HINT,
+        work_item = azrest.get_json(
+            f"https://dev.azure.com/{org}/_apis/wit/workItems/{ticket_id}",
+            [f"fields={fields}"],
         )
-        comments = http.get_json(
+        comments = azrest.get_json(
             f"https://dev.azure.com/{org}/{project_encoded}/_apis/wit/workItems"
-            f"/{ticket_id}/comments?api-version={COMMENTS_API_VERSION}",
-            header,
-            AUTH_HINT,
+            f"/{ticket_id}/comments",
+            api_version=COMMENTS_API_VERSION,
         )
-    except http.NETWORK_ERRORS as exc:
+    except AzRestError as exc:
         raise TicketError(f"could not reach Azure DevOps — {exc}") from exc
 
     return {
@@ -199,7 +194,6 @@ def run(
     location: Location,
     bound_org: str,
     bound_project: str,
-    header: str,
     record: dict,
 ) -> dict:
     ticket_id = location.id
@@ -209,7 +203,7 @@ def run(
     org = local["meta"].get("organization") or bound_org
     project = local["meta"].get("project") or bound_project
 
-    live = fetch_live(ticket_id, str(org), str(project), header)
+    live = fetch_live(ticket_id, str(org), str(project))
 
     field_changes = diff_fields(local["fields"], live["fields"])
     added_comments = new_comments(live["comments"], local["comment_ids"])

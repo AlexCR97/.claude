@@ -17,15 +17,13 @@ import argparse
 import urllib.parse
 from pathlib import Path
 
-from ticketlib import providers, tickets, tokencache
+from ticketlib import azrest, proc, providers, tickets
 from ticketlib.errors import EXIT_ERROR, TicketError
 
 SOURCE = "ado"
 
 DEFAULT_ORG = "edwire"
 DEFAULT_PROJECT = "EW.Educate"
-
-API_VERSION = "7.1"
 
 _auth = providers.load_private(SOURCE, "_auth")
 
@@ -71,66 +69,38 @@ def binding(ctx: dict, extra: list[str]) -> dict:
 def init(ctx: dict, extra: list[str]) -> dict:
     org, project = _auth.coordinates(ctx)
 
-    print("Acquiring an Azure DevOps access token via the Azure CLI…")
-    token, error = _auth.fetch_cli_token()
-    if error:
-        raise TicketError(error, EXIT_ERROR, _auth.AZ_LOGIN_HINT)
-
-    print("Validating the token against Azure DevOps…")
-    validate(org, project, token)
-    print("Token validated successfully.")
-
-    tokencache.save(SOURCE, org, token)
+    print(f"Validating access to {project} in {org} through the Azure CLI…")
+    validate(org, project)
+    print("Access validated.")
 
     return {
         "organization": org,
         "project": project,
-        "token_expires": tokencache.local_expiry_text(token),
+        "credential": "delegated to the Azure CLI; nothing stored",
     }
 
 
-def validate(org: str, project: str, token: dict) -> None:
-    import urllib.error
-    import urllib.request
-
-    url = (
-        f"https://dev.azure.com/{org}/_apis/projects/"
-        f"{urllib.parse.quote(project, safe='')}?api-version={API_VERSION}"
-    )
-    request = urllib.request.Request(url)
-    request.add_header("Authorization", tokencache.make_auth_header(token))
-
+def validate(org: str, project: str) -> None:
+    url = f"https://dev.azure.com/{org}/_apis/projects/{urllib.parse.quote(project, safe='')}"
     try:
-        with urllib.request.urlopen(request, timeout=15) as response:
-            if response.status == 200:
-                return
-            raise TicketError(
-                f"Validation failed — unexpected status {response.status}"
-            )
-    except urllib.error.HTTPError as exc:
-        if exc.code == 401:
-            raise TicketError(
-                "Validation failed — Azure DevOps rejected the token.",
-                EXIT_ERROR,
-                _auth.AZ_LOGIN_HINT,
-            ) from exc
-        if exc.code == 403:
+        azrest.get_json(url)
+    except azrest.AzRestError as exc:
+        detail = str(exc)
+        if "Forbidden" in detail:
             raise TicketError(
                 f"Validation failed — access denied to project '{project}' in '{org}'."
             ) from exc
-        if exc.code == 404:
+        if "Not Found" in detail:
             raise TicketError(
                 f"Validation failed — project '{project}' not found in organization '{org}'."
             ) from exc
-        raise TicketError(f"Validation failed — HTTP {exc.code}: {exc.reason}") from exc
-    except urllib.error.URLError as exc:
-        raise TicketError(f"Validation failed — network error: {exc.reason}") from exc
+        raise TicketError(f"Validation failed — {detail}") from exc
 
 
 def fetch(ctx: dict, extra: list[str]) -> dict:
     org, project = _auth.coordinates(ctx)
     fetch_module = providers.load_private(SOURCE, "_fetch")
-    return fetch_module.run(ctx["location"], org, project, _auth.auth_header(org))
+    return fetch_module.run(ctx["location"], org, project)
 
 
 def propose_new(ctx: dict, title: str, ticket_type: str | None, extra: list[str]) -> dict:
@@ -159,7 +129,7 @@ def propose_new(ctx: dict, title: str, ticket_type: str | None, extra: list[str]
                 "Pass the parent as an id or `ado:{id}`.",
             )
 
-    available = new_module.project_types(org, project, _auth.auth_header(org))
+    available = new_module.project_types(org, project)
     native = new_module.native_type(ticket_type or "", available)
 
     tags = list(args.tag)
@@ -198,7 +168,6 @@ def new(ctx: dict, title: str, ticket_type: str | None, extra: list[str]) -> dic
     created = new_module.create(
         org,
         project,
-        _auth.auth_header(org),
         proposal["native_type"],
         new_module.patch_document(
             org,
@@ -282,9 +251,7 @@ def update(ctx: dict, extra: list[str]) -> dict:
         return {**proposal, "written": False}
     update_module = providers.load_private(SOURCE, "_update")
     org = proposal["organization"]
-    update_module.write(
-        org, proposal["project"], ctx["id"], _auth.auth_header(org), proposal["payload"]
-    )
+    update_module.write(org, proposal["project"], ctx["id"], proposal["payload"])
     return {**proposal, "written": True}
 
 
@@ -292,19 +259,16 @@ def drift(ctx: dict, extra: list[str]) -> dict:
     org, project = _auth.coordinates(ctx)
     drift_module = providers.load_private(SOURCE, "_drift")
     record = tickets.load(ctx["location"])
-    return drift_module.run(
-        ctx["location"], org, project, _auth.auth_header(org), record
-    )
+    return drift_module.run(ctx["location"], org, project, record)
 
 
 def auth_status(ctx: dict) -> dict:
     coordinates = ctx.get("coordinates") or {}
-    org = coordinates.get("organization")
-    token = tokencache.load(SOURCE, str(org)) if org else None
+    code, _, stderr = proc.run(["az", "account", "show", "--query", "user.name", "-o", "tsv"])
     return {
-        "organization": org,
+        "organization": coordinates.get("organization"),
         "project": coordinates.get("project"),
-        "credential": "azure-cli bearer token",
-        "status": tokencache.describe(token),
-        "usable": tokencache.is_usable(token),
+        "credential": "delegated to the Azure CLI; nothing stored",
+        "status": "signed in" if code == 0 else (stderr.strip() or "not signed in"),
+        "usable": code == 0,
     }

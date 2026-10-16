@@ -12,12 +12,8 @@ import json
 import urllib.parse
 from pathlib import Path
 
-from ticketlib import http
+from ticketlib import azrest
 from ticketlib.errors import EXIT_ERROR, TicketError
-
-API_VERSION = "7.1"
-
-AUTH_HINT = "If it came from the Azure CLI it has expired — re-run 'az login' and try again."
 
 TITLE_FIELD = "System.Title"
 DESCRIPTION_FIELD = "System.Description"
@@ -73,16 +69,11 @@ def patch_document(revision: int, changes: list[dict]) -> list[dict]:
     return operations
 
 
-def write(org: str, project: str, ticket_id: str, header: str, operations: list[dict]) -> dict:
+def write(org: str, project: str, ticket_id: str, operations: list[dict]) -> dict:
     url = (
         f"https://dev.azure.com/{org}/{urllib.parse.quote(project, safe='')}"
-        f"/_apis/wit/workitems/{ticket_id}?api-version={API_VERSION}"
+        f"/_apis/wit/workitems/{ticket_id}"
     )
-    return http.post_json(
-        url,
-        header,
-        operations,
-        AUTH_HINT,
-        content_type="application/json-patch+json",
-        method="PATCH",
+    return azrest.send_json(
+        "patch", url, operations, content_type="application/json-patch+json"
     )

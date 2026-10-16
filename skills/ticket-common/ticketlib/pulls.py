@@ -14,7 +14,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from urllib.parse import unquote
 
-from . import http, proc, providers, workspace
+from . import azrest, proc, workspace
 from .errors import EXIT_ERROR, EXIT_NOT_FOUND, TicketError
 from .layout import Location
 
@@ -200,12 +200,11 @@ def ado_status(url: str) -> str:
     org = ado["org"] or ado["legacy_org"]
     api = (
         f"https://dev.azure.com/{org}/{ado['project']}/_apis/git/repositories/"
-        f"{ado['repository']}/pullrequests/{ado['number']}?api-version={ADO_API_VERSION}"
+        f"{ado['repository']}/pullrequests/{ado['number']}"
     )
     try:
-        header = providers.load_private("ado", "_auth").auth_header(org)
-        data = http.get_json(api, header)
-    except http.NETWORK_ERRORS as exc:
+        data = azrest.get_json(api, api_version=ADO_API_VERSION)
+    except azrest.AzRestError as exc:
         raise TicketError(f"Azure DevOps could not read {url}: {exc}") from exc
     status = data["status"]
     state = "draft" if data.get("isDraft") else ADO_STATE.get(status, status)

@@ -25,11 +25,10 @@ import urllib.parse
 import zipfile
 from pathlib import Path
 
-from ticketlib import http, tickets
-from ticketlib.http import NETWORK_ERRORS
+from ticketlib import azrest, tickets
+from ticketlib.azrest import AzRestError
 from ticketlib.layout import Location
 
-API_VERSION = "7.1"
 COMMENTS_API_VERSION = "7.1-preview.4"
 
 MAX_DEPTH = 3
@@ -44,8 +43,6 @@ RELATION_TYPES = {
 # needs, and expanding them pulls in the whole sprint.
 TASK_RELATIONS = frozenset({"parent"})
 FULL_RELATIONS = frozenset({"parent", "child", "related"})
-
-AUTH_HINT = "If it came from the Azure CLI it has expired — re-run 'az login' and try again."
 
 # The work item type this source calls a thing, mapped onto a canonical type.
 NATIVE_TYPE_MAP = {
@@ -99,10 +96,6 @@ def resolve_type(fields: dict) -> tuple[str, str, str]:
         f"work item type '{native or 'unknown'}' maps to no canonical type — "
         f"falling back to '{FALLBACK_TYPE}'",
     )
-
-
-def get(url: str, header: str) -> dict:
-    return http.get_json(url, header, AUTH_HINT)
 
 
 def extract_attachment_urls_from_html(html: str) -> list[str]:
@@ -176,7 +169,6 @@ def wi_id_from_url(url: str) -> int | None:
 
 def fetch_work_item_recursive(
     wi_id: int,
-    header: str,
     org: str,
     project_encoded: str,
     visited: set[int],
@@ -189,12 +181,11 @@ def fetch_work_item_recursive(
     visited.add(wi_id)
 
     try:
-        work_item = get(
-            f"https://dev.azure.com/{org}/_apis/wit/workItems/{wi_id}"
-            f"?$expand=all&api-version={API_VERSION}",
-            header,
+        work_item = azrest.get_json(
+            f"https://dev.azure.com/{org}/_apis/wit/workItems/{wi_id}",
+            ["$expand=all"],
         )
-    except NETWORK_ERRORS as exc:
+    except AzRestError as exc:
         print(
             f"{indent}  Warning: could not fetch work item {wi_id} → {exc}",
             file=sys.stderr,
@@ -202,12 +193,12 @@ def fetch_work_item_recursive(
         return {"id": wi_id, "error": str(exc), "skipped_reason": "fetch_failed"}
 
     try:
-        comments_data: dict = get(
+        comments_data: dict = azrest.get_json(
             f"https://dev.azure.com/{org}/{project_encoded}/_apis/wit/workItems"
-            f"/{wi_id}/comments?api-version={COMMENTS_API_VERSION}",
-            header,
+            f"/{wi_id}/comments",
+            api_version=COMMENTS_API_VERSION,
         )
-    except NETWORK_ERRORS as exc:
+    except AzRestError as exc:
         print(
             f"{indent}  Warning: could not fetch comments for {wi_id} → {exc}",
             file=sys.stderr,
@@ -299,7 +290,6 @@ def fetch_work_item_recursive(
 
         node = fetch_work_item_recursive(
             related_id,
-            header,
             org,
             project_encoded,
             visited,
@@ -325,17 +315,16 @@ def collect_all_attachments(node: dict) -> list[dict]:
     return attachments
 
 
-def run(location: Location, org: str, project: str, header: str) -> dict:
+def run(location: Location, org: str, project: str) -> dict:
     work_item_id = int(location.id)
 
     out_dir = location.dir / "raw"
     out_dir.mkdir(parents=True, exist_ok=True)
 
     try:
-        root_wi = get(
-            f"https://dev.azure.com/{org}/_apis/wit/workItems/{work_item_id}"
-            f"?fields=System.WorkItemType,System.TeamProject&api-version={API_VERSION}",
-            header,
+        root_wi = azrest.get_json(
+            f"https://dev.azure.com/{org}/_apis/wit/workItems/{work_item_id}",
+            ["fields=System.WorkItemType,System.TeamProject"],
         )
         root_fields = root_wi.get("fields") or {}
         root_type = root_fields.get("System.WorkItemType", "").lower()
@@ -343,7 +332,7 @@ def run(location: Location, org: str, project: str, header: str) -> dict:
         # through need not be the one it lives in — and the comments endpoint
         # only answers for the one it lives in.
         project = str(root_fields.get("System.TeamProject") or project)
-    except NETWORK_ERRORS as exc:
+    except AzRestError as exc:
         print(f"Warning: could not determine work item type — {exc}", file=sys.stderr)
         root_type = ""
 
@@ -359,7 +348,6 @@ def run(location: Location, org: str, project: str, header: str) -> dict:
     visited: set[int] = set()
     tree = fetch_work_item_recursive(
         work_item_id,
-        header,
         org,
         project_encoded,
         visited,
@@ -396,7 +384,7 @@ def run(location: Location, org: str, project: str, header: str) -> dict:
             continue
 
         print(f"  Downloading {dest.name}…")
-        ok, error = http.download(att["url"], header, dest, AUTH_HINT)
+        ok, error = azrest.download(att["url"], dest)
         if not ok:
             print(f"  Warning: could not download {att['url']} → {error}", file=sys.stderr)
         if ok and zipfile.is_zipfile(dest):

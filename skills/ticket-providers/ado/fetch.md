@@ -58,7 +58,7 @@ Each attachment record carries `local_filename` (null when the download failed) 
 - `raw.json` is **always** re-downloaded.
 - Naming is deterministic, so **a file already on disk is the same attachment and is kept, not re-downloaded**.
 - Only new or missing attachments are downloaded.
-- A 401 mid-fetch **aborts** rather than writing a partial `raw/`: every later call would fail the same way and leave a snapshot that reads as complete.
+- An expired `az login` mid-fetch **aborts** rather than writing a partial `raw/`: every later call would fail the same way and leave a snapshot that reads as complete.
 
 ## What `ticket.json` is refreshed with
 
@@ -77,4 +77,4 @@ The organization and project come from the ticket's own `coordinates` once it ha
 
 ## Upstream is never modified
 
-Nothing in this path writes to Azure DevOps. Fetching is read-only, including the recursive walk.
+Nothing in this path writes to Azure DevOps. Fetching is read-only, including the recursive walk. Every request goes through `az rest`, which attaches the credential; an attachment is downloaded by its id, without the `fileName` query.

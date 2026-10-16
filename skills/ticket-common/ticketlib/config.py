@@ -15,9 +15,9 @@ level alone and never merged: `default_namespace` belongs to the root,
 `default_product` to a namespace. A product inheriting `default_product`
 would be naming a product that is not there.
 
-No credential lives in any of these files. They are hand-edited and merged,
-and a token inherited or overridden by accident is a token printed by
-accident, so `tokencache` keeps credentials in a store of their own.
+No credential lives in any of these files, or anywhere in the tickets home:
+`az` and `gh` hold them. These files are hand-edited and merged, and a token
+inherited or overridden by accident is a token printed by accident.
 """
 
 import json
@@ -229,11 +229,9 @@ def redact(config: dict) -> dict:
     A config as it may be printed.
 
     No level should hold a `token`, but one written there by hand is still
-    replaced by its status rather than shown.
+    replaced rather than shown.
     """
-    from . import tokencache
-
     safe = dict(config)
     if "token" in safe:
-        safe["token"] = tokencache.describe(safe["token"])
+        safe["token"] = "(redacted)"
     return safe

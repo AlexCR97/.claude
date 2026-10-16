@@ -140,7 +140,6 @@ Four levels, always: namespace, product, source, ticket.
 ```txt
 ~/.tickets/
 ├── config.json                           {"default_source": "ado", "default_namespace": "edwire"}
-├── .credentials/ado/edwire.json          cached token, keyed by organization — never merged, never printed
 ├── default/default/local/{slug}/         where a ticket nothing places lands
 ├── edwire/                               namespace ⇄ ADO organization "edwire"
 │   ├── config.json                       {"default_product": "ew-educate", "scan_roots": ["C:\\src\\edwire"], "sources": {"ado": {"organization": "edwire"}}}
