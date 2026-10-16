@@ -8,7 +8,6 @@ glob, never by a hardcoded list, so adding one is adding a directory.
 
 import importlib.util
 import json
-import re
 from pathlib import Path
 from types import ModuleType
 
@@ -287,35 +286,16 @@ def check() -> tuple[list[dict], list[str]]:
 
 
 def coordinate_problems(source: str, manifest: dict) -> list[str]:
-    """
-    A manifest's coordinates must name real levels, and cover its address patterns.
-
-    Every group an address pattern captures besides `id` is a coordinate the
-    address carries, and filing a pasted address means matching exactly those
-    against bindings — a group no coordinate declares could never match one.
-    """
+    """A manifest's coordinates must name real levels."""
     raw = manifest.get("coordinates")
     if not isinstance(raw, dict):
         return [
             f"{source}: provider.json has no `coordinates` object — declare {{}} for none"
         ]
 
-    problems = [
+    return [
         f"{source}: coordinate '{name}' is bound at '{level}', "
         f"not one of {', '.join(COORDINATE_LEVELS)}"
         for name, level in raw.items()
         if level not in COORDINATE_LEVELS
     ]
-
-    for pattern in (manifest.get("url") or {}).get("patterns") or []:
-        try:
-            groups = set(re.compile(pattern).groupindex) - {"id"}
-        except re.error as exc:
-            problems.append(f"{source}: address pattern does not compile — {exc}")
-            continue
-        for group in sorted(groups - set(raw)):
-            problems.append(
-                f"{source}: address pattern captures '{group}', which is not a declared coordinate"
-            )
-
-    return problems

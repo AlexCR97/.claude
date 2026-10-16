@@ -15,7 +15,7 @@ python "{skills}/ticket-common/ticket.py" <verb> [<ref>] [--source S] [--in X] [
 | Verb                                                             | Does                                                                                                                                                                                               |
 | ---------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `sources [--check]`                                              | Lists every provider, its capabilities and its coordinates. `--check` validates that each manifest's capabilities, role files and coordinates agree.                                               |
-| `resolve [<ref>] [--type T] [--require a,b]`                     | The location, the type, every absolute path, the capabilities, `ticket.json`, the effective config and where each value came from, and what is on disk — or, for a ticket not on disk, its filing. |
+| `resolve [<ref>] [--coordinate N=V ...] [--type T] [--require a,b]` | The location, the type, every absolute path, the capabilities, `ticket.json`, the effective config and where each value came from, and what is on disk — or, for a ticket not on disk, its filing. |
 | `list`                                                           | Every ticket on disk, newest first, with its product and resolved parent.                                                                                                                          |
 | `namespaces [--in X]`                                            | Every namespace and product with their bindings; with `--in`, one level's effective config and where each value came from. Exits 5 when that level does not exist.                                 |
 | `defaults [--namespace NS] [--product NS/PRODUCT]`               | Shows the default namespace and default products, or sets them. `default` unsets either.                                                                                                           |
@@ -31,6 +31,18 @@ python "{skills}/ticket-common/ticket.py" <verb> [<ref>] [--source S] [--in X] [
 **`--in` restricts; `--context` prefers.** `--in {namespace}[/{product}]` narrows what a reference can mean and where a new ticket can be filed. `--context` is how a driver passes the session context: it wins a tie and decides filing, but it never hides a ticket filed elsewhere. They are separate flags so a preference can never act as a restriction.
 
 Flags a verb does not recognise are passed through to the provider untouched, so the front door never has to know what a given source needs in order to connect.
+
+---
+
+## Reading what the user gave
+
+`resolve` is strict on purpose: it takes a qualified reference, `{source}:{id}` or a bare id, and nothing it would have to guess at. Everything else a user may give — a web address in any form, `#42`, `owner/repo#42`, "work item 18585 in EW.Educate" — is read by the driver, whose first step turns it into a reference and its coordinates.
+
+1. **Decide the source** from the host or the words. `ticket.py sources` lists the installed ones with their prefixes. An input that names no source and carries no address is a bare id, and needs no reading.
+2. **Read that source's `links.md` → *Reading an address*.** It lists the forms, what each one carries, and the addresses on its host that are not tickets.
+3. **Take only what the input says.** The id becomes `{source}:{id}`; each coordinate it carries becomes one `--coordinate {name}={value}`. Never fill a coordinate in from a guess or a default: an id alone is a legitimate input, and the binding supplies the rest.
+4. **Echo it once**, in one line — `Reading it as github:20, owner=AlexCR97, repository=.claude.` — then pass those coordinates on every `ticket.py` call that takes them.
+5. **Stop where it is not a ticket**, and say what it is instead. Never reach for the nearest thing that parses.
 
 ---
 
@@ -51,18 +63,17 @@ When a resolved ticket is outside the context, the resolver says so in `outside_
 
 ## How a reference resolves
 
-A reference is `[{namespace}/{product}/][{source}:]{id}`, or the ticket's web address. Resolution is implemented in `ticketlib/sources.py` and runs in this order:
+A reference is `[{namespace}/{product}/][{source}:]{id}`, with any coordinates the ticket needs given as `--coordinate {name}={value}`. A web address is **not** a reference: the driver reads it first, as [Reading what the user gave](#reading-what-the-user-gave) says. Resolution is implemented in `ticketlib/sources.py` and runs in this order:
 
-1. **A web address** — anything starting `http://` or `https://` is matched against the `url.patterns` every installed source declares in its `provider.json`. The first pattern that matches wins; its `id` capture is the id, and every other capture is a coordinate. A ticket on disk whose own coordinates disagree with the address is a different ticket and is not matched.
-2. **A qualified reference** — `edwire/ew-educate/ado:18585` names exactly one directory.
-3. **A prefix or a bare id** — `ado:18585`, `gh:42`, `local:auth-fix`, or `18585`. Every source's own name works as a prefix, plus any alias its `provider.json` declares. The **nearest** ticket directory of that name wins: in the session context's product, then its namespace, then everywhere. **Two equally near exits 3** and lists their qualified references; the fix is to name one, never to guess.
-4. **On disk nowhere** — the ticket is filed by the rules below. A bare id first takes the effective `default_source` of the scope it would be filed in.
+1. **A qualified reference** — `edwire/ew-educate/ado:18585` names exactly one directory.
+2. **A prefix or a bare id** — `ado:18585`, `gh:42`, `local:auth-fix`, or `18585`. Every source's own name works as a prefix, plus any alias its `provider.json` declares. The **nearest** ticket directory of that name wins: in the session context's product, then its namespace, then everywhere. **Two equally near exits 3** and lists their qualified references; the fix is to name one, never to guess.
+3. **On disk nowhere** — the ticket is filed by the rules below. A bare id first takes the effective `default_source` of the scope it would be filed in.
 
 The default namespace and product never take part in resolving an existing ticket. They only decide filing.
 
 A reference stored inside a ticket — `parent` — resolves the same way, nearest first from **that ticket's own product**. That is why it is written short within its product and qualified across products.
 
-An address that no pattern matches exits 1 and names the sources that accept one; it never falls through to the prefix branches, because a URL is an unambiguous statement of which ticket was meant.
+A web address handed to `resolve` exits 1 and says to read it first; it never falls through to the prefix branches. **`--coordinate`** says where the ticket lives upstream. Each name must be one the source declares, and it needs a source — a prefix or `--source` — so a coordinate is never attached to a guess. A ticket on disk whose own coordinates disagree with them is a different ticket and is not matched.
 
 **An id is validated before anything on disk is consulted.** It must be a single name — no `..`, no path separator — because it is joined onto a directory, and an id that climbed out of its own would name a namespace or product instead. With a known source it must also match that source's `id.pattern`, so `ado:not-a-number` fails at resolution rather than at the API; a bare id is only looked for under the sources whose pattern it fits.
 
@@ -75,7 +86,7 @@ Two steps, in this order. Implemented in `ticketlib/filing.py`.
 **1. Which products can hold it.**
 
 - **Named** — by `--in {namespace}/{product}` or a qualified reference: only that product. Refused when it is bound to other coordinates than the ticket's, or when it cannot supply every coordinate the source needs.
-- **A pasted address** — the one product whose binding matches every coordinate the address carries. Where only the namespace-level coordinate matches, that namespace's fallback product: the address itself supplies the rest. Where nothing matches, exit 1 with a hint to bind it. **Step 2 does not apply.**
+- **Explicit coordinates** — the one product whose binding matches every coordinate given. Where only the namespace-level coordinate matches, that namespace's fallback product: the coordinates given supply the rest. Where nothing matches, exit 1 with a hint to bind it. **Step 2 does not apply.**
 - **Otherwise** — for a source with coordinates, every product whose effective binding supplies all of them; for a source with none, every product, plus the default and fallback products that may not exist yet.
 - **Never** a product bound to different coordinates than the ticket's.
 

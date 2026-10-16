@@ -73,7 +73,7 @@ Each attachment record carries `local_filename` (null when the download failed) 
 
 ## Where it is fetched from
 
-The organization and project come from the ticket's own `coordinates` once it has them, else from the binding of the product it is filed under, else from the pasted address that filed it. A ticket re-filed under another product therefore still fetches from where it lives.
+The organization and project come from the ticket's own `coordinates` once it has them, else from the binding of the product it is filed under, else from the `--coordinate` flags the reference carried. A ticket re-filed under another product therefore still fetches from where it lives.
 
 ## Upstream is never modified
 

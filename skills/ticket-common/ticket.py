@@ -13,13 +13,13 @@ exit-code mapping.
 
 Usage:
     python ticket.py sources [--check]
-    python ticket.py resolve [<ref>] [--source S] [--type T] [--require a,b] [--in X] [--context X]
+    python ticket.py resolve [<ref>] [--source S] [--coordinate N=V ...] [--type T] [--require a,b] [--in X] [--context X]
     python ticket.py list [--in X] [--context X]
     python ticket.py namespaces [--in X]
     python ticket.py defaults [--namespace NS] [--product NS/PRODUCT]
     python ticket.py init --source S [--in NS/PRODUCT] [--propose] [provider flags...]
     python ticket.py init --in NS[/PRODUCT]
-    python ticket.py fetch <ref> [--source S] [--in X] [--context X]
+    python ticket.py fetch <ref> [--source S] [--coordinate N=V ...] [--in X] [--context X]
     python ticket.py new --source S --title "..." [--id SLUG] [--type T] [--in X] [--context X] [--propose] [provider flags...]
     python ticket.py drift <ref>
     python ticket.py prepare <ref>
@@ -123,7 +123,12 @@ def context_of(args: argparse.Namespace) -> Scope | None:
 
 def locate(args: argparse.Namespace) -> sources.Target:
     return sources.locate(
-        args.ref, args.source, restrict_of(args), context_of(args), Path.cwd()
+        args.ref,
+        args.source,
+        restrict_of(args),
+        context_of(args),
+        Path.cwd(),
+        getattr(args, "coordinate", None),
     )
 
 
@@ -201,6 +206,7 @@ def verb_resolve(args: argparse.Namespace) -> int:
         restrict=restrict_of(args),
         context=context_of(args),
         cwd=Path.cwd(),
+        coordinates=args.coordinate,
     )
     emit(resolved)
     return EXIT_OK
@@ -1110,6 +1116,16 @@ def add_restrict(parser: argparse.ArgumentParser, help_text: str) -> None:
     parser.add_argument("--in", dest="within", metavar="NS[/PRODUCT]", help=help_text)
 
 
+def add_coordinate(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--coordinate",
+        action="append",
+        metavar="NAME=VALUE",
+        help="where the ticket lives upstream, e.g. organization=edwire; repeat for each "
+        "coordinate. Decides where a ticket not on disk yet is filed",
+    )
+
+
 def add_context(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--context",
@@ -1136,9 +1152,10 @@ def build_parser() -> argparse.ArgumentParser:
         "resolve", help="resolve a reference to a location, paths and config"
     )
     p.add_argument(
-        "ref", nargs="?", help="[namespace/product/][source:]id, or a web address"
+        "ref", nargs="?", help="[namespace/product/][source:]id; never a web address"
     )
     p.add_argument("--source")
+    add_coordinate(p)
     p.add_argument("--type", help="override the ticket type and record it")
     p.add_argument(
         "--require",
@@ -1184,6 +1201,7 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("fetch", help="refresh the local snapshot (remote sources)")
     p.add_argument("ref")
     p.add_argument("--source")
+    add_coordinate(p)
     add_restrict(p, "only look in, and only file under, this namespace or product")
     add_context(p)
 
@@ -1210,6 +1228,7 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("drift", help="has the ticket moved since it was fetched?")
     p.add_argument("ref")
     p.add_argument("--source")
+    add_coordinate(p)
     add_restrict(p, "only look in this namespace or product")
     add_context(p)
 
@@ -1261,6 +1280,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("ref")
     p.add_argument("--for", dest="for_skill", choices=("plan", "digest"), default="plan")
     p.add_argument("--source")
+    add_coordinate(p)
     add_restrict(p, "only look in, and only file under, this namespace or product")
     add_context(p)
 

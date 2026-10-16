@@ -16,7 +16,7 @@ A provider directory is trusted **code**, not configuration. `provider.py` is im
   "kind": "remote",
   "prefixes": ["ado", "azdo"],
   "coordinates": { "organization": "namespace", "project": "product" },
-  "url": { "patterns": ["https?://dev\\.azure\\.com/(?P<organization>[^/]+)/(?P<project>[^/]+)/_workitems/edit/(?P<id>[1-9][0-9]*)(?:[/?#]|$)"] },
+  "url": { "canonical": "https://dev.azure.com/{organization}/{project}/_workitems/edit/{id}" },
   "nouns": { "singular": "work item", "plural": "work items" },
   "id": { "pattern": "\\d+", "shape": "numeric work item id" },
   "formats": { "comment": "html", "body": "html" },
@@ -29,7 +29,7 @@ A provider directory is trusted **code**, not configuration. `provider.py` is im
 
 `coordinates` is what maps this source's own concepts onto the tickets home's. It names each value that locates a ticket upstream and the level it is bound at — `namespace` for an account-level one such as an organization or an owner, `product` for one such as a project or a repository. A binding under `sources.{source}` in a namespace's or product's `config.json` holds exactly these, and a ticket's own `ticket.json` records them at fetch. A source with nothing upstream declares `{}`, and is then usable in every product without an init. The key is required.
 
-`url.patterns` is what lets a user paste a ticket's web address instead of typing `{source}:{id}`. Each pattern is a Python regex matched case-insensitively against the head of the address, and it **must** capture the id as a group named `id`. Capture the coordinates the id is only unique within as groups too, **named exactly as `coordinates` names them**: the resolver files the address under the product bound to them, and never matches it to a ticket whose own coordinates disagree. `url.canonical` is the one address recorded for the ticket whichever form was pasted, and `url.refused` lists `{pattern, reason}` addresses on the source's own host that are known not to be tickets — a pull request, say — so the resolver says why instead of reporting an unrecognised address. All three keys are optional: a source that declares none is simply never matched against an address.
+`url.canonical` is the one address recorded for a ticket whichever form was pasted. It is optional: a source without it records whatever its fetch learns. The manifest holds no pattern for reading a pasted address. The driver reads one, using the source's `links.md` → *Reading an address*, and hands `resolve` the id and each coordinate as `--coordinate`.
 
 `ticket.py` gates every verb on `capabilities` **before** the module is loaded, so an absent capability is exit 3 and there is no code path for a driver to improvise past.
 
@@ -37,18 +37,18 @@ A provider directory is trusted **code**, not configuration. `provider.py` is im
 
 | Role file                         | Answers                                                                                          | Read by                                             | Gates capability |
 | --------------------------------- | ------------------------------------------------------------------------------------------------ | --------------------------------------------------- | ---------------- |
-| `provider.json`                   | capabilities, prefixes, coordinates, address patterns, id shape, nouns, comment format           | all, via `resolve`                                  | —                |
+| `provider.json`                   | capabilities, prefixes, coordinates, canonical address, id shape, nouns, comment format          | all, via `resolve`                                  | —                |
 | `config.md`                       | what a binding holds and at which level, how credentials are acquired and validated              | `ticket-setup`                                      | —                |
 | `fetch.md`                        | how raw data lands in `raw/`, traversal policy, attachment rules, how `ticket.json` is refreshed | `ticket-fetch`                                      | `fetch`          |
 | `new.md`                          | how a ticket is created here — locally, or upstream behind an explicit confirmation               | `ticket-create`                                     | `new`            |
 | `update.md`                       | how an upstream ticket is changed: which fields, which flags, the drift and confirmation gates    | `ticket-update`                                     | `update`         |
 | `schema.md`                       | where the content is on disk and the logical→physical field map                                  | `ticket-digest`                                      | —                |
 | `types.md`                        | this source's native type and tag/label vocabulary → one canonical type                          | `ticket-fetch`, `ticket-create`                     | —                |
-| `links.md`                        | ticket / comment / attachment URL patterns                                                       | `ticket-digest`, `ticket-plan`, `ticket-checkpoint` | —                |
+| `links.md`                        | how to read a pasted address, and ticket / comment / attachment URL patterns                     | `ticket-fetch`, `ticket-digest`, `ticket-plan`, `ticket-checkpoint` | —                |
 | `drift.md`                        | how to tell the local snapshot is stale, as exit 0/1/2                                           | `ticket-resume`                                     | `drift`          |
 | `provider.py` (+ private `_*.py`) | every network call and every credential                                                          | never read — invoked via `ticket.py`                | —                |
 
-`config.md`, `schema.md`, `types.md` and `links.md` are **required of every source**. The others are present exactly when the matching capability is `true`. `python ticket-common/ticket.py sources --check` validates that agreement, and that `coordinates` names real levels and covers every group the address patterns capture; a mismatch is an error.
+`config.md`, `schema.md`, `types.md` and `links.md` are **required of every source**. The others are present exactly when the matching capability is `true`. `python ticket-common/ticket.py sources --check` validates that agreement, and that `coordinates` names real levels; a mismatch is an error.
 
 ### Absence is the mechanism
 

@@ -39,14 +39,16 @@ A fact that needs a particular ticket system belongs in `ticket-providers/{sourc
 
 ## Execution Steps
 
-### Step 1 — Resolve the ticket, and fetch it if it never was
+### Step 1 — Read the reference, resolve the ticket, and fetch it if it never was
+
+**Read `<ref>` first.** `resolve` takes only a qualified reference or `{source}:{id}`. Where the user gave anything else — a web address in any form, `#42`, `owner/repo#42` — turn it into one and its coordinates as `ticket-common/RESOLUTION.md` → *Reading what the user gave* says, and echo what you took it to mean in one line. `{ref}` below is the reference you settled on: what the user gave where it was already a qualified reference or `{source}:{id}`, else the one you read it into. Pass each coordinate as `--coordinate {name}={value}` on every `ticket.py` call below that takes one.
 
 With a session context, pass `--context {context}` on every `ticket.py` call below and open the first output line with `Ticket context: {context}` — `ticket-common/RESOLUTION.md` → *The session context* covers overrides. A pasted web address is a valid `<ref>` even for a ticket not on disk yet.
 
 Ask whether anything must come first:
 
 ```bash
-python "{skills}/ticket-common/ticket.py" prepare "<ref>" --for digest [--context {context}]
+python "{skills}/ticket-common/ticket.py" prepare "{ref}" --for digest [--coordinate {name}={value} ...] [--context {context}]
 ```
 
 Where its `steps` is `["fetch"]`, follow `ticket-fetch/SKILL.md` in this session, without confirmation: it writes only inside the ticket directory. It is empty when the ticket was fetched already, or when the source has no fetch capability, such as a local ticket. Say in the confirmation that the ticket was fetched first. On a non-zero exit from `prepare`, report the message and its hint verbatim and stop.
@@ -54,7 +56,7 @@ Where its `steps` is `["fetch"]`, follow `ticket-fetch/SKILL.md` in this session
 Then resolve it:
 
 ```bash
-python "{skills}/ticket-common/ticket.py" resolve "<ref>" --require raw [--type type] [--context {context}]
+python "{skills}/ticket-common/ticket.py" resolve "{ref}" --require raw [--coordinate {name}={value} ...] [--type type] [--context {context}]
 ```
 
 Everything below uses the paths, type and `ticket.json` it returns; **every path it prints is absolute**, so nothing here needs expanding. On a non-zero exit, report the message and its hint verbatim and stop. `ticket-common/RESOLUTION.md` carries the full contract — open it only when the output is disputed.

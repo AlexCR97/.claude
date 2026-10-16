@@ -23,7 +23,7 @@ A fact that needs a particular ticket system belongs in `ticket-providers/{sourc
 
 ## Parameters
 
-- **`<ref>`** — the ticket: a reference as `ticket-common/RESOLUTION.md` → *How a reference resolves* defines it, or the ticket's web address pasted verbatim. Step 1 turns every form into the same location, and no step parses an address. Ask for one when it is absent.
+- **`<ref>`** — the ticket: a reference as `ticket-common/RESOLUTION.md` → *How a reference resolves* defines it, or its web address pasted verbatim. Step 1 reads every form into the same reference and coordinates. Ask for one when it is absent.
 - **`[--in namespace[/product]]`** — where to file a ticket not yet on disk, overriding the filing rules. Namespace, product and filing mean what `ticket-common/GLOSSARY.md` says.
 
 ---
@@ -41,12 +41,14 @@ A fact that needs a particular ticket system belongs in `ticket-providers/{sourc
 
 ## Execution Steps
 
-### Step 1 — Resolve the ticket
+### Step 1 — Read the reference and resolve the ticket
+
+**Read `<ref>` first.** `resolve` takes only a qualified reference or `{source}:{id}`. Where the user gave anything else — a web address in any form, `#42`, `owner/repo#42` — turn it into one and its coordinates as `ticket-common/RESOLUTION.md` → *Reading what the user gave* says, and echo what you took it to mean in one line. `{ref}` below is the reference you settled on: what the user gave where it was already a qualified reference or `{source}:{id}`, else the one you read it into. Pass each coordinate as `--coordinate {name}={value}` on every `ticket.py` call below that takes one.
 
 With a session context, pass `--context {context}` on every `ticket.py` call below and open the first output line with `Ticket context: {context}` — `ticket-common/RESOLUTION.md` → *The session context* covers overrides.
 
 ```bash
-python "{skills}/ticket-common/ticket.py" resolve "<ref>" --require config [--in namespace[/product]] [--context {context}]
+python "{skills}/ticket-common/ticket.py" resolve "{ref}" --require config [--coordinate {name}={value} ...] [--in namespace[/product]] [--context {context}]
 ```
 
 - **Exit 0:** continue with the paths, capabilities, `ticket.json` and `qualified_ref` it returns. Every path is absolute. A ticket not on disk yet has `filed: false`, and `filing` names the product it will be filed under and the rule that chose it.
@@ -75,10 +77,10 @@ These hold for every source, whatever `fetch.md` says. Report a `fetch.md` that 
 ### Step 4 — Run the fetch
 
 ```bash
-python "{skills}/ticket-common/ticket.py" fetch "{qualified_ref}"
+python "{skills}/ticket-common/ticket.py" fetch "{qualified_ref}" [--coordinate {name}={value} ...]
 ```
 
-Pass Step 1's `qualified_ref`, so the fetch writes exactly where Step 1 said. For a pasted address, pass the address instead: its coordinates are what the fetch needs. Pass no credential flag — there is none.
+Pass Step 1's `qualified_ref`, so the fetch writes exactly where Step 1 said, and the same coordinates. Pass no credential flag — there is none.
 
 On a non-zero exit, report its stderr and stop.
 
