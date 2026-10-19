@@ -90,8 +90,10 @@ If no journal exists at all, say so plainly in the briefing and recommend `/tick
 Run the shared collector from the worktree the work is being done in. It writes nothing. Its terms are the ones in `ticket-common/GLOSSARY.md`.
 
 ```bash
-python "{skills}/ticket-common/collect-git-state.py"
+python "{skills}/ticket-common/collect-git-state.py" [--base {base}]
 ```
+
+Without `--base` it measures against the repository's default branch, which is wrong for work that merges anywhere else, such as a release branch. Pass the base the latest journal entry's `**Where:**` line recorded, where it is not the default branch; omit `--base` where there is no entry or it recorded the default branch. On exit `2` the recorded base no longer resolves — usually a release branch deleted after the release. Say so in the briefing, run again without `--base`, and label the numbers as measured against the default branch; correcting the record is `/ticket-checkpoint`'s job.
 
 Two comparisons matter more than the raw output:
 

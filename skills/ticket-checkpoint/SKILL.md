@@ -62,10 +62,18 @@ Open `ticket-common/RESOLUTION.md` only when the output is disputed.
 Run the shared collector from the worktree the work is being done in:
 
 ```bash
-python "{skills}/ticket-common/collect-git-state.py"
+python "{skills}/ticket-common/collect-git-state.py" [--base {base}]
 ```
 
 It reports the repository and the path of its worktree, the branch, HEAD, the base branch and merge base, commits ahead of base, commits the base has gained since, the worktree's uncommitted-change counts, and any stashes. It writes nothing, and it interprets nothing — `branch` is a plain string. Its terms are the ones in `ticket-common/GLOSSARY.md`.
+
+Without `--base` it measures against the repository's default branch, which is wrong for work that merges anywhere else, such as a release branch. Pass the base the work actually merges into, as a remote-tracking ref (`origin/rel/2610.1`), taking the first that applies:
+
+1. The base this session established — for example, the target of a pull request opened or retargeted in it.
+2. The base the latest journal entry's `**Where:**` line recorded (`ticket.py journal latest {ref}`), where it is not the default branch.
+3. Neither — omit `--base`.
+
+Exit `2` means the base named does not resolve. Say so and ask for the right one rather than recording the entry against the default branch.
 
 If `is_repository` is `false`, record `**Where:** not in a repository` and carry on — an entry without git coordinates is still worth far more than no entry.
 

@@ -14,7 +14,7 @@ branch name. The terms follow ticket-common/GLOSSARY.md.
 Every command is read-only. Nothing is written, fetched, checked out or staged.
 
 Usage:
-    python collect-git-state.py [--path DIR]
+    python collect-git-state.py [--path DIR] [--base REF]
 
 Output: a single JSON object on stdout. Every field is optional — a directory
 outside every repository yields {"is_repository": false}, and any individual fact
@@ -24,6 +24,7 @@ picture is still worth reporting.
 Exit codes:
     0  state collected (check is_repository for whether it is in one)
     1  git is unavailable, or the path is not a directory
+    2  --base names a ref that does not resolve to a commit
 """
 
 import argparse
@@ -46,6 +47,12 @@ RECENT_COMMIT_LIMIT = 8
 
 # A long list of paths is noise in a briefing; the counts carry the signal.
 DIRTY_FILE_LIMIT = 20
+
+
+class UnknownBaseError(Exception):
+    def __init__(self, ref: str):
+        self.ref = ref
+        super().__init__(f"--base does not name a commit — {ref}")
 
 
 class Git:
@@ -230,7 +237,7 @@ def collect_recent_commits(
     on this branch rather than an arbitrary slice of the repository history.
     """
     revision_range = "HEAD"
-    if base_branch and branch not in DEFAULT_BRANCH_NAMES:
+    if base_branch and base_branch != branch:
         merge_base = git.value("merge-base", "HEAD", base_branch)
         if merge_base:
             revision_range = f"{merge_base}..HEAD"
@@ -248,7 +255,7 @@ def collect_recent_commits(
     return [commit for commit in commits if commit]
 
 
-def collect(path: Path, executable: str) -> dict:
+def collect(path: Path, executable: str, base: str | None = None) -> dict:
     git = Git(executable, path)
 
     worktree = git.value("rev-parse", "--show-toplevel")
@@ -261,7 +268,14 @@ def collect(path: Path, executable: str) -> dict:
     if is_detached:
         branch = None
 
-    base_branch = resolve_base_branch(git, branch)
+    if base is None:
+        base_branch = resolve_base_branch(git, branch)
+    elif git.value("rev-parse", "--verify", "--quiet", f"{base}^{{commit}}"):
+        base_branch = base
+    else:
+        # A wrong base would be recorded and trusted as fact, so it must not
+        # quietly fall back to the default branch.
+        raise UnknownBaseError(base)
 
     state: dict = {
         "is_repository": True,
@@ -279,7 +293,7 @@ def collect(path: Path, executable: str) -> dict:
         "recent_commits": collect_recent_commits(git, base_branch, branch),
     }
 
-    if base_branch and branch not in DEFAULT_BRANCH_NAMES:
+    if base_branch and base_branch != branch:
         merge_base = git.value("merge-base", "HEAD", base_branch)
         state["merge_base"] = read_commit(git, merge_base) if merge_base else None
         state["commits_ahead_of_base"] = git.count(
@@ -308,6 +322,11 @@ def main() -> None:
         default=".",
         help="Directory to inspect (default: the current directory)",
     )
+    parser.add_argument(
+        "--base",
+        help="Ref the branch is expected to merge into, such as origin/rel/2610.1 "
+        "(default: the repository's default branch)",
+    )
     args = parser.parse_args()
 
     executable = shutil.which("git")
@@ -320,7 +339,13 @@ def main() -> None:
         print(f"ERROR: not a directory — {path}", file=sys.stderr)
         raise SystemExit(1)
 
-    print(json.dumps(collect(path, executable), indent=2))
+    try:
+        state = collect(path, executable, args.base)
+    except UnknownBaseError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        raise SystemExit(2) from exc
+
+    print(json.dumps(state, indent=2))
 
 
 if __name__ == "__main__":
