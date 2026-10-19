@@ -2,14 +2,14 @@
 name: ticket-create
 description: Creates a ticket in a store that supports it — a local ticket, or an upstream GitHub issue or Azure DevOps work item after an explicit yes — seeded from its type so the body starts with the right questions.
 argument-hint: "<title> [--source source] [--type type] [--in namespace[/product]] [--parent ref]"
-allowed-tools: Read Edit Skill Bash(python *ticket.py:*)
+allowed-tools: Read Write Edit Skill Bash(python *ticket.py:*) Bash(az boards:*) Bash(az rest:*) Bash(gh issue:*) Bash(gh api:*) Bash(gh label:*)
 ---
 
 Creates a ticket in a store that supports it — a local ticket for work with no upstream system, or an upstream ticket in a source that can create them — and seeds its body from its type so it starts with the right questions. It does not interview: the author answers those questions in the body, so acceptance criteria stay a `TODO` stub.
 
 End state: a new ticket directory under the product the user confirmed, its body seeded from its type with acceptance criteria left as a `TODO`, ready for the author to fill in.
 
-This skill is a **driver**: it contains no field names, URLs, API versions, credential commands, markup dialects, or type-specific rules of its own. Everything specific lives alongside it in three directories, and each step names the file to read.
+This skill is a **driver**: it contains no field names, URLs, API versions, credential commands, markup dialects, or type-specific rules of its own. Everything specific lives alongside it in three directories, and each step names the file to read. For an upstream source, `new.md` is a **recipe** for creating with the source's own CLI.
 
 | Directory                    | Contains                                                                                                          | Read                                                                          |
 | ---------------------------- | ----------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
@@ -35,12 +35,13 @@ A fact that needs a particular ticket system belongs in `ticket-providers/{sourc
 
 1. **Report a missing capability as a gap.** Never create a ticket in a source that declares no `new`, and never substitute another source's file for a missing one.
 2. **Never write to a remote system without an explicit yes.** Creating an upstream ticket needs the user to have seen the product, title, type, body and parent or labels, and said yes in plain words.
-3. **Never interview.** The author answers the seeded questions in the body.
-4. **Never invent content.** Leave acceptance criteria as a `TODO` stub, and make every seeded section a prompt, not an answer.
-5. **Never pick a type silently.** Ask; the type shapes every skill downstream.
-6. **Show the filing before creating.** Never create a ticket without showing its slug and the product it is filed under, and letting the user change either.
-7. **Never write into an existing ticket directory.** A collision is a different slug, never a merge.
-8. **Write only what the store's `new.md` describes** into the ticket directory.
+3. **Never print or read a token.** The source's CLI holds the sign-in and attaches it. When a call fails because the sign-in has expired, report that and the command it names.
+4. **Never interview.** The author answers the seeded questions in the body.
+5. **Never invent content.** Leave acceptance criteria as a `TODO` stub, and make every seeded section a prompt, not an answer.
+6. **Never pick a type silently.** Ask; the type shapes every skill downstream.
+7. **Show the filing before creating.** Never create a ticket without showing its slug and the product it is filed under, and letting the user change either.
+8. **Never write into an existing ticket directory.** A collision is a different slug, never a merge.
+9. **Write only what the store's `new.md` describes** into the ticket directory.
 
 ---
 
@@ -74,7 +75,13 @@ Read `ticket-types/{type}.md` once the type is known. Its *"What this type is"* 
 
 ### Step 4 — Derive the slug, file it, and create the ticket
 
-**A source whose `kind` is `remote`** assigns its own id, so there is no slug to derive and nothing to guess at. Read `ticket-providers/{source}/new.md` and follow its flow instead of the rest of this step: propose, show everything, require an explicit yes, create with `--confirm`. The created ticket is fetched and filed under its real id, so continue at Step 5 from the body it fetched and treat the ticket as already seeded by its author — shape only what is missing, never overwrite what the upstream body says.
+**A source whose `kind` is `remote`** assigns its own id, so there is no slug to derive and nothing to guess at. Ask the front door which product it would be filed under, creating nothing:
+
+```bash
+python "{skills}/ticket-common/ticket.py" new --source {source} --title "<title>" --propose [--in namespace[/product]] [--context {context}]
+```
+
+For a remote source it reports only the `product` and the `filing` rule, and exit 3 and 5 mean what they do below. Then read `ticket-providers/{source}/new.md` and follow its recipe instead of the rest of this step: build what would be sent, show everything including the product, take an explicit yes, create it with the source's CLI, and fetch and file it under its real id. Continue at Step 5 from the body it fetched and treat the ticket as already seeded by its author — shape only what is missing, never overwrite what the upstream body says.
 
 The rest of this step is for a source whose `kind` is `local`.
 

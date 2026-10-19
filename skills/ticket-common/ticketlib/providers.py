@@ -8,7 +8,6 @@ glob, never by a hardcoded list, so adding one is adding a directory.
 
 import importlib.util
 import json
-import re
 from pathlib import Path
 from types import ModuleType
 
@@ -137,20 +136,6 @@ def split_by_level(source: str, values: dict) -> tuple[dict, dict]:
     return at_namespace, at_product
 
 
-def credential_key(source: str, values: dict) -> str | None:
-    """
-    The value a cached credential is keyed by: this source's namespace-level coordinate.
-
-    A namespace is one account's worth of work — an organization, an owner —
-    and that is the unit a credential is issued for.
-    """
-    for name in coordinates_at(source, "namespace"):
-        value = values.get(name)
-        if value:
-            return str(value)
-    return None
-
-
 def has_function(source: str, name: str) -> bool:
     """Whether a source's provider.py defines an optional entry point."""
     return callable(getattr(load_module(source), name, None))
@@ -174,6 +159,24 @@ def require_capability(source: str, name: str) -> None:
         f"Its provider.json declares capabilities.{name} = false, and there is "
         f"no {CAPABILITY_ROLE_FILES.get(name, name + '.md')} describing how a "
         f"{noun} would do it. This is a gap to report, not one to work around.",
+    )
+
+
+def require_script(source: str, function: str, role: str) -> None:
+    """
+    Gate a verb on the source having a script for it, not a recipe.
+
+    A source whose role file is a recipe has no module function behind it:
+    the agent follows the file with the source's own CLI, so the verb refuses
+    rather than pretend.
+    """
+    if has_function(source, function):
+        return
+    where = role_file(source, role)
+    raise TicketError(
+        f"'{function}' for source '{source}' is a recipe, not a script",
+        EXIT_NO_CAPABILITY,
+        f"Read {where or role} and follow it with the source's own CLI.",
     )
 
 
@@ -287,35 +290,16 @@ def check() -> tuple[list[dict], list[str]]:
 
 
 def coordinate_problems(source: str, manifest: dict) -> list[str]:
-    """
-    A manifest's coordinates must name real levels, and cover its address patterns.
-
-    Every group an address pattern captures besides `id` is a coordinate the
-    address carries, and filing a pasted address means matching exactly those
-    against bindings — a group no coordinate declares could never match one.
-    """
+    """A manifest's coordinates must name real levels."""
     raw = manifest.get("coordinates")
     if not isinstance(raw, dict):
         return [
             f"{source}: provider.json has no `coordinates` object — declare {{}} for none"
         ]
 
-    problems = [
+    return [
         f"{source}: coordinate '{name}' is bound at '{level}', "
         f"not one of {', '.join(COORDINATE_LEVELS)}"
         for name, level in raw.items()
         if level not in COORDINATE_LEVELS
     ]
-
-    for pattern in (manifest.get("url") or {}).get("patterns") or []:
-        try:
-            groups = set(re.compile(pattern).groupindex) - {"id"}
-        except re.error as exc:
-            problems.append(f"{source}: address pattern does not compile — {exc}")
-            continue
-        for group in sorted(groups - set(raw)):
-            problems.append(
-                f"{source}: address pattern captures '{group}', which is not a declared coordinate"
-            )
-
-    return problems

@@ -15,16 +15,7 @@
     "reference": "#{id}"
   },
   "url": {
-    "patterns": [
-      "https?://(?:www\\.)?github\\.com/(?P<owner>[^/]+)/(?P<repository>[^/]+)/issues/(?P<id>[1-9][0-9]*)(?:[/?#]|$)"
-    ],
-    "canonical": "https://github.com/{owner}/{repository}/issues/{id}",
-    "refused": [
-      {
-        "pattern": "https?://(?:www\\.)?github\\.com/[^/]+/[^/]+/pull/[0-9]+(?:[/?#]|$)",
-        "reason": "that is a pull request, not an issue"
-      }
-    ]
+    "canonical": "https://github.com/{owner}/{repository}/issues/{id}"
   },
   "id": {
     "pattern": "[1-9][0-9]*",

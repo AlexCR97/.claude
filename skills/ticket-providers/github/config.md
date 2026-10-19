@@ -37,6 +37,10 @@ A third segment would be a cross-repository reference, which a product bound to 
 
 Where the binding is filed when `--in` is omitted: the product already bound to exactly this repository, else a new product in the namespace already bound to the owner, else names derived from the coordinates.
 
+## Prerequisites
+
+The GitHub CLI (`gh`), signed in. The init checks both, and every recipe in this directory uses `gh`.
+
 ## How the credential is acquired
 
 It is not. The user runs:

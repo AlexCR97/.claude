@@ -11,7 +11,6 @@ rather than found by walking the tree.
 """
 
 import os
-import re
 from pathlib import Path
 
 # Overriding the tickets home lets a test run against a scratch tree without touching
@@ -34,11 +33,6 @@ CONFIG_FILENAME = "config.json"
 # product receives a ticket whose namespace is known but that no product fits,
 # and `default/default` one that no namespace fits either.
 DEFAULT_NAME = "default"
-
-# A leading dot keeps it from ever reading as a namespace.
-CREDENTIALS_DIRNAME = ".credentials"
-
-CREDENTIAL_KEY_UNSAFE = re.compile(r"[^a-z0-9._-]+")
 
 
 def tickets_home() -> Path:
@@ -67,18 +61,6 @@ def level_config_path(namespace: str | None = None, product: str | None = None) 
     if product is None:
         return namespace_dir(namespace) / CONFIG_FILENAME
     return product_dir(namespace, product) / CONFIG_FILENAME
-
-
-def credentials_path(source: str, key: str) -> Path:
-    """
-    Where one credential is cached, keyed by the coordinate it was issued for.
-
-    The key is lowercased and made filename-safe because it is an upstream
-    name — an organization, an account — and those are case-insensitive and
-    may hold characters a filename cannot.
-    """
-    safe_key = CREDENTIAL_KEY_UNSAFE.sub("_", key.casefold()).strip("._") or "_"
-    return tickets_home() / CREDENTIALS_DIRNAME / source / f"{safe_key}.json"
 
 
 def is_segment(name: str) -> bool:

@@ -2,7 +2,7 @@
 name: ticket-digest
 description: Reads a ticket by reference, fetching it first if it never was, analyzes its description, acceptance criteria, attached files and images, and related tickets, then writes a structured digest to digest.md.
 argument-hint: "<ref> [--type type]"
-allowed-tools: Read Grep Glob Write Bash(python *ticket.py:*)
+allowed-tools: Read Grep Glob Write Bash(python *ticket.py:*) Bash(az rest --method get:*) Bash(gh api repos/*:*)
 ---
 
 Turns a fetched, source-shaped snapshot into `digest.md`, the one readable document every later skill works from. `digest.md` is the single source of truth for the ticket's content during planning and implementation; nothing downstream reads the raw snapshot again.
@@ -39,22 +39,26 @@ A fact that needs a particular ticket system belongs in `ticket-providers/{sourc
 
 ## Execution Steps
 
-### Step 1 — Resolve the ticket, and fetch it if it never was
+### Step 1 — Read the reference, resolve the ticket, and fetch it if it never was
+
+**Read `<ref>` first.** `resolve` takes only a qualified reference or `{source}:{id}`. Where the user gave anything else — a web address in any form, `#42`, `owner/repo#42` — turn it into one and its coordinates as `ticket-common/RESOLUTION.md` → *Reading what the user gave* says, and echo what you took it to mean in one line. `{ref}` below is the reference you settled on: what the user gave where it was already a qualified reference or `{source}:{id}`, else the one you read it into. Pass each coordinate as `--coordinate {name}={value}` on every `ticket.py` call below that takes one.
 
 With a session context, pass `--context {context}` on every `ticket.py` call below and open the first output line with `Ticket context: {context}` — `ticket-common/RESOLUTION.md` → *The session context* covers overrides. A pasted web address is a valid `<ref>` even for a ticket not on disk yet.
 
 Ask whether anything must come first:
 
 ```bash
-python "{skills}/ticket-common/ticket.py" prepare "<ref>" --for digest [--context {context}]
+python "{skills}/ticket-common/ticket.py" prepare "{ref}" --for digest [--coordinate {name}={value} ...] [--context {context}]
 ```
 
 Where its `steps` is `["fetch"]`, follow `ticket-fetch/SKILL.md` in this session, without confirmation: it writes only inside the ticket directory. It is empty when the ticket was fetched already, or when the source has no fetch capability, such as a local ticket. Say in the confirmation that the ticket was fetched first. On a non-zero exit from `prepare`, report the message and its hint verbatim and stop.
 
+Where `steps` is empty and the resolver reports `capabilities.drift`, ask whether the ticket changed upstream since it was fetched: read `ticket-providers/{source}/drift.md` and follow it. Where it reports the ticket **changed**, say what moved and ask whether to follow `ticket-fetch/SKILL.md` first, so the digest is not built from a stale snapshot. Where it is current, or could not be checked, go on, and say in one line when it could not be checked.
+
 Then resolve it:
 
 ```bash
-python "{skills}/ticket-common/ticket.py" resolve "<ref>" --require raw [--type type] [--context {context}]
+python "{skills}/ticket-common/ticket.py" resolve "{ref}" --require raw [--coordinate {name}={value} ...] [--type type] [--context {context}]
 ```
 
 Everything below uses the paths, type and `ticket.json` it returns; **every path it prints is absolute**, so nothing here needs expanding. On a non-zero exit, report the message and its hint verbatim and stop. `ticket-common/RESOLUTION.md` carries the full contract — open it only when the output is disputed.
