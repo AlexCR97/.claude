@@ -31,11 +31,16 @@
 .last-cleanup
 .last-update-result.json
 daemon.log
+gh-pr-status-cache.json
 history.jsonl
 mcp-needs-auth-cache.json
 policy-limits.json
 policy-limits.json.stamp.json
+policy-limits.json.signature-iat.json
+policy-limits.json.signature.json
 remote-settings.json
+remote-settings.json.signature-iat.json
+remote-settings.json.signature.json
 remote-settings.json.synced-at
 settings.json
 settings.local.json
