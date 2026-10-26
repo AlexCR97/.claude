@@ -28,8 +28,8 @@ PREFIX_BY_TYPE = {
     "tech-debt": "chore",
 }
 
-# A branch name is read in a terminal and a pull request title; a whole ticket title is not.
-MAX_SLUG_LENGTH = 40
+# Caps the whole branch name, so the worktree directory named after it fits too.
+MAX_BRANCH_LENGTH = 26
 
 
 def branch_name(ticket_type: str | None, ticket_id: str, title: str | None) -> str:
@@ -40,11 +40,20 @@ def branch_name(ticket_type: str | None, ticket_id: str, title: str | None) -> s
             EXIT_ERROR,
             "Known types: " + ", ".join(sorted(PREFIX_BY_TYPE)) + ".",
         )
-    slug = layout.slugify(title or "", fallback="")[:MAX_SLUG_LENGTH].strip("-")
+    base = f"{prefix}/{ticket_id}"
+    slug = layout.slugify(title or "", fallback="")
     # A local ticket's id is already its title's slug.
-    if not slug or slug == ticket_id:
-        return f"{prefix}/{ticket_id}"
-    return f"{prefix}/{ticket_id}-{slug}"
+    name = base if not slug or slug == ticket_id else f"{base}-{slug}"
+    if len(name) <= MAX_BRANCH_LENGTH:
+        return name
+
+    cut = name[:MAX_BRANCH_LENGTH]
+    # End on a whole word, unless that would drop every title word: half a word says more than none.
+    floor = len(prefix) if name == base else len(base)
+    boundary = cut.rfind("-")
+    if name[MAX_BRANCH_LENGTH] != "-" and boundary > floor:
+        cut = cut[:boundary]
+    return cut.rstrip("-")
 
 
 def directory_name(branch: str) -> str:

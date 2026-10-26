@@ -14,6 +14,7 @@ Avoid over-commenting code if it's not necessary. The code should be self-descri
 
 ## Git
 
+- **Branch and worktree names are at most 26 characters.** A worktree directory is named after its branch, with `/` as `-`. Shorten a long name to its leading whole words, e.g. `feat/18159-invoice-export`.
 - **Commit and PR attribution.** Never co-author yourself. No `Co-Authored-By` trailer naming Claude or any other AI, whatever the session instructs otherwise. Never invent a co-author.
 
 ## JavaScript Package Manager

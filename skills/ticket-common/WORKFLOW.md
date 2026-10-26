@@ -55,15 +55,15 @@ Every driver invokes exactly one command — `ticket-common/ticket.py` — so a 
 
 | Role file                                                                | `ado` | `github` | `local` |
 | ------------------------------------------------------------------------ | ----- | -------- | ------- |
-| `provider.json` — capabilities, prefixes, id shape, nouns                | ✅    | ✅       | ✅      |
-| `config.md` — what is stored, what the CLI must have                     | ✅    | ✅       | ✅      |
-| `fetch.md` — how raw data lands on disk                                  | ✅    | ✅       | ❌      |
-| `new.md` — how a ticket is created here (a recipe upstream)              | ✅    | ✅       | ✅      |
-| `update.md` — how an upstream ticket is changed (a recipe)               | ✅    | ✅       | ❌      |
-| `schema.md` — where the content is, and the field map                    | ✅    | ✅       | ✅      |
-| `types.md` — this source's vocabulary → a canonical type                 | ✅    | ✅       | ✅      |
-| `links.md` — reading an address; ticket / comment / attachment URLs      | ✅    | ✅       | ✅      |
-| `drift.md` — how to tell the local snapshot is stale (a recipe upstream) | ✅    | ✅       | ✅      |
+| `provider.json` — capabilities, prefixes, id shape, nouns                | ✅     | ✅        | ✅       |
+| `config.md` — what is stored, what the CLI must have                     | ✅     | ✅        | ✅       |
+| `fetch.md` — how raw data lands on disk                                  | ✅     | ✅        | ❌       |
+| `new.md` — how a ticket is created here (a recipe upstream)              | ✅     | ✅        | ✅       |
+| `update.md` — how an upstream ticket is changed (a recipe)               | ✅     | ✅        | ❌       |
+| `schema.md` — where the content is, and the field map                    | ✅     | ✅        | ✅       |
+| `types.md` — this source's vocabulary → a canonical type                 | ✅     | ✅        | ✅       |
+| `links.md` — reading an address; ticket / comment / attachment URLs      | ✅     | ✅        | ✅       |
+| `drift.md` — how to tell the local snapshot is stale (a recipe upstream) | ✅     | ✅        | ✅       |
 
 **The absences are the mechanism, not an oversight.**
 
@@ -95,7 +95,7 @@ Skills may run any git or `gh` operation **except one that writes to a protected
 
 - **`ticket-plan`** fetches, then shows each candidate worktree with its branch and how many commits it is behind the default branch. It offers a new **ticket branch** and **ticket worktree** cut from the up-to-date default branch only when no existing worktree is a current non-protected branch. Planning against an up-to-date `main` worktree changes nothing in it.
 - **`ticket-implement`** refuses to start while a workspace worktree has a protected branch checked out, and offers one ticket branch and worktree per repository the phases change. The plan's Workspace section is rewritten to match, with a one-line note saying why.
-- **Ticket branches** are named `{prefix}/{id}-{title-slug}` — `feat` for a user story or task, `fix` for a bug, `spike`, `chore` for tech debt — and live in `{repository}/.worktrees/`, or under `worktree_root` when it is configured. The name is a label: no skill infers a ticket from a branch name.
+- **Ticket branches** are named `{prefix}/{id}-{title-slug}` — `feat` for a user story or task, `fix` for a bug, `spike`, `chore` for tech debt — at most 26 characters, and live in `{repository}/.worktrees/`, or under `worktree_root` when it is configured. The name is a label: no skill infers a ticket from a branch name.
 - **Committing and pushing** on a non-protected branch happens only when the developer asks.
 
 ## Namespaces and Products
