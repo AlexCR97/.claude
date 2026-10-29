@@ -8,7 +8,7 @@ Open the code this session works on in an app — an editor to review the git ch
 
 End state: every root the session touched, open in the app as its file under `apps/` describes, and a report naming every path and branch left out.
 
-Each file in [`apps/`](./apps/) describes one app. Its front matter holds `name`, the value `[app]` takes, and `command`, the executable that must be on the `PATH`. Its `## Open` section holds the commands that open the roots, with `{root}` standing for each one, and every outcome that differs from Step 4's. Add an app by adding a file; this one needs no edit.
+Each file in [`apps/`](./apps/) describes one app. Its front matter holds `name`, the value `[app]` takes, and `command`, the executable that must be on the `PATH`. Its `## Open` section holds the commands that open the roots, with `{root}` standing for each one, and every outcome that differs from Step 4's. An optional `## Locate` section finds an executable that is not on the `PATH`. Add an app by adding a file; this one needs no edit.
 
 ## Parameters
 
@@ -28,7 +28,8 @@ Each file in [`apps/`](./apps/) describes one app. Its front matter holds `name`
 Take `[app]`, or `code` when it is absent, as `{app}`. `Glob` `{path-to-skill}/apps/*.md` and read the front matter of each file. Find the file whose `name` is `{app}`:
 
 - **No match:** stop. Refuse, and list every `name` found.
-- **Match:** take it as `{app-file}`. Confirm its `command` is on the `PATH`.
+- **Match, with a `## Locate` section:** take it as `{app-file}`. Run that section instead of the check below, and follow its outcomes.
+- **Match, without one:** take it as `{app-file}`. Confirm its `command` is on the `PATH`.
 
 ```powershell
 Get-Command {command} -ErrorAction SilentlyContinue
