@@ -49,3 +49,6 @@ stats-cache.json
 # Python tooling caches, anywhere in the tree
 __pycache__/
 .ruff_cache/
+
+# Visual Studio Open Folder state, anywhere in the tree
+.vs/
