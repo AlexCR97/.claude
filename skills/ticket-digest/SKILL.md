@@ -118,6 +118,7 @@ Rules:
 
 - Omit any section — and any Metadata row — that has no content.
 - Fill every `{camelCase}` placeholder with the value derived from the snapshot and the analysis, and replace every `<!-- guidance -->` comment with the content it asks for.
+- `{reference}` is the resolver's `nouns.reference` with `{id}` and its coordinates filled in from `ticket.json`; `{relatedReference}` is the same for the related ticket.
 - `{ticketUrl}` is `ticket.json`'s `url`. Where it is `null`, write the title as plain text rather than a broken link — that source has no web address. `{relatedUrl}` follows `links.md`, below.
 - `{assignee}` is `Unassigned`, and `{labels}` is `—`, when the source has none.
 - For links to other tickets, comments and attachments, use the patterns in `ticket-providers/{source}/links.md`. It is a short file; read it rather than guessing a URL shape.

@@ -1,4 +1,4 @@
-# Implementation Plan — [#{id}: {title}]({ticketUrl})
+# Implementation Plan — [{reference}: {title}]({ticketUrl})
 
 > Generated on {date} at {time} UTC Based on [digest.md](digest.md)
 > Session history: [journal/](journal/)

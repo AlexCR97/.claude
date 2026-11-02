@@ -12,7 +12,7 @@
   "nouns": {
     "singular": "issue",
     "plural": "issues",
-    "reference": "#{id}"
+    "reference": "issue#{id}@{repository}"
   },
   "url": {
     "canonical": "https://github.com/{owner}/{repository}/issues/{id}"

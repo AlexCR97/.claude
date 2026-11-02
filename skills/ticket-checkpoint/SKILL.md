@@ -117,7 +117,7 @@ Write the entry body to a scratch file outside the ticket directory — the syst
 python "{skills}/ticket-common/ticket.py" journal write {ref} --file {scratch}
 ```
 
-The resolver names the new file `journal/{UTC timestamp}.md`, never opens an existing entry for writing, and moves a same-second collision to the next free second. Each entry is a file of its own, so there is no header to maintain and no ordering to keep. `{ticketUrl}` is `ticket.json`'s `url`; where it is `null`, write the title as plain text rather than a broken link.
+The resolver names the new file `journal/{UTC timestamp}.md`, never opens an existing entry for writing, and moves a same-second collision to the next free second. Each entry is a file of its own, so there is no header to maintain and no ordering to keep. `{reference}` is the resolver's `nouns.reference` with `{id}` and its coordinates filled in from `ticket.json`. `{ticketUrl}` is `ticket.json`'s `url`; where it is `null`, write the title as plain text rather than a broken link.
 
 **A ticket that still has a single `journal.md`** is migrated first, so its history is kept as entries and the latest is easy to find:
 

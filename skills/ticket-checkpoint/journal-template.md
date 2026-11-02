@@ -1,4 +1,4 @@
-# Journal entry — [#{id}: {title}]({ticketUrl})
+# Journal entry — [{reference}: {title}]({ticketUrl})
 
 > Written only by `/ticket-checkpoint`, and read only by `/ticket-resume`. This file is one session's account of itself; it is never edited. Record a correction as a new entry that says what it corrects.
 

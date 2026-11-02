@@ -169,7 +169,7 @@ The file that keeps source-specific URLs out of every driver and every template.
 
 Where the ticket is filed is **not** a key. The directory is the record of that, so a move cannot leave a stale copy.
 
-**Read `url` and degrade to plain text when it is `null`.** A local store has no web address, and a digest that prints a broken link is worse than one that prints `#42: Cache the authorization lookup` as text.
+**Read `url` and degrade to plain text when it is `null`.** A local store has no web address, and a digest that prints a broken link is worse than one that prints `local:cache-authorization-lookup: Cache the authorization lookup` as text.
 
 A record may also carry a source-specific `fingerprint` (whatever that source's `drift.md` compares against) and `"incomplete": true` where a field could not be derived. An absent `title` is null — never invented.
 

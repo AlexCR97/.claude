@@ -15,7 +15,7 @@ Read by `ticket-digest`, `ticket-plan` and `ticket-checkpoint`.
 **Write the title as plain text.** Do not fabricate a `file://` path: it would not survive being shared, it would not resolve on another machine, and it would turn a clean absence into a link that looks broken.
 
 ```
-# Ticket Digest — #cache-authorization-lookup: Cache the authorization lookup
+# Ticket Digest — local:cache-authorization-lookup: Cache the authorization lookup
 ```
 
 ## Attachments link locally
