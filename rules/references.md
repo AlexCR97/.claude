@@ -30,6 +30,8 @@ Write every reference to a ticket, pull request, issue or commit as a **referenc
 - **Several references go in a table**, one full token per row with its title and whatever status matters. Each token in a list carries its own kind and repo; a group label never stands in for them.
 - **Output relayed from a skill or script** is rewritten into tokens before it reaches the user.
 
-## Text posted to GitHub or Azure DevOps
+## Text posted to GitHub, Azure DevOps or a chat app
 
 Commit messages, pull request bodies and titles, and comments posted to GitHub or Azure DevOps use the platform's own forms, because those are what it autolinks: `#N` and `owner/repo#N` for GitHub issues and pull requests, `owner/repo@SHA` for a commit in another repository, and `AB#N` for a work item. A type or title next to the platform form is welcome.
+
+Messages written to paste into a chat app such as Teams, Slack or Discord, including the summaries the `relay` skill compiles, use the same platform forms, each with a short title and linked to its full URL when known. Their readers have never seen the token scheme. The summary itself is exempt from the rewrite into tokens above; the conversation around it is not.
