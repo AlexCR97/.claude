@@ -9,7 +9,7 @@
   "nouns": {
     "singular": "ticket",
     "plural": "tickets",
-    "reference": "{id}"
+    "reference": "local:{id}"
   },
   "id": {
     "pattern": "[a-z0-9][a-z0-9-]*",

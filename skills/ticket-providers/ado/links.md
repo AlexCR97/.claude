@@ -20,7 +20,7 @@ Read by `ticket-fetch`, `ticket-plan` and `ticket-digest` to read an address, an
 | `https://{org}.visualstudio.com/{project}/_workitems/edit/{id}`  | the same, on the older host                                                                          |
 | `…/_boards/board/…?workitem={id}`, `…/_backlogs/…?workitem={id}` | the work item `{id}`, open on a board or a backlog, in the `{org}` and `{project}` the address names |
 | `https://dev.azure.com/{org}/{project}/_git/…/pullrequest/{n}`   | **not a work item** — say so and stop                                                                |
-| a bare number, or `#{id}`                                        | a work item; pass `ado:{id}` and no coordinates                                                      |
+| `AB#{id}`, a bare number, or `#{id}`                             | a work item; pass `ado:{id}` and no coordinates                                                      |
 
 An id is unique within an organization, not a project, so the project an address names need not be the one the work item lives in. Pass what the address says; the fetch records where it really is, and reports `misfiled` if the product it was filed under disagrees.
 

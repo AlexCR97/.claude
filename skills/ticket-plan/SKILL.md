@@ -312,6 +312,7 @@ Rules for the template:
 - The Progress table sits at the top, immediately after the header, so it is the first thing visible when opening the file; it is updated alongside the phase step statuses on subsequent runs
 - Every row's Phase cell links to that phase's own section — `{phaseAnchor}` in the template — `[Phase 1: Database migration](#phase-1-database-migration-05-hrs)`, and `[Prerequisites](#prerequisites)` for the prerequisites row. The anchor is the GitHub slug of the full `##` heading, estimate included: lowercase it, drop every character that is not a letter, digit, space or hyphen, then turn spaces into hyphens — `## Phase 1: Database migration (~0.5 hrs)` → `#phase-1-database-migration-05-hrs`. A phase renamed, renumbered, or re-estimated has its heading and its link changed together; drop the Prerequisites link where that section is omitted
 - Each phase's `**Activity:**` line must use exactly one value from the Activity Type set defined in Step 10; the Progress table's Activity column for that phase must match
+- `{reference}` is the resolver's `nouns.reference` with `{id}` and its coordinates filled in from `ticket.json`
 - `{ticketUrl}` is `ticket.json`'s `url`. **Where it is `null`, write the title as plain text rather than a broken link.** For any other reference, use the patterns in `ticket-providers/{source}/links.md`
 - Omit the Prerequisites section if it has no content
 

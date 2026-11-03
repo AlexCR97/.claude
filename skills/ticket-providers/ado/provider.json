@@ -12,7 +12,7 @@
   "nouns": {
     "singular": "work item",
     "plural": "work items",
-    "reference": "#{id}"
+    "reference": "AB#{id}"
   },
   "url": {
     "canonical": "https://dev.azure.com/{organization}/{project}/_workitems/edit/{id}"

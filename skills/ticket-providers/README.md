@@ -19,7 +19,7 @@ A provider directory is trusted **code**, not configuration. `provider.py` is im
   "prefixes": ["ado", "azdo"],
   "coordinates": { "organization": "namespace", "project": "product" },
   "url": { "canonical": "https://dev.azure.com/{organization}/{project}/_workitems/edit/{id}" },
-  "nouns": { "singular": "work item", "plural": "work items" },
+  "nouns": { "singular": "work item", "plural": "work items", "reference": "AB#{id}" },
   "id": { "pattern": "\\d+", "shape": "numeric work item id" },
   "formats": { "comment": "html", "body": "html" },
   "capabilities": {
@@ -32,6 +32,8 @@ A provider directory is trusted **code**, not configuration. `provider.py` is im
 `coordinates` is what maps this source's own concepts onto the tickets home's. It names each value that locates a ticket upstream and the level it is bound at — `namespace` for an account-level one such as an organization or an owner, `product` for one such as a project or a repository. A binding under `sources.{source}` in a namespace's or product's `config.json` holds exactly these, and a ticket's own `ticket.json` records them at fetch. A source with nothing upstream declares `{}`, and is then usable in every product without an init. The key is required.
 
 `url.canonical` is the one address recorded for a ticket whichever form was pasted. It is optional: a source without it records whatever its fetch learns. The manifest holds no pattern for reading a pasted address. The driver reads one, using the source's `links.md` → *Reading an address*, and hands `resolve` the id and each coordinate as `--coordinate`.
+
+`nouns.reference` is how a ticket of this source is written for a reader — in a digest, plan or journal heading, or in chat. Fill `{id}` and any coordinate it names from the ticket's `id` and `coordinates`. It is display only: `resolve` takes `{source}:{id}`, never this form.
 
 `ticket.py` gates every verb on `capabilities` **before** the module is loaded, so an absent capability is exit 3 and there is no code path for a driver to improvise past.
 

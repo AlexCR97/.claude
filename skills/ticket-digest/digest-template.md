@@ -1,4 +1,4 @@
-# Ticket Digest — [#{id}: {title}]({ticketUrl})
+# Ticket Digest — [{reference}: {title}]({ticketUrl})
 
 > Generated on {date} at {time} UTC
 
@@ -26,15 +26,15 @@
 
 ### Parent
 
-- [#{relatedId} — {relatedTitle}]({relatedUrl}) [{relatedType}] ({relatedState})
+- [{relatedReference} — {relatedTitle}]({relatedUrl}) [{relatedType}] ({relatedState})
 
 ### Children
 
-- [#{relatedId} — {relatedTitle}]({relatedUrl}) [{relatedType}] ({relatedState})
+- [{relatedReference} — {relatedTitle}]({relatedUrl}) [{relatedType}] ({relatedState})
 
 ### Related
 
-- [#{relatedId} — {relatedTitle}]({relatedUrl}) [{relatedType}] ({relatedState})
+- [{relatedReference} — {relatedTitle}]({relatedUrl}) [{relatedType}] ({relatedState})
 
 ## Attachments
 
