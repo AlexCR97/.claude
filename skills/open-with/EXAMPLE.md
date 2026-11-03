@@ -4,7 +4,7 @@
 
 `[app]` is optional; omitting it opens VS Code.
 
-| Invocation            | Opens the session's folders in           |
+| Invocation            | Opens the task's folders in              |
 | --------------------- | ---------------------------------------- |
 | `/open-with`          | VS Code, as one multi-root workspace     |
 | `/open-with zed`      | Zed, as one workspace                    |
