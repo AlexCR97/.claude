@@ -29,7 +29,7 @@ PREFIX_BY_TYPE = {
 }
 
 # Caps the whole branch name, so the worktree directory named after it fits too.
-MAX_BRANCH_LENGTH = 26
+MAX_BRANCH_LENGTH = 28
 
 
 def branch_name(ticket_type: str | None, ticket_id: str, title: str | None) -> str:

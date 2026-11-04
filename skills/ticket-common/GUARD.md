@@ -42,8 +42,8 @@ python "{skills}/ticket-common/ticket.py" worktree create {ref} --repo {director
 
 `propose` changes nothing and reports, per repository, the branch, the worktree and the base. `create` fetches, then cuts the branch from `origin/{default branch}` — never from a local default branch that may be behind — and adds the worktree. One is made per repository the work changes.
 
-- **Branch:** `{prefix}/{id}-{title-slug}`, where the prefix is `feat` for a user story or task, `fix` for a bug, `spike` for a spike and `chore` for tech debt. It is at most 26 characters, cut back to the last whole word that fits. It is a label only: no skill infers a ticket from a branch name.
-- **Worktree:** `{repository}/.worktrees/{branch with / as -}`, so its directory name is at most 26 characters too, or `{worktree_root}/{repository name}/…` when the effective config sets `worktree_root`.
+- **Branch:** `{prefix}/{id}-{title-slug}`, where the prefix is `feat` for a user story or task, `fix` for a bug, `spike` for a spike and `chore` for tech debt. It is at most 28 characters, cut back to the last whole word that fits. It is a label only: no skill infers a ticket from a branch name.
+- **Worktree:** `{repository}/.worktrees/{branch with / as -}`, so its directory name is at most 28 characters too, or `{worktree_root}/{repository name}/…` when the effective config sets `worktree_root`.
 - **`.gitignore`:** the repository is assumed to ignore `.worktrees/`. When it does not, the report carries an `ignore_offer`; show it, and pass `--add-ignore` only once the developer says yes. Never add it silently.
 - **Refused** when the branch name matches a protected pattern, for every repository before any is touched.
 - An existing worktree for the branch is reused, not recreated.

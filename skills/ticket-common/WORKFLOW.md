@@ -95,7 +95,7 @@ Skills may run any git or `gh` operation **except one that writes to a protected
 
 - **`ticket-plan`** fetches, then shows each candidate worktree with its branch and how many commits it is behind the default branch. It offers a new **ticket branch** and **ticket worktree** cut from the up-to-date default branch only when no existing worktree is a current non-protected branch. Planning against an up-to-date `main` worktree changes nothing in it.
 - **`ticket-implement`** refuses to start while a workspace worktree has a protected branch checked out, and offers one ticket branch and worktree per repository the phases change. The plan's Workspace section is rewritten to match, with a one-line note saying why.
-- **Ticket branches** are named `{prefix}/{id}-{title-slug}` — `feat` for a user story or task, `fix` for a bug, `spike`, `chore` for tech debt — at most 26 characters, and live in `{repository}/.worktrees/`, or under `worktree_root` when it is configured. The name is a label: no skill infers a ticket from a branch name.
+- **Ticket branches** are named `{prefix}/{id}-{title-slug}` — `feat` for a user story or task, `fix` for a bug, `spike`, `chore` for tech debt — at most 28 characters, and live in `{repository}/.worktrees/`, or under `worktree_root` when it is configured. The name is a label: no skill infers a ticket from a branch name.
 - **Committing and pushing** on a non-protected branch happens only when the developer asks.
 
 ## Namespaces and Products
