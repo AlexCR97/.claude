@@ -11,6 +11,7 @@ A **recipe**. Read by `ticket-update`. Changing a work item writes to Azure DevO
 | Title               | `System.Title`                                                                    |
 | Description         | `System.Description` — HTML                                                       |
 | Acceptance criteria | `Microsoft.VSTS.Common.AcceptanceCriteria` — HTML                                 |
+| Reproduction steps  | `Microsoft.VSTS.TCM.ReproSteps` — HTML; a Bug's body usually lives here           |
 | State               | `System.State` — a state the work item's type allows; Azure DevOps refuses others |
 | Tags                | `System.Tags` — one `;`-separated string, see [Tags](#tags)                       |
 
@@ -61,4 +62,4 @@ A tag can decide the ticket's type: a spike or tech-debt tag overrides the work 
 
 ## Markup
 
-The description and acceptance criteria are HTML (`schema.md`). Write them as HTML fragments; do not send markdown.
+The description, reproduction steps and acceptance criteria are HTML (`schema.md`). Write them as HTML fragments; do not send markdown.
