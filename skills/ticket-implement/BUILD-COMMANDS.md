@@ -4,6 +4,8 @@ The build and test commands `ticket-implement` runs for each project it modified
 
 ## Build
 
+Run each build from the project's directory — the one holding its solution file, project file or `package.json`.
+
 | Signal                                  | Build command                          |
 | --------------------------------------- | -------------------------------------- |
 | `*.sln` or `*.csproj`                   | `dotnet build`                         |
@@ -16,12 +18,12 @@ The build and test commands `ticket-implement` runs for each project it modified
 
 A single test runs during a slice's red-green cycle; the full suite runs at the end of the phase. Run both from the test project's directory.
 
-| Signal                                              | Single test                                                | Full suite         |
-| --------------------------------------------------- | ---------------------------------------------------------- | ------------------ |
-| a test project's `*.csproj`                         | `dotnet test --filter "FullyQualifiedName~{Class.Method}"` | `dotnet test`      |
-| `package.json` with a `test` script                 | `pnpm test -- {testFile} -t "{testName}"`                  | `pnpm test`        |
-| `pyproject.toml` or `pytest.ini`, with `uv.lock`    | `uv run pytest {testFile}::{testName}`                     | `uv run pytest`    |
-| `pyproject.toml` or `pytest.ini`, without `uv.lock` | `python -m pytest {testFile}::{testName}`                  | `python -m pytest` |
-| Other                                               | ask which command runs the tests                           | the same           |
+| Signal                                              | Single test                                                  | Full suite         |
+| --------------------------------------------------- | ------------------------------------------------------------ | ------------------ |
+| a test project's `*.csproj`                         | `dotnet test --filter "FullyQualifiedName~{class}.{method}"` | `dotnet test`      |
+| `package.json` with a `test` script                 | `pnpm test -- {test-file} -t "{test-name}"`                  | `pnpm test`        |
+| `pyproject.toml` or `pytest.ini`, with `uv.lock`    | `uv run pytest {test-file}::{test-name}`                     | `uv run pytest`    |
+| `pyproject.toml` or `pytest.ini`, without `uv.lock` | `python -m pytest {test-file}::{test-name}`                  | `python -m pytest` |
+| Other                                               | ask which command runs the tests                             | the same           |
 
 A `test` script that runs in watch mode by default (a bare `vitest`, `jest --watch`) needs its one-shot flag — `--run` for Vitest, `--watchAll=false` for Jest.

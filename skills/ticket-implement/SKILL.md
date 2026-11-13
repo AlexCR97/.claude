@@ -1,6 +1,6 @@
 ---
 name: ticket-implement
-description: Implements one, several or all phases of a ticket's plan.md by making the code changes each step names, then builds the affected projects. Tracks step status in plan.md as it goes, and reports what the run produced, decided and inferred.
+description: Implements one, several or all phases of a ticket's plan.md by making the code changes each step names, test-first in TDD phases, then builds and tests the affected projects. Tracks step status in plan.md as it goes, and reports what the run produced, decided and inferred.
 argument-hint: "<ref> [phases | all]"
 ---
 
@@ -199,7 +199,7 @@ After all steps in a phase are implemented, build each project that was modified
 
 **Where the phase changed no source file** — because its deliverable was a written artifact — there is nothing to build or test. Skip this step, say so in one line, and do not treat it as a failure or as a missing change. The type file read in Step 2 says whether that is the expected shape of the work.
 
-Detect the build and test tools from the project's files, per [`BUILD-COMMANDS.md`](./BUILD-COMMANDS.md). Run each command from the project's directory (the one holding its solution file, project file or `package.json`). If multiple projects were modified, build and test each one separately.
+Detect the build and test tools from the project's files, per [`BUILD-COMMANDS.md`](./BUILD-COMMANDS.md), which also says where each command runs. Build each modified project separately, then test each covering test project separately.
 
 **If the build and the tests pass:** proceed to Step 8.
 

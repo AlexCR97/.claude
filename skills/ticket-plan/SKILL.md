@@ -1,10 +1,10 @@
 ---
 name: ticket-plan
-description: Turns a ticket's digest.md into a phased, file-level implementation plan in plan.md, discovering repositories, worktrees and projects from its scan roots. Researches unknowns under artifacts/planning/, running read-only scripts unasked. Re-run, it updates step status.
+description: Turns a ticket's digest.md into a phased, file-level implementation plan in plan.md, discovering repositories, worktrees and projects from its scan roots and preferring test-first (TDD) phases at confirmed seams. Researches unknowns under artifacts/planning/, running read-only scripts unasked. Re-run, it updates step status.
 argument-hint: "<ref> [dir ...] [--type type]"
 ---
 
-Turns a ticket's `digest.md` into a phased, file-level implementation plan in `plan.md`. It discovers the workspace — the repositories, worktrees and projects the work spans — from the ticket's scan roots, researches the facts the plan's shape rests on, and shapes the phases by the ticket's type. Run again on a ticket that has a plan, it shows progress and updates step status. It plans only: research artifacts under `artifacts/planning/` are part of planning — a plan built on an unverified assumption is worth less than the hour spent verifying it — but no change to the workspace is. The terms for code mean what `ticket-common/GLOSSARY.md` says; read it before discovering anything.
+Turns a ticket's `digest.md` into a phased, file-level implementation plan in `plan.md`. It discovers the workspace — the repositories, worktrees and projects the work spans — from the ticket's scan roots, researches the facts the plan's shape rests on, and shapes the phases by the ticket's type, preferring test-first (TDD) phases at seams the user confirms. Run again on a ticket that has a plan, it shows progress and updates step status. It plans only: research artifacts under `artifacts/planning/` are part of planning — a plan built on an unverified assumption is worth less than the hour spent verifying it — but no change to the workspace is. The terms for code mean what `ticket-common/GLOSSARY.md` says; read it before discovering anything.
 
 End state: `plan.md` written from `digest.md` and the confirmed workspace, every research artifact under `artifacts/planning/` cited by the steps that rest on it, and the workspace's code unchanged — or, on a later run, `plan.md` updated as the user asked.
 
@@ -286,7 +286,7 @@ Report in one line that the plan was written, with its path. Do not print the pl
 
 #### Phase ordering
 
-Order phases by logical dependency — each phase must be completable before the next begins. Within that dependency chain, also order phases by their Activity Type, following the natural execution lifecycle: Design → TDD or Development → Testing → Documentation → Deployment. A test-setup phase sits where `ticket-common/TDD.md` places it. A Human Review phase is a checkpoint, not a lifecycle stage — place it immediately after the phase(s) whose output it gates, wherever that falls in the sequence.
+Order phases by logical dependency — each phase must be completable before the next begins. Within that dependency chain, also order phases by their Activity, following the natural execution lifecycle: Design → TDD or Development → Testing → Documentation → Deployment. A test-setup phase sits where `ticket-common/TDD.md` places it. A Human Review phase is a checkpoint, not a lifecycle stage — place it immediately after the phase(s) whose output it gates, wherever that falls in the sequence.
 
 1. Prerequisites / environment setup
 2. Design — schema, API contracts, architecture decisions
