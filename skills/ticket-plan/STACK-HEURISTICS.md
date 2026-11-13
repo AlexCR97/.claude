@@ -19,7 +19,7 @@ Read by Steps 4 and 5, in order of priority.
 
 ## Estimate baselines
 
-Read by Step 9.
+Read by Step 10.
 
 | Signal                                              | Baseline |
 | --------------------------------------------------- | -------- |
@@ -29,9 +29,12 @@ Read by Step 9.
 | New frontend component or page                      | 1–2 hrs  |
 | Modify existing frontend component                  | 0.5–1 hr |
 | Integration / E2E test suite                        | 1–2 hrs  |
+| Test project setup                                  | 0.5 hr   |
 | CI pipeline change                                  | 0.5 hr   |
 | IaC / infra change                                  | 1 hr     |
 | Cross-cutting concern (auth, logging, feature flag) | 1–2 hrs  |
+
+A TDD phase is estimated as the baselines for the code it changes plus the tests it writes along the way; test-first carries no adjustment of its own.
 
 Adjust up for:
 

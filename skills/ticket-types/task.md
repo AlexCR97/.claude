@@ -42,7 +42,7 @@ Where `ticket.json` carries a `parent`, surface it under Related Tickets → Par
 
 **Forbidden:** **do not invent phases to fill a template.** One phase is the normal answer for a task. Split into a second only when there is a genuine dependency — something that must be true before the rest can be written — not because a plan with one phase looks thin.
 
-**Activity mix:** whatever the work actually is. A task is as likely to be Deployment or Documentation as Development.
+**Activity mix:** whatever the work actually is. A task that changes behavioural logic is TDD; otherwise it is as likely to be Deployment or Documentation as Development.
 
 **Estimate adjustment:** none.
 

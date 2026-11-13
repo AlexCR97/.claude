@@ -4,17 +4,17 @@ description: Implements one, several or all phases of a ticket's plan.md by maki
 argument-hint: "<ref> [phases | all]"
 ---
 
-Implements one, several or all phases of a ticket's `plan.md`: makes the code changes each step names, in the worktrees the plan's Workspace section confirms, builds each affected project, and keeps every step's status in `plan.md` current as it goes. What this run has to show before a phase is done — and whether a phase with no code change is complete — comes from the ticket's type.
+Implements one, several or all phases of a ticket's `plan.md`: makes the code changes each step names, in the worktrees the plan's Workspace section confirms — test-first, one red-green slice per step, in a TDD phase — builds and tests each affected project, and keeps every step's status in `plan.md` current as it goes. What this run has to show before a phase is done — and whether a phase with no code change is complete — comes from the ticket's type.
 
-End state: each selected phase's steps done and marked `Done`, or stopped with an accurate status and note; the affected projects building; `plan.md` and `artifacts/` matching what the run produced; no write to a protected branch and no commit or push the developer did not ask for; and a report of what the run produced, decided and inferred.
+End state: each selected phase's steps done and marked `Done`, or stopped with an accurate status and note; the affected projects building and their covering test suites passing; `plan.md` and `artifacts/` matching what the run produced; no write to a protected branch and no commit or push the developer did not ask for; and a report of what the run produced, decided and inferred.
 
 This skill is a **driver**: it contains no field names, URLs, API versions, credential commands, markup dialects, or type-specific rules of its own. Everything specific lives alongside it in three directories, and each step names the file to read.
 
-| Directory                    | Contains                                                                                                          | Read                              |
-| ---------------------------- | ----------------------------------------------------------------------------------------------------------------- | --------------------------------- |
-| `ticket-common/`             | the resolver (`ticket.py`) and the shared contracts — `RESOLUTION.md`, `ARTIFACTS.md`, `STATUS.md`, `GLOSSARY.md` | as each step names                |
-| `ticket-providers/{source}/` | everything specific to where the ticket came from                                                                 | **none.** See below               |
-| `ticket-types/{type}.md`     | everything specific to what shape the work is                                                                     | only the **resolved** type's file |
+| Directory                    | Contains                                                                                                                    | Read                              |
+| ---------------------------- | --------------------------------------------------------------------------------------------------------------------------- | --------------------------------- |
+| `ticket-common/`             | the resolver (`ticket.py`) and the shared contracts — `RESOLUTION.md`, `ARTIFACTS.md`, `STATUS.md`, `GLOSSARY.md`, `TDD.md` | as each step names                |
+| `ticket-providers/{source}/` | everything specific to where the ticket came from                                                                           | **none.** See below               |
+| `ticket-types/{type}.md`     | everything specific to what shape the work is                                                                               | only the **resolved** type's file |
 
 A fact that needs a particular ticket system belongs in `ticket-providers/{source}/`, and one that needs a ticket type belongs in `ticket-types/{type}.md` — never in this file.
 
@@ -33,7 +33,7 @@ No `allowed-tools` here: this skill's whole purpose is to change code and build 
 
 1. **Stay inside the selected phases.** Never implement beyond them, and never use `digest.md` to expand scope beyond the plan.
 2. **Never redo finished work.** Skip a phase marked `[x] Done` or a step marked `Done`, with a warning; resume a step marked `In Progress` rather than restarting it.
-3. **Run only read-only and build commands.** Never install a package or global tool, change the environment, or alter state outside the project being built. Run tests only where the type's file makes them its completion test.
+3. **Run only read-only, build and test commands.** Never install a package or global tool, change the environment, or alter state outside the project being built. The one exception is a test-setup phase confirmed in `plan.md`: it may add the test packages its test project needs. Run tests as `ticket-common/TDD.md` → *Implementing* says.
 4. **Run git only as `ticket-common/GUARD.md` allows.** Never write to a protected branch or edit a file in a worktree that has one checked out — ask the guard with `--op edit`. Commit and push only when the developer asks; otherwise they review the diff and decide.
 5. **Run a script artifact only as `ticket-common/ARTIFACTS.md` allows.** One that `ticket.py script-check` verifies as read-only runs without asking; any other needs approval of that run — write it, show it, ask, then run.
 6. **Never read or write the journal.** It belongs to `ticket-checkpoint` and `ticket-resume`, and `ticket-resume` has already brought what matters into the session.
@@ -68,7 +68,7 @@ Read `ticket-types/{type}.md`, specifically its *"What done means"* and *"What i
 Then parse `plan.md` and extract:
 
 - The **Progress table** — phase names, estimates, and current status (`[ ] Pending`, `[~] In Progress`, `[!] Blocked`, `[x] Done`)
-- Each **Phase section** — its scope, projects touched, and step sub-sections (`### Step {N}.{M}`, each with a `**Status:**`, `**Target:**`, and `**Artifacts:**` line)
+- Each **Phase section** — its scope, its `**Activity:**`, projects touched, and step sub-sections (`### Step {N}.{M}`, each with a `**Status:**`, `**Target:**`, and `**Artifacts:**` line, plus a `**Seam:**` line in a TDD phase)
 - The **Workspace section** — each worktree and plain directory, by absolute path, and the projects inside them; used in Steps 6 and 9
 
 The terms in that section, and throughout this skill, mean exactly what **`ticket-common/GLOSSARY.md`** says. The workspace is where this run works: never read or change a worktree it does not list, even one of a repository it holds, and never rediscover it.
@@ -113,7 +113,7 @@ If no phases remain after filtering out done ones, stop:
 
 Run Steps 4–8 once for each resolved phase, in ascending order.
 
-Re-read the phase section from `plan.md`. Extract each step sub-section (`### Step {N}.{M}`), its `**Status:**`, `**Target:**`, and `**Artifacts:**`.
+Re-read the phase section from `plan.md`. Extract its `**Activity:**`, and each step sub-section (`### Step {N}.{M}`) with its `**Status:**`, `**Target:**`, `**Artifacts:**`, and — in a TDD phase — `**Seam:**`.
 
 Skip any step already marked `Done`. Resume — do not restart — any step marked `In Progress`: read its `**Status:**` note first and take what it says was already done as done. Re-doing a completed half of a step is how a resumed session quietly reverts a decision the previous one made.
 
@@ -141,6 +141,10 @@ The project's own patterns take precedence over global rules where they differ, 
 Work through each step in the phase sequentially. For every step:
 
 A `**Target:**` path is relative to its project's worktree or plain directory, named after the path where the workspace holds more than one. Resolve it against the absolute path the Workspace section records for that worktree or plain directory, never against the invocation directory.
+
+#### Implementing a step in a TDD phase
+
+Before the phase's first step, read `ticket-common/TDD.md` → *Implementing*. Each step is one slice: red, then green, at the step's `**Seam:**`, with the test file and the production file its `**Target:**` names. The file rules below apply to both files. A seam that does not fit stops the step as that section says.
 
 #### Modifying an existing file
 
@@ -187,30 +191,30 @@ Saying it out loud is what preserves it. This skill does not write the session's
 
 - Do not add features, abstractions, or refactors beyond what the step requires.
 - Do not add comments unless the WHY is non-obvious (a hidden constraint, subtle invariant, or workaround for a specific bug).
-- Do not install packages or run any shell command that modifies the workspace or environment. Read-only commands are permitted, and anything they produce is stored as an artifact — but run a script artifact only as `ticket-common/ARTIFACTS.md` allows.
+- Do not install packages or run any shell command that modifies the workspace or environment, beyond what a confirmed test-setup phase adds (ground rule 3). Read-only, build and test commands are permitted, and anything they produce is stored as an artifact — but run a script artifact only as `ticket-common/ARTIFACTS.md` allows.
 
-### Step 7 — Build the affected projects
+### Step 7 — Build and test the affected projects
 
-After all steps in a phase are implemented, build each project that was modified to verify the changes compile cleanly. Do not run tests unless the type's file makes them its completion test.
+After all steps in a phase are implemented, build each project that was modified to verify the changes compile cleanly, then run the full suite of each test project covering the code the phase touched, as `ticket-common/TDD.md` → *Test runs* says.
 
-**Where the phase changed no source file** — because its deliverable was a written artifact — there is nothing to build. Skip this step, say so in one line, and do not treat it as a failure or as a missing change. The type file read in Step 2 says whether that is the expected shape of the work.
+**Where the phase changed no source file** — because its deliverable was a written artifact — there is nothing to build or test. Skip this step, say so in one line, and do not treat it as a failure or as a missing change. The type file read in Step 2 says whether that is the expected shape of the work.
 
-Detect the build tool from the project's files, per [`BUILD-COMMANDS.md`](./BUILD-COMMANDS.md). Run the build command from the project's directory (the one holding its solution file, project file or `package.json`). If multiple projects were modified, build each one separately.
+Detect the build and test tools from the project's files, per [`BUILD-COMMANDS.md`](./BUILD-COMMANDS.md). Run each command from the project's directory (the one holding its solution file, project file or `package.json`). If multiple projects were modified, build and test each one separately.
 
-**If the build succeeds:** proceed to Step 8.
+**If the build and the tests pass:** proceed to Step 8.
 
-**If the build fails:**
+**If the build or a test fails:**
 
-1. Read the compiler output and diagnose the error.
-2. Attempt to fix the issue — it is most likely caused by the changes just made.
-3. Re-run the build. If it succeeds, proceed.
-4. If the build still fails after one fix attempt, stop: report which project failed after which phase, with the compiler output, and ask the user to review it before continuing. Do not mark the phase complete or continue to the next phase until the build passes.
+1. Read the compiler or test output and diagnose the failure.
+2. Attempt to fix the issue — it is most likely caused by the changes just made. A failing test is fixed in the production code; its assertion stays as it is unless it is the phase's own new test and asserts the wrong thing.
+3. Re-run what failed. If it passes, proceed.
+4. If it still fails after one fix attempt, stop: report which project failed after which phase, with the output, and ask the user to review it before continuing. Do not mark the phase complete or continue to the next phase until the build and the tests pass.
 
 ### Step 8 — Update the phase's status in plan.md
 
 First, check the phase against the type's completion rule from Step 2. Where the rule is not satisfied — a required test was not run, an invariant the type protects was broken, a deliverable the type demands was not produced — the phase is **not** done. Report what is missing, set the step's status accordingly, and stop rather than continuing to the next phase.
 
-Then, once the build passes for all affected projects:
+Then, once the build and the tests pass for all affected projects:
 
 1. Set `**Status:** Done` on every step sub-section that was actually completed. Leave a step that could not be completed as `Blocked` or `In Progress` with its note intact
 2. Set the `**Artifacts:**` line of every step that produced files to the paths under `artifacts/`, relative to `plan.md`; leave it `—` for steps that produced none
@@ -238,4 +242,4 @@ Then bring the pull request record up to date: `ticket.py pulls discover {ref}` 
 
 Then report what this run decided and assumed, each naming the step it affects. This report is the only place either list is written down, so state it even when it feels obvious — `ticket-checkpoint` builds the session's journal entry from this conversation, and what was never said cannot be recorded.
 
-Fill [`run-report.md`](./run-report.md): `{location}` is the worktree or plain directory, named as the glossary says, and `{filePath}` is relative to it. Omit Decisions or Inferences when it is empty. `Left in flight` reads `Nothing in flight.` when no step is left mid-way.
+Fill [`run-report.md`](./run-report.md): `{location}` is the worktree or plain directory, named as the glossary says, and `{filePath}` is relative to it. Tests lists the last full-suite result of each test project Step 7 ran; omit it when none ran. Omit Decisions or Inferences when it is empty. `Left in flight` reads `Nothing in flight.` when no step is left mid-way.

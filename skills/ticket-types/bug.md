@@ -37,11 +37,11 @@ Then the usual rounds. In edge cases, ask specifically: **is the wrong behaviour
 
 **Required — the first phase reproduces and localizes, before anything is changed.** Its steps confirm the repro, narrow it to the code path responsible, and record what was found. Only then does a phase change anything. A plan whose first phase edits code has assumed the cause, and the estimate on every later phase is resting on that assumption.
 
-**Required — a phase that adds regression coverage.** A bug with no test is a bug scheduled to return.
+**Required — regression coverage, written before the fix.** A bug with no test is a bug scheduled to return. Where a seam can reproduce the bug, the fix phase is a TDD phase whose first step is the reproduction test: its red is the bug reproduced, and its green is the fix. Where no seam can reproduce it — a styling-only or environment-only bug — the fix is a Development phase followed by a Testing phase that adds the regression coverage.
 
 **Forbidden:** bundling unrelated cleanup into the fix. Whatever else the investigation turns up is its own ticket; a fix diff that also refactors cannot be reviewed for the thing it was meant to do.
 
-**Activity mix:** the first phase is Design (it is investigation, not code), then Development for the fix, then Testing for the regression coverage.
+**Activity mix:** the first phase is Design (it is investigation, not code), then TDD for the fix — or, where no seam can reproduce the bug, Development for the fix and Testing for the regression coverage.
 
 **Estimate adjustment:** **where the root cause is unclear, add a +1 hour investigation buffer** to the first phase. "Unclear" means the ticket holds a hypothesis nobody could confirm, or none at all. Where the hypothesis is confirmed and the cause is already localized, do not add it.
 
@@ -61,6 +61,8 @@ A fix that satisfies only the first is a fix that will be undone by someone who 
 ## What implement must produce
 
 Code changes, the regression test, and the driver's standard report.
+
+Where the fix phase is TDD, capture the reproduction test's red output as `red.output.txt` in that step's artifacts directory, and name it on the step's `**Artifacts:**` line. It is the evidence for "fails against the old behaviour".
 
 Two additions to the report for this type:
 

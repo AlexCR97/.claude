@@ -38,6 +38,8 @@ Ask also: what is explicitly *not* being changed? Tech debt tickets attract pass
 
 **Forbidden — no functional change may be bundled in.** Not a fix noticed along the way, not a small improvement, not a rename that alters a public contract. Each of those is a separate ticket. If one turns out to be unavoidable, stop and say so rather than folding it in.
 
+**Forbidden — an Activity of TDD on any phase.** Test-first drives new behaviour from a red test, and a restructuring adds no behaviour to go red on. The characterization baseline is this type's discipline instead.
+
 **Activity mix:** Testing for the characterization phase, then Development for the restructuring, then Testing again where coverage needed to move with the code.
 
 **Estimate adjustment:** scale with the blast radius, not with the size of the thing being restructured. Ten call sites in three projects costs more than a thousand lines in one file.

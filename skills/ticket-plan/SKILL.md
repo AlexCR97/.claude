@@ -10,11 +10,11 @@ End state: `plan.md` written from `digest.md` and the confirmed workspace, every
 
 This skill is a **driver**: it contains no field names, URLs, API versions, credential commands, markup dialects, or type-specific rules of its own. Everything specific lives alongside it in three directories, and each step names the file to read.
 
-| Directory                    | Contains                                                                                                          | Read                                                                                 |
-| ---------------------------- | ----------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| `ticket-common/`             | the resolver (`ticket.py`) and the shared contracts — `RESOLUTION.md`, `ARTIFACTS.md`, `STATUS.md`, `GLOSSARY.md` | as each step names                                                                   |
-| `ticket-providers/{source}/` | everything specific to where the ticket came from                                                                 | **only `links.md`** — this skill is forbidden the raw data, so it needs no field map |
-| `ticket-types/{type}.md`     | everything specific to what shape the work is                                                                     | only the **resolved** type's file                                                    |
+| Directory                    | Contains                                                                                                                    | Read                                                                                 |
+| ---------------------------- | --------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| `ticket-common/`             | the resolver (`ticket.py`) and the shared contracts — `RESOLUTION.md`, `ARTIFACTS.md`, `STATUS.md`, `GLOSSARY.md`, `TDD.md` | as each step names                                                                   |
+| `ticket-providers/{source}/` | everything specific to where the ticket came from                                                                           | **only `links.md`** — this skill is forbidden the raw data, so it needs no field map |
+| `ticket-types/{type}.md`     | everything specific to what shape the work is                                                                               | only the **resolved** type's file                                                    |
 
 A fact that needs a particular ticket system belongs in `ticket-providers/{source}/`, and one that needs a ticket type belongs in `ticket-types/{type}.md` — never in this file.
 
@@ -250,28 +250,33 @@ Store everything the research produced under `artifacts/planning/`, following `t
 
 If research contradicts `digest.md`, plan around the measured value and tell the user which stated fact it displaced — do not quietly plan against a number the ticket still asserts.
 
-### Step 9 — Derive hour estimates
-
-Estimate effort per phase using the baselines and adjustments in [`STACK-HEURISTICS.md`](./STACK-HEURISTICS.md) → *Estimate baselines*. Estimates are rough guides, not commitments. Write every estimate with `~`.
-
-Then apply whatever estimate adjustment `ticket-types/{type}.md` names, and any cap it imposes. A type's adjustment is on top of these, not instead of them.
-
-### Step 10 — Assign an Activity Type to each phase
+### Step 9 — Assign an Activity to each phase, and confirm the seams
 
 Every phase must declare exactly one **Activity** from the following fixed set:
 
-| Activity      | Use when the phase is primarily...                                               |
-| ------------- | -------------------------------------------------------------------------------- |
-| Development   | writing or modifying source code (backend, frontend, scripts)                    |
-| Testing       | authoring or updating unit, integration, or E2E tests                            |
-| Design        | defining schema, API contracts, or architecture before code is written           |
-| Deployment    | CI/CD pipeline changes, IaC, release/rollout steps                               |
-| Documentation | README, ADRs, comments, or other written artifacts                               |
-| Human Review  | a checkpoint requiring manual approval/decision rather than autonomous execution |
+| Activity      | Use when the phase is primarily...                                                                               |
+| ------------- | ---------------------------------------------------------------------------------------------------------------- |
+| TDD           | changing behaviour test-first: each step a slice, one test at a confirmed seam plus the code that turns it green |
+| Development   | writing or modifying source code where no seam fits a test-first loop                                            |
+| Testing       | authoring or updating tests for code that already exists, or setting up a test project                           |
+| Design        | defining schema, API contracts, or architecture before code is written                                           |
+| Deployment    | CI/CD pipeline changes, IaC, release/rollout steps                                                               |
+| Documentation | README, ADRs, comments, or other written artifacts                                                               |
+| Human Review  | a checkpoint requiring manual approval/decision rather than autonomous execution                                 |
+
+**Prefer TDD.** Read `ticket-common/TDD.md` → *Planning*, and give a phase `TDD` wherever its two gates pass. `Development` and `Testing` are for the work they do not pass.
 
 This set is this plan's own taxonomy — nothing is ever written back to any ticket source with these values, so no source may extend or rename them. A type file selects from this set, and may forbid a value; it never adds one.
 
 If a phase's work spans more than one activity, assign the activity that represents the majority of the effort. If the split is significant, divide the work into separate phases instead.
+
+**Where any phase is `TDD`, hold the seam checkpoint** as `ticket-common/TDD.md` → *Planning* describes: propose each TDD phase's seams, offer a test-setup phase where one is needed, ask once, and wait for the answer. Apply it before estimating — a declined seam or test-setup phase changes the phases Step 10 estimates.
+
+### Step 10 — Derive hour estimates
+
+Estimate effort per phase using the baselines and adjustments in [`STACK-HEURISTICS.md`](./STACK-HEURISTICS.md) → *Estimate baselines*. Estimates are rough guides, not commitments. Write every estimate with `~`.
+
+Then apply whatever estimate adjustment `ticket-types/{type}.md` names, and any cap it imposes. A type's adjustment is on top of these, not instead of them.
 
 ### Step 11 — Write plan.md
 
@@ -281,7 +286,7 @@ Report in one line that the plan was written, with its path. Do not print the pl
 
 #### Phase ordering
 
-Order phases by logical dependency — each phase must be completable before the next begins. Within that dependency chain, also order phases by their Activity Type, following the natural execution lifecycle: Design → Development → Testing → Documentation → Deployment. A Human Review phase is a checkpoint, not a lifecycle stage — place it immediately after the phase(s) whose output it gates, wherever that falls in the sequence.
+Order phases by logical dependency — each phase must be completable before the next begins. Within that dependency chain, also order phases by their Activity Type, following the natural execution lifecycle: Design → TDD or Development → Testing → Documentation → Deployment. A test-setup phase sits where `ticket-common/TDD.md` places it. A Human Review phase is a checkpoint, not a lifecycle stage — place it immediately after the phase(s) whose output it gates, wherever that falls in the sequence.
 
 1. Prerequisites / environment setup
 2. Design — schema, API contracts, architecture decisions
@@ -291,7 +296,7 @@ Order phases by logical dependency — each phase must be completable before the
 6. Backend — API / contracts
 7. Shared libraries or contracts (if updated)
 8. Frontend
-9. Tests (unit, integration, E2E)
+9. Tests written after the code they cover (integration, E2E, coverage for a Development phase) — a TDD phase writes its own
 10. Documentation
 11. DevOps / CI / deployment
 
@@ -306,12 +311,13 @@ Read [`plan-template.md`](./plan-template.md) and use it as the structure for th
 Rules for the template:
 
 - Every step is its own markdown sub-section under `## Phase {N}`, headed `### Step {N}.{M}` (the phase number, a dot, and the step number within that phase, starting at 1), followed by a `**Status:**` line, a `**Target:**` line naming the file/class or the artifact the step delivers, and an `**Artifacts:**` line
+- A step in a TDD phase is one slice, shaped as `ticket-common/TDD.md` → *Shaping a TDD phase's steps* says: its `**Target:**` names the test file then the production file, and a `**Seam:**` line after it names the seam confirmed in Step 9. Steps in any other phase have no `**Seam:**` line
 - The Workspace section records the workspace confirmed in Step 6. **Scan roots** lists each one and where it came from. **Worktrees** has one row per worktree, so a repository appears once for each of its worktrees in the workspace: its repository, its branch, whether it is `main` or `linked`, and its absolute path. **Plain directories** has one row per plain directory, with its absolute path; omit it when there are none. **Projects** has one row per project in each worktree or plain directory it lives in: its name, where it lives, its path relative to there, and its technology. Worktrees and plain directories are referred to as the glossary says: a worktree by its repository's name, or as `{repository}@{branch}` where the workspace holds more than one worktree of that repository, and a plain directory by its directory name
 - A `**Target:**` path is relative to its project's worktree or plain directory. When the workspace holds more than one, name which after the path — `` `src/Invoices/InvoiceService.cs` in `billing-api@release/2.0` `` — since the path alone is ambiguous
 - The `**Artifacts:**` line follows `ticket-common/ARTIFACTS.md`. Planning fills it in with the artifacts from Step 8 and with any existing directory for that step; `ticket-implement` appends what it produces
 - The Progress table sits at the top, immediately after the header, so it is the first thing visible when opening the file; it is updated alongside the phase step statuses on subsequent runs
 - Every row's Phase cell links to that phase's own section — `{phaseAnchor}` in the template — `[Phase 1: Database migration](#phase-1-database-migration-05-hrs)`, and `[Prerequisites](#prerequisites)` for the prerequisites row. The anchor is the GitHub slug of the full `##` heading, estimate included: lowercase it, drop every character that is not a letter, digit, space or hyphen, then turn spaces into hyphens — `## Phase 1: Database migration (~0.5 hrs)` → `#phase-1-database-migration-05-hrs`. A phase renamed, renumbered, or re-estimated has its heading and its link changed together; drop the Prerequisites link where that section is omitted
-- Each phase's `**Activity:**` line must use exactly one value from the Activity Type set defined in Step 10; the Progress table's Activity column for that phase must match
+- Each phase's `**Activity:**` line must use exactly one value from the Activity set defined in Step 9; the Progress table's Activity column for that phase must match
 - `{reference}` is the resolver's `nouns.reference` with `{id}` and its coordinates filled in from `ticket.json`
 - `{ticketUrl}` is `ticket.json`'s `url`. **Where it is `null`, write the title as plain text rather than a broken link.** For any other reference, use the patterns in `ticket-providers/{source}/links.md`
 - Omit the Prerequisites section if it has no content
