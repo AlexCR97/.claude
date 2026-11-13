@@ -50,7 +50,7 @@ Fold these into the driver's rounds; they are the ones that cannot be skipped fo
 
 **Forbidden:** none specific to this type. **Where a child task already exists as its own tracked ticket, this story's plan must not re-plan its work** — reference the child by id instead of duplicating its steps here; planning the same work twice is how the two drift apart.
 
-**Activity mix:** predominantly Development, with Testing phases wherever the acceptance criteria need evidence. A Design phase earns its place only when a contract or schema has to be settled before code can be written.
+**Activity mix:** predominantly TDD, with Development for the work no seam fits, and Testing phases wherever the acceptance criteria need evidence the seams cannot give, such as an end-to-end walkthrough. A Design phase earns its place only when a contract or schema has to be settled before code can be written.
 
 **Estimate adjustment:** none specific to this type. The driver's own heuristics apply unchanged.
 

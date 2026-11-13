@@ -57,7 +57,7 @@ Before any phase begins, ensure the following are in place:
 
 **Scope:** <!-- one sentence describing what this phase achieves -->
 
-**Activity:** {activity} <!-- exactly one value from Step 10's Activity set -->
+**Activity:** {activity} <!-- exactly one value from Step 9's Activity set -->
 
 **Projects touched:** {projectsTouched}
 
@@ -65,11 +65,13 @@ Before any phase begins, ensure the following are in place:
 
 **Status:** {status} <!-- Pending or Done on a first run; ticket-common/STATUS.md has the vocabulary and the note rules -->
 
-**Target:** `{target}`
+**Target:** `{target}` <!-- in a TDD phase: the test file, then the production file -->
+
+**Seam:** {seam} <!-- TDD phases only: the seam confirmed at the checkpoint. Omit this line in every other phase -->
 
 **Artifacts:** —
 
-<!-- what to do and why, specific enough to act on -->
+<!-- what to do and why, specific enough to act on. In a TDD phase: the behaviour the test asserts, and where its expected value comes from -->
 
 ### Step 1.2
 

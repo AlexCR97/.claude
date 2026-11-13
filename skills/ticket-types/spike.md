@@ -40,7 +40,7 @@ Acceptance criteria on a spike, where the source has such a field at all, usuall
 
 **Required:** the plan's total estimate must fit inside the timebox. Where the phases do not fit, say so and cut scope before writing the plan, rather than producing a plan that was over budget the moment it was written.
 
-**Forbidden:** production code changes. **Forbidden: an Activity of Development on any phase** — the activity mix is Design and Documentation, and nothing else. A prototype written to answer the question is an artifact, and it lives under `artifacts/`, so its phase is still Design.
+**Forbidden:** production code changes. **Forbidden: an Activity of Development or TDD on any phase** — the activity mix is Design and Documentation, and nothing else. A prototype written to answer the question is an artifact, and it lives under `artifacts/`, so its phase is still Design.
 
 **Estimate adjustment:** the timebox is the cap. Where an investigation is open-ended, phase it so the most decisive evidence is gathered first — a spike that runs out of time having answered the main question beats one that ran out having prepared to answer it.
 
