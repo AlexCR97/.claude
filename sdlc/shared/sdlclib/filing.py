@@ -55,19 +55,19 @@ def choose(
     source: str,
     *,
     named: Product | None = None,
-    address: dict | None = None,
+    coordinates: dict | None = None,
     context: Scope | None = None,
     cwd: Path | None = None,
 ) -> Filing:
-    address = address or {}
+    coordinates = coordinates or {}
 
     if named:
         require_exists(Scope(named.namespace, named.name), "the reference")
-        require_holds(config, named, source, address)
+        require_holds(config, named, source, coordinates)
         return Filing(named, "named", f"named explicitly as {named.ref}")
 
-    if address:
-        return by_address(config, source, address)
+    if coordinates:
+        return by_coordinates(config, source, coordinates)
 
     candidates = sorted(
         product
@@ -144,21 +144,23 @@ def require_holds(
         )
 
 
-def by_address(config: Config, source: str, address: dict) -> Filing:
-    at_namespace, at_product = providers.split_by_level(source, address)
+def by_coordinates(config: Config, source: str, coordinates: dict) -> Filing:
+    at_namespace, at_product = providers.split_by_level(source, coordinates)
 
     exact = [
         product
         for product in products()
         if at_product
         and not product.is_fallback
-        and binds_all(config.binding(source, product), address)
+        and binds_all(config.binding(source, product), coordinates)
     ]
     if len(exact) == 1:
-        return Filing(exact[0], "address", f"it is bound to {describe(address)}")
+        return Filing(
+            exact[0], "coordinates", f"it is bound to {describe(coordinates)}"
+        )
     if exact:
         raise SdlcError(
-            f"{source} {describe(address)} is bound in more than one product",
+            f"{source} {describe(coordinates)} is bound in more than one product",
             EXIT_AMBIGUOUS,
             "Name one with a qualified reference:\n"
             + "\n".join(f"  {product.ref}" for product in exact),
@@ -174,13 +176,13 @@ def by_address(config: Config, source: str, address: dict) -> Filing:
     if matching:
         return Filing(
             Product(matching[0], paths.DEFAULT_NAME),
-            "address",
+            "coordinates",
             f"{matching[0]} is bound to {describe(at_namespace)}, "
             f"but no product in it to {describe(at_product)}",
         )
 
     raise SdlcError(
-        f"no namespace or product is bound to {source} {describe(address)}",
+        f"no namespace or product is bound to {source} {describe(coordinates)}",
         hint="Run `/sdlc:setup` with those coordinates to bind them.",
     )
 

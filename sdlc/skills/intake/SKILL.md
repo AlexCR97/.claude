@@ -40,7 +40,7 @@ Turn what `$ARGUMENTS` holds into a ticket. A GitHub issue or an Azure DevOps wo
 ## Invariants
 
 - When the session has a context (`/sdlc:setup`), pass `--context {namespace}[/{product}]` to `resolve` and `fetch`, and tell the user where the ticket is filed.
-- The mirror is a cache of the source, never authoritative; write no digest and store nothing derived from the issue.
+- The mirror is a cache of the source, never authoritative; store nothing derived from the issue.
 - The model decides the type once, says so, and the user can override it.
 - Never write to GitHub or Azure DevOps.
 - For a local ticket: ask once and write nothing before the yes; copy the content, since the ticket's file is its single source of truth; never overwrite an existing ticket.

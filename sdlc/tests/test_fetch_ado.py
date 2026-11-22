@@ -171,7 +171,7 @@ def test_the_first_intake_files_the_work_item_under_the_product_bound_to_its_tea
 
     assert result.code == 0, result.err
     assert result.json["product"] == "acme/ledger"
-    assert result.json["filing"]["rule"] == "address"
+    assert result.json["filing"]["rule"] == "coordinates"
     assert (sdlc_home / "acme/ledger/ado/1234/raw/raw.json").is_file()
     assert not (sdlc_home / "acme/billing-app/ado/1234").exists()
     first = " ".join(az_stub.calls[0])

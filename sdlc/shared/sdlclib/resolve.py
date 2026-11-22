@@ -22,7 +22,7 @@ from . import config as configuration
 from . import filing, layout, paths, providers
 from .config import Config
 from .errors import EXIT_AMBIGUOUS, SdlcError
-from .layout import Location, Product, Scope
+from .layout import Product, Scope, TicketDirectory
 
 # A title longer than this makes an unwieldy directory name.
 MAX_SLUG_WORDS = 8
@@ -105,10 +105,10 @@ def parse_coordinates(arguments: list[str], source: str | None) -> dict[str, str
     return coordinates
 
 
-def ticket_coordinates(config: Config, location: Location) -> dict:
+def ticket_coordinates(config: Config, ticket: TicketDirectory) -> dict:
     """What locates a ticket upstream: its product's binding, overridden by the ticket's own record."""
-    coordinates = config.binding(location.source, location.product)
-    record = location.dir / "ticket.json"
+    coordinates = config.binding(ticket.source, ticket.product)
+    record = ticket.dir / "ticket.json"
     if record.is_file():
         try:
             own = json.loads(record.read_text(encoding="utf-8")).get("coordinates")
@@ -143,23 +143,23 @@ def default_source_for(
 
 def report(
     config: Config,
-    location: Location,
+    ticket: TicketDirectory,
     *,
     exists: bool,
     context: Scope | None,
     chosen: filing.Filing | None = None,
 ) -> dict:
-    product = location.product
+    product = ticket.product
     found = {
-        "source": location.source,
-        "id": location.id,
-        "ref": location.ref,
+        "source": ticket.source,
+        "id": ticket.id,
+        "ref": ticket.ref,
         "namespace": product.namespace,
         "product": product.ref,
         "exists": exists,
         "outside_context": bool(context and not context.contains(product)),
         "paths": paths.ticket_paths(
-            product.namespace, product.name, location.source, location.id
+            product.namespace, product.name, ticket.source, ticket.id
         ),
         "config": config.effective(product.namespace, product.name),
     }
@@ -168,7 +168,7 @@ def report(
     return found
 
 
-def ambiguous(matches: list[Location]) -> SdlcError:
+def ambiguous(matches: list[TicketDirectory]) -> SdlcError:
     return SdlcError(
         f"the reference matches {len(matches)} tickets equally near",
         EXIT_AMBIGUOUS,
@@ -186,18 +186,18 @@ def resolve_new(
             f"the title '{title}' has no letters or digits to name a ticket after"
         )
     chosen = filing.choose(config, LOCAL, context=context, cwd=cwd)
-    location = Location(chosen.product, LOCAL, ticket_id)
-    if location.dir.is_dir():
+    ticket = TicketDirectory(chosen.product, LOCAL, ticket_id)
+    if ticket.dir.is_dir():
         raise SdlcError(
-            f"{location.qualified} already exists",
+            f"{ticket.qualified} already exists",
             hint="Choose a different title, or resolve it as an existing ticket.",
         )
-    return report(config, location, exists=False, context=context, chosen=chosen)
+    return report(config, ticket, exists=False, context=context, chosen=chosen)
 
 
 @dataclass(frozen=True)
 class Found:
-    location: Location
+    ticket: TicketDirectory
     exists: bool
     chosen: filing.Filing | None
     coordinates: dict[str, str]
@@ -232,7 +232,7 @@ def locate_existing(
 
     matches = [
         match
-        for match in layout.locations(sources, reference.id, reference.named)
+        for match in layout.ticket_directories(sources, reference.id, reference.named)
         if not filing.conflicts(ticket_coordinates(config, match), coordinates)
     ]
     matches = layout.nearest(matches, context)
@@ -249,12 +249,15 @@ def locate_existing(
         config,
         source,
         named=reference.named,
-        address=coordinates,
+        coordinates=coordinates,
         context=context,
         cwd=cwd,
     )
     return Found(
-        Location(chosen.product, source, reference.id), False, chosen, coordinates
+        TicketDirectory(chosen.product, source, reference.id),
+        False,
+        chosen,
+        coordinates,
     )
 
 
@@ -268,7 +271,7 @@ def resolve_existing(
     found = locate_existing(config, reference, coordinate_arguments, context, cwd)
     return report(
         config,
-        found.location,
+        found.ticket,
         exists=found.exists,
         context=context,
         chosen=found.chosen,

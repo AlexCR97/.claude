@@ -129,7 +129,7 @@ def test_a_ticket_with_coordinates_is_filed_where_they_are_bound(run_cli, bound)
     ).json
 
     assert report["product"] == "acme/ledger"
-    assert report["filing"]["rule"] == "address"
+    assert report["filing"]["rule"] == "coordinates"
     assert report["exists"] is False
     assert report["outside_context"] is True
 

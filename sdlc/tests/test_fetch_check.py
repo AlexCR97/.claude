@@ -26,7 +26,7 @@ def bound(write_config):
     )
 
 
-def snapshot(root: Path) -> dict[str, str]:
+def tree_state(root: Path) -> dict[str, str]:
     """Every file under `root` and every directory, so a stray write of either shows."""
     return {
         str(path.relative_to(root)): (
@@ -75,12 +75,12 @@ def test_a_check_writes_nothing_even_when_the_issue_holds_an_attachment_a_fetch_
     url = "https://github.com/user-attachments/assets/0f0f0f0f-0000-4000-8000-000000000001"
     stub_issue(issue={"body": f"See ![shot]({url})"})
     gh_stub.respond_bytes(url, b"\x89PNG....")
-    before = snapshot(sdlc_home)
+    before = tree_state(sdlc_home)
 
     result = run_cli("fetch", "github:1234", "--check")
 
     assert result.json["changed"] is True
-    assert snapshot(sdlc_home) == before
+    assert tree_state(sdlc_home) == before
     assert not gh_stub.asked_for(url)
 
 
@@ -136,13 +136,13 @@ def test_an_upstream_failure_is_reported_as_fetch_reports_it_and_nothing_is_writ
     run_cli("fetch", "github:1234")
     base = stub_issue()
     gh_stub.fail(f"{base}/comments", "gh: HTTP 500")
-    before = snapshot(sdlc_home)
+    before = tree_state(sdlc_home)
 
     result = run_cli("fetch", "github:1234", "--check")
 
     assert result.code == 1
     assert "HTTP 500" in result.err
-    assert snapshot(sdlc_home) == before
+    assert tree_state(sdlc_home) == before
 
 
 def test_a_missing_issue_exits_not_found(run_cli, bound, stub_issue, gh_stub):
@@ -214,7 +214,7 @@ def test_the_work_item_check_asks_only_for_the_revision_and_writes_nothing(
     run_cli, mirrored_work_item, az_stub, sdlc_home
 ):
     probe(az_stub, mirrored_work_item, 9)
-    before = snapshot(sdlc_home)
+    before = tree_state(sdlc_home)
     calls_before = len(az_stub.calls)
 
     run_cli("fetch", "ado:1234", "--check")
@@ -222,19 +222,19 @@ def test_the_work_item_check_asks_only_for_the_revision_and_writes_nothing(
     new_calls = az_stub.calls[calls_before:]
     assert len(new_calls) == 1
     assert "fields=System.Rev" in " ".join(new_calls[0])
-    assert snapshot(sdlc_home) == before
+    assert tree_state(sdlc_home) == before
 
 
 def test_a_work_item_that_cannot_be_read_fails_with_nothing_written(
     run_cli, mirrored_work_item, az_stub, sdlc_home
 ):
     az_stub.fail(f"{mirrored_work_item}?fields=System.Rev", "TF401232: Not Found")
-    before = snapshot(sdlc_home)
+    before = tree_state(sdlc_home)
 
     result = run_cli("fetch", "ado:1234", "--check")
 
     assert result.code == 5
-    assert snapshot(sdlc_home) == before
+    assert tree_state(sdlc_home) == before
 
 
 @pytest.mark.parametrize(

@@ -45,7 +45,7 @@ The values that locate a ticket in its source, named by that source's provider: 
 _Avoid_: Address, location
 
 **Binding**:
-The coordinates a namespace or product records for one source, under `sources.{source}` in its `namespace.json` or `product.json`. New tickets are downloaded with them, and a pasted address is filed by them.
+The coordinates a namespace or product records for one source, under `sources.{source}` in its `namespace.json` or `product.json`. New tickets are downloaded with them, and a pasted reference is filed by them.
 _Avoid_: Mapping, ticket-setup
 
 **Effective config**:

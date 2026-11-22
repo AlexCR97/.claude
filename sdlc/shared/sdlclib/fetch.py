@@ -114,21 +114,19 @@ def discoverer(config: Config, context: Scope | None):
 
 
 def upstream_coordinates(config: Config, found: resolve.Found) -> dict[str, str]:
-    location = found.location
-    if not providers.load_manifest(location.source)["capabilities"]["fetch"]:
+    ticket = found.ticket
+    if not providers.load_manifest(ticket.source)["capabilities"]["fetch"]:
         raise SdlcError(
-            f"{location.ref} is a {location.source} ticket, which has no upstream to fetch from"
+            f"{ticket.ref} is a {ticket.source} ticket, which has no upstream to fetch from"
         )
 
-    coordinates = {**resolve.ticket_coordinates(config, location), **found.coordinates}
+    coordinates = {**resolve.ticket_coordinates(config, ticket), **found.coordinates}
     missing = [
-        name
-        for name in providers.coordinates(location.source)
-        if name not in coordinates
+        name for name in providers.coordinates(ticket.source) if name not in coordinates
     ]
     if missing:
         raise SdlcError(
-            f"{location.product.ref} has no {location.source} {', '.join(missing)} to fetch from",
+            f"{ticket.product.ref} has no {ticket.source} {', '.join(missing)} to fetch from",
             hint="Bind them with `/sdlc:setup`, or name them with --coordinate.",
         )
     return coordinates
@@ -150,17 +148,17 @@ def fetch(
         cwd,
         discoverer(config, context),
     )
-    location = found.location
+    ticket = found.ticket
 
     coordinates = upstream_coordinates(config, found)
 
-    mirrored = providers.load_fetcher(location.source).fetch(
-        location.id, coordinates, location.dir / "raw"
+    mirrored = providers.load_fetcher(ticket.source).fetch(
+        ticket.id, coordinates, ticket.dir / "raw"
     )
 
-    record_path = location.dir / "ticket.json"
+    record_path = ticket.dir / "ticket.json"
     record = read_record(record_path)
-    record.update(source=location.source, id=location.id, coordinates=coordinates)
+    record.update(source=ticket.source, id=ticket.id, coordinates=coordinates)
     record.update({field: mirrored[field] for field in FETCHED_FIELDS})
     record["last_fetched_at"] = datetime.now(UTC).isoformat(timespec="seconds")
     write_record(record_path, record)
@@ -168,7 +166,7 @@ def fetch(
     return {
         **resolve.report(
             config,
-            location,
+            ticket,
             exists=found.exists,
             context=context,
             chosen=found.chosen,
@@ -202,45 +200,45 @@ def check(
         context,
         cwd,
     )
-    location = found.location
+    ticket = found.ticket
     report = {
-        "ref": location.ref,
-        "ticket_dir": str(location.dir),
+        "ref": ticket.ref,
+        "ticket_dir": str(ticket.dir),
         "recorded": None,
         "live": None,
     }
 
-    if not providers.load_manifest(location.source)["capabilities"]["fetch"]:
+    if not providers.load_manifest(ticket.source)["capabilities"]["fetch"]:
         return {
             **report,
             "changed": False,
             "status": "local",
-            "reason": f"a {location.source} ticket has no upstream, so nothing can change under it",
+            "reason": f"a {ticket.source} ticket has no upstream, so nothing can change under it",
         }
 
-    record = read_record(location.dir / "ticket.json") if found.exists else {}
+    record = read_record(ticket.dir / "ticket.json") if found.exists else {}
     recorded = record.get("fingerprint")
     if not recorded:
         return {
             **report,
             "changed": True,
             "status": "never_mirrored",
-            "reason": f"{location.ref} has never been fetched, so there is no recorded revision to compare",
+            "reason": f"{ticket.ref} has never been fetched, so there is no recorded revision to compare",
         }
 
-    if not (location.dir / "raw" / "raw.json").is_file():
+    if not (ticket.dir / "raw" / "raw.json").is_file():
         # A mirror from before the current shape holds a revision that still
         # matches upstream, yet `resume` and `submit` read `raw/raw.json`.
         return {
             **report,
             "changed": True,
             "status": "stale_mirror",
-            "reason": f"the mirror of {location.ref} is in an older shape that lacks raw/raw.json; refresh it with `/sdlc:intake {location.ref}`",
+            "reason": f"the mirror of {ticket.ref} is in an older shape that lacks raw/raw.json; refresh it with `/sdlc:intake {ticket.ref}`",
             "recorded": recorded,
         }
 
     coordinates = upstream_coordinates(config, found)
-    live = providers.load_fetcher(location.source).check(location.id, coordinates)
+    live = providers.load_fetcher(ticket.source).check(ticket.id, coordinates)
     changed = live != recorded
     return {
         **report,

@@ -32,7 +32,7 @@ Write one ticket to its source, from `$ARGUMENTS` and the conversation. Run scri
 3. Show the full proposal: the source and where (owner/repository or organization/project), the title, labels or tags, and the whole body. Azure DevOps prose is HTML: show the converted HTML and say the Markdown was converted. Ask for a yes as above.
 4. Create it. The new reference (issue number, work item id) is in the response.
 5. **Fetch it back**: `fetch {source}:{id}` with the `--coordinate` values the create used (and `--context`), so it is filed and mirrored. Then decide and record its `type` once, exactly as intake does for a fetched ticket (its step 3 on a GitHub issue); the type is not written upstream.
-6. Report the reference, the upstream address and where it is filed.
+6. Report the reference, the upstream URL and where it is filed.
 
 ## Invariants
 

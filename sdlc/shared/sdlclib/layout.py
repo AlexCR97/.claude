@@ -37,7 +37,7 @@ class Product:
 
 
 @dataclass(frozen=True, order=True)
-class Location:
+class TicketDirectory:
     product: Product
     source: str
     id: str
@@ -150,19 +150,21 @@ def products(namespace: str | None = None) -> list[Product]:
     return found
 
 
-def locations(
+def ticket_directories(
     sources: list[str], ticket_id: str, product: Product | None = None
-) -> list[Location]:
+) -> list[TicketDirectory]:
     """Every directory on disk holding this id under one of the sources, optionally in one product."""
     return [
-        Location(candidate, source, ticket_id)
+        TicketDirectory(candidate, source, ticket_id)
         for candidate in ([product] if product else products())
         for source in sources
         if (candidate.dir / source / ticket_id).is_dir()
     ]
 
 
-def nearest(matches: list[Location], prefer: Scope | None) -> list[Location]:
+def nearest(
+    matches: list[TicketDirectory], prefer: Scope | None
+) -> list[TicketDirectory]:
     """
     The matches in the closest tier: the preferred product, its namespace, then everywhere.
 
