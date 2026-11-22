@@ -170,7 +170,13 @@ def fingerprint(raw: dict) -> dict:
     return {"sha256": hashlib.sha256(canonical.encode("utf-8")).hexdigest()}
 
 
-def fetch(ticket_id: str, coordinates: dict, raw_dir: Path) -> dict:
+def read_issue(ticket_id: str, coordinates: dict) -> dict:
+    """
+    Everything the mirror holds that comes from the issue's own endpoints, written nowhere.
+
+    `fetch` and `check` both read through here, so the fingerprint is computed
+    from one shape of data and cannot drift between the two.
+    """
     repository = f"{coordinates['owner']}/{coordinates['repository']}"
     base = f"repos/{repository}/issues/{ticket_id}"
 
@@ -181,11 +187,27 @@ def fetch(ticket_id: str, coordinates: dict, raw_dir: Path) -> dict:
             f"{repository}#{ticket_id} is a pull request, not an issue",
             hint="A pull request is not a ticket; fetch the issue it closes instead.",
         )
-    comments = api(f"{base}/comments", paginate=True)
-    parent = parent_of(base)
-    sub_issues = api(f"{base}/sub_issues", paginate=True)
-    blocked_by = api(f"{base}/dependencies/blocked_by", paginate=True)
-    blocking = api(f"{base}/dependencies/blocking", paginate=True)
+    return {
+        "meta": {"repository": repository, "issue_number": int(ticket_id)},
+        "issue": issue,
+        "comments": api(f"{base}/comments", paginate=True),
+        "parent": parent_of(base),
+        "sub_issues": api(f"{base}/sub_issues", paginate=True),
+        "blocked_by": api(f"{base}/dependencies/blocked_by", paginate=True),
+        "blocking": api(f"{base}/dependencies/blocking", paginate=True),
+    }
+
+
+def check(ticket_id: str, coordinates: dict) -> dict:
+    """The live fingerprint, for comparing with the recorded one; nothing is downloaded or written."""
+    return fingerprint(read_issue(ticket_id, coordinates))
+
+
+def fetch(ticket_id: str, coordinates: dict, raw_dir: Path) -> dict:
+    raw = read_issue(ticket_id, coordinates)
+    issue, comments = raw["issue"], raw["comments"]
+    parent, sub_issues = raw["parent"], raw["sub_issues"]
+    blocked_by, blocking = raw["blocked_by"], raw["blocking"]
 
     raw_dir.mkdir(parents=True, exist_ok=True)
     attachments = find_attachments(
@@ -194,16 +216,7 @@ def fetch(ticket_id: str, coordinates: dict, raw_dir: Path) -> dict:
     )
     outcomes = [download(attachment, raw_dir) for attachment in attachments]
 
-    raw = {
-        "meta": {"repository": repository, "issue_number": int(ticket_id)},
-        "issue": issue,
-        "comments": comments,
-        "parent": parent,
-        "sub_issues": sub_issues,
-        "blocked_by": blocked_by,
-        "blocking": blocking,
-        "attachments": attachments,
-    }
+    raw["attachments"] = attachments
     (raw_dir / "raw.json").write_text(
         json.dumps(raw, indent=2, ensure_ascii=False), encoding="utf-8"
     )
