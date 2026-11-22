@@ -235,3 +235,36 @@ def test_a_work_item_that_cannot_be_read_fails_with_nothing_written(
 
     assert result.code == 5
     assert snapshot(sdlc_home) == before
+
+
+@pytest.mark.parametrize(
+    ("source", "recorded", "arguments"),
+    [("github", {"sha256": "ab" * 32}, []), ("ado", {"rev": 7}, ADO_BOTH)],
+)
+def test_a_remote_ticket_with_an_old_shape_mirror_is_stale_not_unchanged(
+    run_cli,
+    bound,
+    make_ticket,
+    write_config,
+    gh_stub,
+    az_stub,
+    source,
+    recorded,
+    arguments,
+):
+    directory = make_ticket("acme", "billing-app", source, "1234")
+    (directory / "raw").mkdir()
+    (directory / "raw" / "workitem.json").write_text("{}", encoding="utf-8")
+    write_config(
+        f"acme/billing-app/{source}/1234/ticket.json",
+        {"source": source, "id": "1234", "fingerprint": recorded},
+    )
+
+    result = run_cli("fetch", f"{source}:1234", "--check", *arguments)
+
+    assert result.code == 0, result.err
+    assert result.json["status"] == "stale_mirror"
+    assert result.json["changed"] is True
+    assert result.json["recorded"] == recorded
+    assert "/sdlc:intake" in result.json["reason"]
+    assert gh_stub.calls == [] and az_stub.calls == []

@@ -189,7 +189,9 @@ def check(
     `changed` is true for a ticket never mirrored too: with no recorded
     revision there is nothing to vouch that the mirror matches upstream, which
     is the safe answer for a caller about to write upstream. `status` tells the
-    cases apart.
+    cases apart. `stale_mirror` is a recorded revision with no `raw/raw.json`
+    (what a mirror from before that shape lacks); it is answered without
+    asking upstream.
     """
     config = configuration.load()
     context = resolve.parse_context(context_text)
@@ -224,6 +226,17 @@ def check(
             "changed": True,
             "status": "never_mirrored",
             "reason": f"{location.ref} has never been fetched, so there is no recorded revision to compare",
+        }
+
+    if not (location.dir / "raw" / "raw.json").is_file():
+        # A mirror from before the current shape holds a revision that still
+        # matches upstream, yet `resume` and `submit` read `raw/raw.json`.
+        return {
+            **report,
+            "changed": True,
+            "status": "stale_mirror",
+            "reason": f"the mirror of {location.ref} is in an older shape that lacks raw/raw.json; refresh it with `/sdlc:intake {location.ref}`",
+            "recorded": recorded,
         }
 
     coordinates = upstream_coordinates(config, found)

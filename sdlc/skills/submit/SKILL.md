@@ -18,7 +18,7 @@ Write one ticket to its source, from `$ARGUMENTS` and the conversation. Run scri
 ## Edit
 
 1. `resolve <reference>` (with `--context {namespace}[/{product}]` when the session has one). A ticket not in the store: offer `/sdlc:intake <reference>` and stop. A local ticket has no upstream: say so and stop.
-2. **Revision check.** `fetch <reference> --check` (with `--context`). `unchanged` continues. `changed` or `never_mirrored` stops the write: read the live ticket (`gh api`, `az rest`; reads only), say what changed against the mirror, and offer `/sdlc:intake <reference>` to refresh. An error stops it too.
+2. **Revision check.** `fetch <reference> --check` (with `--context`). `unchanged` continues. `changed`, `never_mirrored` or `stale_mirror` stops the write (a stale mirror needs only the refresh): read the live ticket (`gh api`, `az rest`; reads only), say what changed against the mirror, and offer `/sdlc:intake <reference>` to refresh. An error stops it too.
 3. Build the change from the mirror (`raw/raw.json`). Where a field is one combined value (labels, tags, a body holding several sections), build its new value from the whole of its current one, so nothing unnamed is lost. Never invent text; ask for it.
 4. Show a before and after of every field that changes, exactly as it will be written. Nothing would change: say so and stop.
 5. Ask for a yes. Anything else (silence, "maybe", a question) is not one; on a no, send nothing.

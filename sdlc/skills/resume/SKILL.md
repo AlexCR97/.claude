@@ -26,7 +26,7 @@ Brief a fresh session on the ticket `$ARGUMENTS` names. Everything needed is on 
 7. **Upstream**, for a remote ticket: `fetch <reference> --check`, with `--context` as above. It writes nothing and compares revisions, not content.
    - `unchanged`: one line.
    - `changed`: read the live ticket with `gh api` or `az rest` (reads only) and say what kind of change it is, comparing with the mirror: title, state, labels or tags, description, new comments (author, age, a snippet), relations. A new comment answering an open question of the journal is the most valuable finding. Suggest `/sdlc:intake <reference>` to refresh before continuing; this skill never refreshes.
-   - `never_mirrored`: say so. `local`: nothing upstream. An error: report it in one line; a failed check never blocks the briefing.
+   - `never_mirrored`: say so. `stale_mirror`: the mirror is in an old shape; suggest `/sdlc:intake <reference>`. `local`: nothing upstream. An error: report it in one line; a failed check never blocks the briefing.
 
 ## The briefing
 
