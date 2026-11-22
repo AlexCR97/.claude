@@ -1,6 +1,6 @@
 ---
 name: implement
-description: Implement one, several or all phases of a ticket's plan.md by making the code changes each step names, then building and testing the affected projects. Keeps step status honest, never writes to a protected branch, and never commits or pushes unasked.
+description: Implements one, several or all phases of a ticket's plan.md by making the code changes each step names, then building and testing the affected projects. Keeps step status honest, never writes to a protected branch, and never commits or pushes unasked.
 disable-model-invocation: true
 argument-hint: "<ticket reference | spec file | text or idea> [phases | all]"
 ---
@@ -25,7 +25,7 @@ Carry out the phases of the plan of the ticket `$ARGUMENTS` names. Run scripts a
 
 - Work only in the worktrees and plain directories the Workspace section lists, only in the chosen phases, and only on what each step names. Resolve a `**Target:**` against the absolute path recorded for its worktree.
 - Read a file fully before editing it, make targeted edits, follow the project's own conventions, and add nothing the step does not require.
-- A TDD phase's steps are slices, built one at a time, red then green at the confirmed seam, as the Implementing section of `${CLAUDE_PLUGIN_ROOT}/shared/tdd.md` says: write the step's test and run it alone, see it fail for the missing behaviour before touching any production file, write the least code that passes, run the test and then its file, and say the test's name, its red failure message and its green result as the slice finishes, before the next one starts. Update the step's status note slice by slice. Report a test that passes on its first run, and a confirmed seam that is missing or does not reach the behaviour sets the step `Blocked` and asks where the test should sit. At the end of a phase that changed code, run the full suite of each test project covering code the phase touched.
+- A TDD phase's steps are slices, built one at a time as the Implementing section of `${CLAUDE_PLUGIN_ROOT}/shared/tdd.md` says. Red comes first: run the step's test alone and see it fail for the missing behaviour before touching any production file, and say the test's name, its red failure message and its green result as the slice finishes. Update the step's status note slice by slice. A confirmed seam that is missing or does not reach the behaviour sets the step `Blocked` and asks where the test should sit.
 - Mark a step `In Progress` with its note **before** its first edit, and keep the note current. Where it cannot finish, set `Blocked` with what blocks it and what would clear it; never leave a stale `In Progress`. Mark it `Done` only when its work is. Never write a bare `In Progress` or `Blocked`, and derive a phase's Progress row from its steps: never `[x] Done` while a step is not `Done`.
 - After a phase, build each affected project and run the tests that cover it, detecting tools from the project's files. A phase that changed no source file has nothing to build. If a build or test still fails after one fix attempt, stop and report with the output; do not mark the phase done or go on to the next. A failing test is fixed in production code, never by changing its assertion.
 - Non-code files go under `artifacts/step-{N}.{M}/` or `artifacts/shared/`, never overwriting or deleting an existing one, and each producing step's `**Artifacts:**` line is kept accurate. Never write into `artifacts/planning/`.
@@ -34,12 +34,7 @@ Carry out the phases of the plan of the ticket `$ARGUMENTS` names. Run scripts a
 
 ## Completion rule of the type
 
-Apply `types.md` both ways, and report what it requires first.
-
-- `spike`: complete when the finding is written, with no source file changed. Report the answer, the recommendation, the artifacts and what was not established. Never report empty projects as a failure.
-- `tech-debt`: a run whose tests had to be edited **failed**. Stop, report each edited assertion, and do not fix it to pass. A mechanical edit (rename, namespace, signature) is allowed and listed one by one. Report both test runs and every test file touched.
-- `bug`: report the cause found against the hypothesis, whether the repro was run again, and the test that failed before the fix.
-- `user-story` and `task`: per `types.md`.
+Apply `types.md` both ways, and report what it requires for the type first. Two inversions are gates: a `spike` that changes no source file succeeded, and a `tech-debt` run whose tests had to be edited **failed**: stop, report each edited assertion and do not fix it to pass.
 
 ## Report
 
