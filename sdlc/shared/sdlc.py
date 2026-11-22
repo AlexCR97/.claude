@@ -5,10 +5,13 @@ The command every sdlc skill invokes, so a skill's instructions name one command
 Usage:
     python sdlc.py resolve [<ref>] [--new --title "..."] [--context namespace[/product]]
                            [--coordinate name=value ...]
+    python sdlc.py fetch <ref> [--context namespace[/product]] [--coordinate name=value ...]
 
 Exit codes:
     0  ok
     1  error
+    3  ambiguous
+    5  not found upstream
 """
 
 import argparse
@@ -25,7 +28,7 @@ for stream in (sys.stdout, sys.stderr):
     if callable(reconfigure):
         reconfigure(encoding="utf-8", errors="replace")
 
-from sdlclib import resolve
+from sdlclib import fetch, resolve
 from sdlclib.errors import EXIT_OK, SdlcError
 
 
@@ -39,6 +42,11 @@ def verb_resolve(args: argparse.Namespace) -> int:
             args.ref, args.new, args.title, args.context, args.coordinate, Path.cwd()
         )
     )
+    return EXIT_OK
+
+
+def verb_fetch(args: argparse.Namespace) -> int:
+    emit(fetch.fetch(args.ref, args.coordinate, args.context, Path.cwd()))
     return EXIT_OK
 
 
@@ -68,6 +76,25 @@ def build_parser() -> argparse.ArgumentParser:
         help="where the ticket lives upstream, once per coordinate",
     )
     resolving.set_defaults(handler=verb_resolve)
+
+    fetching = verbs.add_parser(
+        "fetch", help="mirror a ticket from its source into the ticket's raw/ directory"
+    )
+    fetching.add_argument(
+        "ref", help="a reference that names its source, as github:1234"
+    )
+    fetching.add_argument(
+        "--context",
+        help="the session's namespace[/product]; it prefers, and never moves a filed ticket",
+    )
+    fetching.add_argument(
+        "--coordinate",
+        action="append",
+        default=[],
+        metavar="NAME=VALUE",
+        help="where the ticket lives upstream, once per coordinate",
+    )
+    fetching.set_defaults(handler=verb_fetch)
     return parser
 
 
