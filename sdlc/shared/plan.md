@@ -63,6 +63,26 @@ The format of `plan.md`, the file in a ticket directory that holds the phased pl
 **Artifacts:** -
 
 {what to do and why, specific enough to act on}
+
+### TDD phase additions
+
+**Seams:** confirmed by the user on {date} (a TDD phase only)
+
+- `{public interface}` - {what testing there catches and misses}
+
+**Not TDD:** {a Development or Testing phase over code with behaviour: why it is not test-first}
+
+### Step 2.1 (a slice in a TDD phase)
+
+**Status:** Pending
+
+**Target:** `{test path}`, then `{production path}`
+
+**Seam:** `{one of the phase's confirmed seams}`
+
+**Artifacts:** -
+
+{the behaviour the test asserts, as a specification, and where its expected value comes from}
 ````
 
 ## Rules
@@ -72,6 +92,8 @@ The format of `plan.md`, the file in a ticket directory that holds the phased pl
 - **Prerequisites** is omitted when empty.
 - **A phase** has one Activity and one scope sentence. Estimates are the model's judgement, always written with `~`.
 - **A step** names one target: a path relative to its project's worktree, with `in {repository@branch}` added when the workspace holds more than one worktree of that repository. A step with no file target, such as one that answers a question, names what it produces instead.
+- **A TDD phase** (see [`tdd.md`](./tdd.md)) records the seams the user confirmed in its `**Seams:**` list, and none is planned before that confirmation. Each of its steps is one slice: its `**Target:**` names two paths, the test then the production code, and its `**Seam:**` names one confirmed seam. A phase over behaviour that is not TDD says why on its `**Not TDD:**` line; configuration, documentation, spikes and infrastructure need none.
+- **A test-setup phase** is a `Testing` phase placed right before the first TDD phase that needs it, planned where no test project can exercise that code. Its steps create the test project, reference the project under test and register it.
 - **`**Artifacts:**`** holds paths relative to `plan.md` of anything a step produced or rests on, or `-`. Nothing generated is written directly in the ticket directory; it goes under `artifacts/`.
 - **Progress rows link to their phase heading**: the heading's GitHub slug (lowercase, drop everything but letters, digits, spaces and hyphens, spaces to hyphens), the estimate included.
 - **Order of phases**: type-required phases first (see `types.md`), then prerequisites of the work (design, data, backend, shared libraries, frontend), then tests, documentation and deployment. A Human Review phase sits right after the phase it gates.
