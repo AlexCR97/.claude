@@ -1,5 +1,7 @@
 # Scripts are for mechanical work only
 
+_Written for the old ticket-* suite: ticketlib is now sdlclib, role files are gone (ADR 0006), and the existing store is migrated by a one-off prompt._
+
 A ticket script exists only where the result must be byte-identical every run: downloading a ticket into `raw/`, creating a local ticket, hashing a file, resolving a layout, moving a directory. Everything that talks to a ticket system's write API, and every judgement about what changed, is a **recipe**: a role file telling the agent how to use the source's own CLI (`gh`, `az`), with its commands as examples rather than an allowlist.
 
 This replaces scripts that wrapped each provider operation behind a fixed set of flags. They limited what the skills could do: `ticket-fetch` rejected any form of a GitHub address its regexes did not list, and the Azure DevOps update script had no flag for tags, which are one `;`-separated string and need a read before a write. A recipe handles both without new code.
