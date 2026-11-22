@@ -1,6 +1,6 @@
 ---
 name: resume
-description: Rebuild a ticket's context in a fresh session and print one briefing that ends in the single next action - what the work is, where it stopped, the live state of the code and what changed upstream since the ticket was last mirrored. Read-only.
+description: Rebuilds a ticket's context in a fresh session and prints one briefing that ends in the single next action, covering what the work is, where it stopped, the live state of the code and what changed upstream since the ticket was last mirrored. Read-only.
 disable-model-invocation: true
 argument-hint: "[<ticket reference>]"
 ---
