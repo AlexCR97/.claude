@@ -1,6 +1,6 @@
 # Review Guidelines
 
-Shared checklist applied by both `ctl-review-code-changes` and `ctl-refactor`. Each skill loads this file and applies every item here before applying its own exclusive guidelines.
+Shared checklist for reviewing and refactoring code. Apply every item here, then any guidelines specific to the task at hand.
 
 ---
 
