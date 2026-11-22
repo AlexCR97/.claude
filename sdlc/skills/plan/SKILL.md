@@ -7,7 +7,7 @@ argument-hint: "<ticket reference | spec file | text or idea> [directory ...]"
 
 # Plan
 
-Plan the ticket `$ARGUMENTS` names. Run scripts as `python "${CLAUDE_PLUGIN_ROOT}/shared/sdlc.py" <verb>` (`python3` where that is the interpreter's name). The formats are `${CLAUDE_PLUGIN_ROOT}/shared/plan.md` (template, statuses, project signals) and `${CLAUDE_PLUGIN_ROOT}/shared/types.md` (the five types). Terms mean what `${CLAUDE_PLUGIN_ROOT}/GLOSSARY.md` says, and `${CLAUDE_PLUGIN_ROOT}/shared/conventions.md` holds the rules about the workspace.
+Plan the ticket `$ARGUMENTS` names. Run scripts as `python "${CLAUDE_PLUGIN_ROOT}/shared/sdlc.py" <verb>` (`python3` where that is the interpreter's name). The formats are `${CLAUDE_PLUGIN_ROOT}/shared/plan.md` (template, statuses, project signals), `${CLAUDE_PLUGIN_ROOT}/shared/tdd.md` (test-first phases) and `${CLAUDE_PLUGIN_ROOT}/shared/types.md` (the five types). Terms mean what `${CLAUDE_PLUGIN_ROOT}/GLOSSARY.md` says, and `${CLAUDE_PLUGIN_ROOT}/shared/conventions.md` holds the rules about the workspace.
 
 ## Inputs
 
@@ -22,7 +22,8 @@ Plan the ticket `$ARGUMENTS` names. Run scripts as `python "${CLAUDE_PLUGIN_ROOT
 4. **Discover the workspace**: repositories, their worktrees, plain directories and projects. Start from the effective config's `scan_roots` (reported by `resolve`), the directories the user gave and the invocation directory, as `conventions.md` says. Never include the SDLC home or any ticket directory. Follow evidence, not proximity, to related repositories (submodules, relative project references). Where there is nowhere to look, ask. List only the worktrees the work happens in. Note a listed worktree whose branch is protected, as a prerequisite: `implement` will not edit there.
 5. **Show the workspace and confirm it once** with the user, who can add, drop or correct. Nothing is planned before the yes.
 6. **Research by reading.** Read the files the plan will name, fully enough to name them correctly; never invent a file, class or command. What reading cannot settle, ask the user, or write as an assumption in the step that rests on it.
-7. **Write `plan.md`** from the template, with the phase shape the type calls for, and absolute paths in the Workspace section. Say where it is and show its Progress table.
+7. **Offer test-first phases** as `tdd.md` says: where work has a seam a test can reach, propose the seams (and a test-setup phase where no test project exists), ask the user once, and wait. Nothing test-first is planned before the confirmation, and a bug's fix phase is a TDD phase whose first slice is the failing regression test.
+8. **Write `plan.md`** from the template, with the phase shape the type calls for, and absolute paths in the Workspace section. Say where it is and show its Progress table.
 
 ## Re-run on a ticket with a plan
 
@@ -32,7 +33,8 @@ Do not regenerate it. Show the Progress table and every `In Progress` or `Blocke
 
 - The skill writes `plan.md` (and a missing `type` in `ticket.json`), nothing else. It writes no source code and changes nothing in the workspace.
 - Git is used for reads only: no fetch, checkout, branch, worktree, commit or push, and nothing is ever written to a protected branch.
-- Test-first phases and probe scripts are not planned yet: use the Development and Testing activities and ask where a fact needs running to learn.
+- Probe scripts are not planned yet: ask where a fact needs running to learn.
+- TDD phases hold only confirmed seams, and the plan records them. A phase that is not TDD over behaviour says why.
 - Statuses are honest, as `plan.md` defines. A new plan holds `Pending` only.
 - The ticket's content is read from the ticket, never copied into the plan.
 - Do not read or write the journal.
