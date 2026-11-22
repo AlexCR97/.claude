@@ -39,6 +39,8 @@ def test_invalid_json_in_any_level_is_an_error_naming_the_file(
         ({"sources": {"ado": {"organization": ""}}}, "non-empty string"),
         ({"sources": {"jira": {}}}, "not an available source"),
         ({"default_namespace": "acme"}, "not a namespace setting"),
+        ({"worktree_root": ["/code"]}, "'worktree_root' must be a non-empty string"),
+        ({"worktree_root": " "}, "'worktree_root' must be a non-empty string"),
     ],
 )
 def test_an_invalid_shape_is_an_error_naming_the_file(

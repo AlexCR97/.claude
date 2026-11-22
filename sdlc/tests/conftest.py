@@ -6,6 +6,7 @@ import os
 import subprocess
 import sys
 import textwrap
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -319,3 +320,52 @@ def az_stub(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> AzStub:
     stub = AzStub(tmp_path / "az-bin")
     monkeypatch.setenv("PATH", str(stub.directory) + os.pathsep + os.environ["PATH"])
     return stub
+
+
+def git(cwd: Path, *args: str) -> str:
+    result = subprocess.run(
+        ["git", *args], cwd=cwd, capture_output=True, text=True, check=True
+    )
+    return result.stdout.strip()
+
+
+@dataclass
+class Repository:
+    path: Path
+    remote: Path
+
+    def git(self, *args: str) -> str:
+        return git(self.path, *args)
+
+    def commit(self, name: str, text: str = "x") -> None:
+        (self.path / name).write_text(text, encoding="utf-8")
+        self.git("add", name)
+        self.git("commit", "-m", f"add {name}")
+
+
+@pytest.fixture
+def make_repository(tmp_path: Path) -> Callable[..., Repository]:
+    """A repository on `main` whose `origin` is a local bare repository, with `origin/HEAD` set."""
+
+    def make(name: str = "repo") -> Repository:
+        remote = tmp_path / f"{name}.git"
+        path = tmp_path / name
+        path.mkdir()
+        git(tmp_path, "init", "--bare", "--initial-branch=main", str(remote))
+        git(path, "init", "--initial-branch=main")
+        git(path, "config", "user.email", "test@example.com")
+        git(path, "config", "user.name", "Test")
+        git(path, "config", "commit.gpgsign", "false")
+        git(path, "remote", "add", "origin", str(remote))
+        repository = Repository(path, remote)
+        repository.commit("README.md")
+        git(path, "push", "-u", "origin", "main")
+        git(path, "remote", "set-head", "origin", "main")
+        return repository
+
+    return make
+
+
+@pytest.fixture
+def repository(make_repository: Callable[..., Repository]) -> Repository:
+    return make_repository()
