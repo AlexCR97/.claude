@@ -6,7 +6,8 @@ Usage:
     python sdlc.py resolve [<ref>] [--new --title "..."] [--context namespace[/product]]
                            [--coordinate name=value ...]
     python sdlc.py effect <script> [--context namespace[/product]]
-    python sdlc.py fetch <ref> [--context namespace[/product]] [--coordinate name=value ...]
+    python sdlc.py fetch <ref> [--check] [--context namespace[/product]]
+                           [--coordinate name=value ...]
     python sdlc.py guard check --op <operation> [--repo <dir>] [--branch <name>]
                                [--context namespace[/product]]
     python sdlc.py guard protected [--repo <dir>] [--branch <name>] [--context namespace[/product]]
@@ -68,7 +69,8 @@ def verb_effect(args: argparse.Namespace) -> int:
 
 
 def verb_fetch(args: argparse.Namespace) -> int:
-    emit(fetch.fetch(args.ref, args.coordinate, args.context, Path.cwd()))
+    run = fetch.check if args.check else fetch.fetch
+    emit(run(args.ref, args.coordinate, args.context, Path.cwd()))
     return EXIT_OK
 
 
@@ -136,6 +138,11 @@ def build_parser() -> argparse.ArgumentParser:
         default=[],
         metavar="NAME=VALUE",
         help="where the ticket lives upstream, once per coordinate",
+    )
+    fetching.add_argument(
+        "--check",
+        action="store_true",
+        help="compare the recorded revision with the live one and write nothing",
     )
     fetching.set_defaults(handler=verb_fetch)
 

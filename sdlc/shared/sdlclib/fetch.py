@@ -113,6 +113,27 @@ def discoverer(config: Config, context: Scope | None):
     return discover
 
 
+def upstream_coordinates(config: Config, found: resolve.Found) -> dict[str, str]:
+    location = found.location
+    if not providers.load_manifest(location.source)["capabilities"]["fetch"]:
+        raise SdlcError(
+            f"{location.ref} is a {location.source} ticket, which has no upstream to fetch from"
+        )
+
+    coordinates = {**resolve.ticket_coordinates(config, location), **found.coordinates}
+    missing = [
+        name
+        for name in providers.coordinates(location.source)
+        if name not in coordinates
+    ]
+    if missing:
+        raise SdlcError(
+            f"{location.product.ref} has no {location.source} {', '.join(missing)} to fetch from",
+            hint="Bind them with `/sdlc:setup`, or name them with --coordinate.",
+        )
+    return coordinates
+
+
 def fetch(
     reference_text: str,
     coordinate_arguments: list[str],
@@ -131,22 +152,7 @@ def fetch(
     )
     location = found.location
 
-    if not providers.load_manifest(location.source)["capabilities"]["fetch"]:
-        raise SdlcError(
-            f"{location.ref} is a {location.source} ticket, which has no upstream to fetch from"
-        )
-
-    coordinates = {**resolve.ticket_coordinates(config, location), **found.coordinates}
-    missing = [
-        name
-        for name in providers.coordinates(location.source)
-        if name not in coordinates
-    ]
-    if missing:
-        raise SdlcError(
-            f"{location.product.ref} has no {location.source} {', '.join(missing)} to fetch from",
-            hint="Bind them with `/sdlc:setup`, or name them with --coordinate.",
-        )
+    coordinates = upstream_coordinates(config, found)
 
     mirrored = providers.load_fetcher(location.source).fetch(
         location.id, coordinates, location.dir / "raw"
@@ -168,4 +174,67 @@ def fetch(
             chosen=found.chosen,
         ),
         "fetched": mirrored["report"],
+    }
+
+
+def check(
+    reference_text: str,
+    coordinate_arguments: list[str],
+    context_text: str | None,
+    cwd: Path,
+) -> dict:
+    """
+    Whether the ticket changed upstream since it was mirrored, writing nothing.
+
+    `changed` is true for a ticket never mirrored too: with no recorded
+    revision there is nothing to vouch that the mirror matches upstream, which
+    is the safe answer for a caller about to write upstream. `status` tells the
+    cases apart.
+    """
+    config = configuration.load()
+    context = resolve.parse_context(context_text)
+    found = resolve.locate_existing(
+        config,
+        resolve.parse_reference(reference_text),
+        coordinate_arguments,
+        context,
+        cwd,
+    )
+    location = found.location
+    report = {
+        "ref": location.ref,
+        "ticket_dir": str(location.dir),
+        "recorded": None,
+        "live": None,
+    }
+
+    if not providers.load_manifest(location.source)["capabilities"]["fetch"]:
+        return {
+            **report,
+            "changed": False,
+            "status": "local",
+            "reason": f"a {location.source} ticket has no upstream, so nothing can change under it",
+        }
+
+    record = read_record(location.dir / "ticket.json") if found.exists else {}
+    recorded = record.get("fingerprint")
+    if not recorded:
+        return {
+            **report,
+            "changed": True,
+            "status": "never_mirrored",
+            "reason": f"{location.ref} has never been fetched, so there is no recorded revision to compare",
+        }
+
+    coordinates = upstream_coordinates(config, found)
+    live = providers.load_fetcher(location.source).check(location.id, coordinates)
+    changed = live != recorded
+    return {
+        **report,
+        "changed": changed,
+        "status": "changed" if changed else "unchanged",
+        "recorded": recorded,
+        "live": live,
+        "coordinates": coordinates,
+        "last_fetched_at": record.get("last_fetched_at"),
     }

@@ -243,6 +243,15 @@ def discover_coordinates(ticket_id: str, known: dict) -> dict:
     }
 
 
+def check(ticket_id: str, coordinates: dict) -> dict:
+    """The live revision, in the shape `fetch` records, from a probe that returns no content."""
+    item = get_json(
+        f"https://dev.azure.com/{coordinates['organization']}/_apis/wit/workItems/{ticket_id}",
+        ["fields=System.Rev"],
+    )
+    return {"rev": item["rev"]}
+
+
 def fetch(ticket_id: str, coordinates: dict, raw_dir: Path) -> dict:
     organization = coordinates["organization"]
     project = coordinates["project"]

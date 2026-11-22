@@ -55,7 +55,7 @@ def id_fits(source: str, ticket_id: str) -> bool:
 
 
 def load_fetcher(source: str) -> ModuleType:
-    """The source's `providers/{source}.py`, which exposes `fetch(ticket_id, coordinates, raw_dir)`."""
+    """The source's `providers/{source}.py`, which exposes `fetch(ticket_id, coordinates, raw_dir)` and `check(ticket_id, coordinates)`."""
     path = PROVIDERS_DIR / f"{source}.py"
     if not path.is_file():
         raise SdlcError(f"source '{source}' has no fetcher")
