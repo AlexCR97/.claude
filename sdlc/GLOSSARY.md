@@ -86,8 +86,8 @@ The non-authoritative, refreshable cache of a remote ticket in its `raw/` direct
 _Avoid_: Digest, snapshot, copy, ticket-fetch
 
 **Revision**:
-The marker a source gives for a ticket's current state, such as an Azure DevOps revision number or, where a source has none, a hash of its content. It is recorded when the ticket is mirrored and compared with the live one to learn that the ticket changed.
-_Avoid_: Fingerprint, version, drift
+The marker a source gives for a ticket's current state, such as an Azure DevOps revision number or, where a source has none, a hash of its content. It is recorded when the ticket is mirrored, in `ticket.json` under the key `fingerprint`, and compared with the live one to learn that the ticket changed.
+_Avoid_: Version, drift
 
 **Intake**:
 Bringing a ticket into the SDLC home: resolving its reference, filing it, mirroring a remote ticket or adopting a local one, and recording its type.
