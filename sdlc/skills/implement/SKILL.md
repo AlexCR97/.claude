@@ -30,7 +30,7 @@ Carry out the phases of the plan of the ticket `$ARGUMENTS` names. Run scripts a
 - After a phase, build each affected project and run the tests that cover it, detecting tools from the project's files. A phase that changed no source file has nothing to build. If a build or test still fails after one fix attempt, stop and report with the output; do not mark the phase done or go on to the next. A failing test is fixed in production code, never by changing its assertion.
 - Non-code files go under `artifacts/step-{N}.{M}/` or `artifacts/shared/`, never overwriting or deleting an existing one, and each producing step's `**Artifacts:**` line is kept accurate. Never write into `artifacts/planning/`.
 - Say every decision and inference in chat as it is made, with the step it affects: `checkpoint` builds its entry from this conversation.
-- After each phase offer `/sdlc:document` if that skill is installed; never run it unasked.
+- After each phase offer `/sdlc:document` for the projects that phase changed, as `<reference> <phase>`; never run it unasked.
 
 ## Completion rule of the type
 

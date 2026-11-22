@@ -221,6 +221,107 @@ def stub_issue(gh_stub: GhStub):
     return register
 
 
+AZ_STUB = textwrap.dedent(
+    """
+    import base64, json, sys
+    from pathlib import Path
+
+    here = Path(__file__).parent
+    args = sys.argv[1:]
+    with (here / "calls.jsonl").open("a", encoding="utf-8") as log:
+        log.write(json.dumps(args) + chr(10))
+
+    routes = json.loads((here / "routes.json").read_text(encoding="utf-8"))
+
+    def values(flag):
+        if flag not in args:
+            return []
+        found = []
+        for argument in args[args.index(flag) + 1 :]:
+            if argument.startswith("--"):
+                break
+            found.append(argument)
+        return found
+
+    if args[:1] != ["rest"]:
+        sys.stderr.write("stub does not handle: " + " ".join(args))
+        sys.exit(1)
+
+    url = values("--url")[0]
+    params = sorted(p for p in values("--url-parameters") if not p.startswith("api-version="))
+    key = url + ("?" + "&".join(params) if params else "")
+    route = routes.get(key, {"stderr": "stub has no route for " + key, "code": 1})
+
+    if "stderr" in route:
+        sys.stderr.write(route["stderr"])
+    output = Path(values("--output-file")[0])
+    if "json" in route:
+        output.write_text(json.dumps(route["json"]), encoding="utf-8")
+    if "b64" in route:
+        output.write_bytes(base64.b64decode(route["b64"]))
+    sys.exit(route.get("code", 0))
+    """
+)
+
+
+class AzStub:
+    """
+    A fake `az` on PATH that answers `az rest` from registered routes and logs every call.
+
+    A route is the URL plus its sorted `--url-parameters` (without `api-version`),
+    written `url?a=1&b=2`; the answer is written to `--output-file`, as `az` does.
+    """
+
+    def __init__(self, directory: Path):
+        self.directory = directory
+        self.routes: dict = {}
+        directory.mkdir()
+        (directory / "stub.py").write_text(AZ_STUB, encoding="utf-8")
+        python = f'"{sys.executable}" "{directory / "stub.py"}"'
+        if sys.platform == "win32":
+            script = f"@echo off\r\n{python} %*\r\n"
+            (directory / "az.cmd").write_bytes(script.encode("utf-8"))
+        else:
+            launcher = directory / "az"
+            launcher.write_text(f'#!/bin/sh\nexec {python} "$@"\n', encoding="utf-8")
+            launcher.chmod(0o755)
+        self.save()
+
+    def save(self) -> None:
+        (self.directory / "routes.json").write_text(
+            json.dumps(self.routes), encoding="utf-8"
+        )
+
+    def respond(self, route: str, payload: object) -> None:
+        self.routes[route] = {"json": payload}
+        self.save()
+
+    def respond_bytes(self, route: str, content: bytes) -> None:
+        self.routes[route] = {"b64": base64.b64encode(content).decode()}
+        self.save()
+
+    def fail(self, route: str, message: str, code: int = 1) -> None:
+        self.routes[route] = {"stderr": message, "code": code}
+        self.save()
+
+    @property
+    def calls(self) -> list[list[str]]:
+        log = self.directory / "calls.jsonl"
+        if not log.is_file():
+            return []
+        return [json.loads(line) for line in log.read_text("utf-8").splitlines()]
+
+    def asked_for(self, fragment: str) -> bool:
+        return any(fragment in " ".join(call) for call in self.calls)
+
+
+@pytest.fixture
+def az_stub(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> AzStub:
+    stub = AzStub(tmp_path / "az-bin")
+    monkeypatch.setenv("PATH", str(stub.directory) + os.pathsep + os.environ["PATH"])
+    return stub
+
+
 def git(cwd: Path, *args: str) -> str:
     result = subprocess.run(
         ["git", *args], cwd=cwd, capture_output=True, text=True, check=True

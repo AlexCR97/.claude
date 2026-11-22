@@ -14,6 +14,7 @@ is already filed.
 
 import json
 import re
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -208,7 +209,15 @@ def locate_existing(
     coordinate_arguments: list[str],
     context: Scope | None,
     cwd: Path,
+    discover: Callable[[str, str, dict[str, str]], dict[str, str]] | None = None,
 ) -> Found:
+    """
+    `discover(source, id, given)` returns coordinates the ticket itself reveals.
+
+    It runs only for a ticket not on disk and not named into a product, so a
+    source whose id names no project can be filed by where the ticket lives
+    rather than by a guess. `resolve` passes none: it never reads upstream.
+    """
     coordinates = parse_coordinates(coordinate_arguments, reference.source)
     sources = (
         [reference.source]
@@ -234,6 +243,8 @@ def locate_existing(
 
     source = reference.source or default_source_for(config, reference.named, context)
     validate_id(source, reference.id)
+    if discover and not reference.named:
+        coordinates = {**coordinates, **discover(source, reference.id, coordinates)}
     chosen = filing.choose(
         config,
         source,
