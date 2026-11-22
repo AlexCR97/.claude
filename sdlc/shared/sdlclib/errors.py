@@ -2,6 +2,7 @@
 
 EXIT_OK = 0
 EXIT_ERROR = 1
+EXIT_AMBIGUOUS = 3
 
 
 class SdlcError(Exception):

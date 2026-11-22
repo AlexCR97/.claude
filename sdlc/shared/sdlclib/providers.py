@@ -1,19 +1,24 @@
-"""A source's flat manifest, shipped beside the code in `providers/{source}/provider.json`."""
+"""A source's flat manifest, shipped beside the code as `providers/{source}.json`."""
 
 import json
+import re
 from pathlib import Path
 
 from .errors import SdlcError
 
 PROVIDERS_DIR = Path(__file__).resolve().parent.parent / "providers"
 
+# A coordinate is bound at one of the two levels that hold a binding; the
+# manifest says which, so an organization and a repository land in the right file.
+COORDINATE_LEVELS = ("namespace", "product")
+
 
 def list_sources() -> list[str]:
-    return sorted(entry.parent.name for entry in PROVIDERS_DIR.glob("*/provider.json"))
+    return sorted(path.stem for path in PROVIDERS_DIR.glob("*.json"))
 
 
 def load_manifest(source: str) -> dict:
-    path = PROVIDERS_DIR / source / "provider.json"
+    path = PROVIDERS_DIR / f"{source}.json"
     if not path.is_file():
         raise SdlcError(
             f"source '{source}' is not available",
@@ -27,3 +32,21 @@ def source_for_prefix(prefix: str) -> str | None:
         if prefix in load_manifest(source)["prefixes"]:
             return source
     return None
+
+
+def coordinates(source: str) -> dict[str, str]:
+    """Each coordinate the source declares, mapped to the level it is bound at."""
+    return dict(load_manifest(source)["coordinates"])
+
+
+def split_by_level(source: str, values: dict) -> tuple[dict, dict]:
+    """Coordinates as (namespace-level, product-level)."""
+    levels = coordinates(source)
+    return (
+        {name: value for name, value in values.items() if levels[name] == "namespace"},
+        {name: value for name, value in values.items() if levels[name] == "product"},
+    )
+
+
+def id_fits(source: str, ticket_id: str) -> bool:
+    return bool(re.fullmatch(load_manifest(source)["id"]["pattern"], ticket_id))

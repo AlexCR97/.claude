@@ -16,8 +16,28 @@ def sdlc_home() -> Path:
     return Path.home() / ".sdlc"
 
 
+def root_config_path() -> Path:
+    return sdlc_home() / "sdlc.json"
+
+
+def namespace_dir(namespace: str) -> Path:
+    return sdlc_home() / namespace
+
+
+def namespace_config_path(namespace: str) -> Path:
+    return namespace_dir(namespace) / "namespace.json"
+
+
+def product_dir(namespace: str, product: str) -> Path:
+    return namespace_dir(namespace) / product
+
+
+def product_config_path(namespace: str, product: str) -> Path:
+    return product_dir(namespace, product) / "product.json"
+
+
 def ticket_dir(namespace: str, product: str, source: str, ticket_id: str) -> Path:
-    return sdlc_home() / namespace / product / source / ticket_id
+    return product_dir(namespace, product) / source / ticket_id
 
 
 def ticket_paths(

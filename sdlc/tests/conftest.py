@@ -30,10 +30,11 @@ def sdlc_home(tmp_path: Path) -> Path:
 
 @pytest.fixture
 def run_cli(sdlc_home: Path):
-    def run(*argv: str) -> Result:
+    def run(*argv: str, cwd: Path | None = None) -> Result:
         completed = subprocess.run(
             [sys.executable, str(SDLC), *argv],
             check=False,
+            cwd=cwd,
             capture_output=True,
             text=True,
             encoding="utf-8",
@@ -42,3 +43,27 @@ def run_cli(sdlc_home: Path):
         return Result(completed.returncode, completed.stdout, completed.stderr)
 
     return run
+
+
+@pytest.fixture
+def write_config(sdlc_home: Path):
+    """Write a config file at a path relative to the SDLC home; a dict becomes JSON, a string is written as is."""
+
+    def write(relative: str, content: dict | str) -> Path:
+        path = sdlc_home / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        text = content if isinstance(content, str) else json.dumps(content)
+        path.write_text(text, encoding="utf-8")
+        return path
+
+    return write
+
+
+@pytest.fixture
+def make_ticket(sdlc_home: Path):
+    def make(namespace: str, product: str, source: str, ticket_id: str) -> Path:
+        directory = sdlc_home / namespace / product / source / ticket_id
+        directory.mkdir(parents=True)
+        return directory
+
+    return make

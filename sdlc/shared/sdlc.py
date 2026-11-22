@@ -3,7 +3,8 @@
 The command every sdlc skill invokes, so a skill's instructions name one command.
 
 Usage:
-    python sdlc.py resolve [<ref>] [--new --title "..."]
+    python sdlc.py resolve [<ref>] [--new --title "..."] [--context namespace[/product]]
+                           [--coordinate name=value ...]
 
 Exit codes:
     0  ok
@@ -33,7 +34,11 @@ def emit(data: dict) -> None:
 
 
 def verb_resolve(args: argparse.Namespace) -> int:
-    emit(resolve.resolve(args.ref, args.new, args.title))
+    emit(
+        resolve.resolve(
+            args.ref, args.new, args.title, args.context, args.coordinate, Path.cwd()
+        )
+    )
     return EXIT_OK
 
 
@@ -51,6 +56,17 @@ def build_parser() -> argparse.ArgumentParser:
         help="report where a new local ticket would be filed",
     )
     resolving.add_argument("--title", help="the new ticket's title")
+    resolving.add_argument(
+        "--context",
+        help="the session's namespace[/product]; it prefers, and never moves a filed ticket",
+    )
+    resolving.add_argument(
+        "--coordinate",
+        action="append",
+        default=[],
+        metavar="NAME=VALUE",
+        help="where the ticket lives upstream, once per coordinate",
+    )
     resolving.set_defaults(handler=verb_resolve)
     return parser
 

@@ -93,8 +93,15 @@ def test_a_reference_that_could_leave_the_store_is_rejected(run_cli):
         assert "not a valid" in result.err or "not available" in result.err
 
 
-def test_a_source_other_than_local_is_not_available_yet(run_cli):
+def test_a_source_nothing_is_bound_to_cannot_be_filed(run_cli):
     result = run_cli("resolve", "ado:1234")
+
+    assert result.code == 1
+    assert "not bound in any product" in result.err
+
+
+def test_an_unknown_source_prefix_is_not_available(run_cli):
+    result = run_cli("resolve", "jira:1234")
 
     assert result.code == 1
     assert "not available" in result.err

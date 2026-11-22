@@ -21,6 +21,7 @@ A new local ticket under the sdlc home: `ticket.json` and `raw/ticket.md` at the
 
 ## Invariants
 
+- When the session has a context (`/sdlc:setup`), pass `--context {namespace}[/{product}]` to `resolve`, and tell the user where the ticket will be filed.
 - Ask once, and write nothing before the yes.
 - Copy the content; the ticket's file is its single source of truth, with no mirror.
 - The model decides the type, says so, and the user can override it.
