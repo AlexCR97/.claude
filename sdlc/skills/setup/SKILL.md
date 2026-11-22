@@ -15,9 +15,11 @@ Under the SDLC home (`~/.sdlc`, or `$SDLC_HOME`), one file per level; the inner 
 
 | File | Keys |
 | --- | --- |
-| `sdlc.json` | `default_namespace`, `default_source`, `scan_roots`, `protected_branches` |
-| `{namespace}/namespace.json` | `default_product`, `default_source`, `scan_roots`, `protected_branches`, `sources` |
-| `{namespace}/{product}/product.json` | `default_source`, `scan_roots`, `protected_branches`, `sources` |
+| `sdlc.json` | `default_namespace`, `default_source`, `scan_roots`, `protected_branches`, `worktree_root` |
+| `{namespace}/namespace.json` | `default_product`, `default_source`, `scan_roots`, `protected_branches`, `worktree_root`, `sources` |
+| `{namespace}/{product}/product.json` | `default_source`, `scan_roots`, `protected_branches`, `worktree_root`, `sources` |
+
+`worktree_root` is one absolute directory under which `implement` creates ticket worktrees instead of `{repository}/.worktrees/` (see `${CLAUDE_PLUGIN_ROOT}/shared/guard.md`).
 
 A binding is `sources.{source}.{coordinate}`. Each coordinate lives at the level its provider declares in `${CLAUDE_PLUGIN_ROOT}/shared/providers/{source}.json`: Azure DevOps `organization` in `namespace.json` and `project` in `product.json`; GitHub `owner` in `namespace.json` and `repository` in `product.json`. A namespace or product with no binding is valid: create its directory with a `{}` config file.
 

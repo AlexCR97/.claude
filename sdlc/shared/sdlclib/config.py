@@ -25,7 +25,12 @@ from . import layout, paths, providers
 from .errors import SdlcError
 from .layout import Product
 
-SHARED_KEYS = {"default_source", "scan_roots", "protected_branches"}
+SHARED_KEYS = {
+    "default_source",
+    "scan_roots",
+    "protected_branches",
+    "worktree_root",
+}
 
 # A key describing a level's relationship to what is inside it belongs to that
 # level alone: a product inheriting `default_product` would name a product that
@@ -74,6 +79,9 @@ def check_value(path: Path, level: str, key: str, value: object) -> None:
         if not isinstance(value, str) or value not in providers.list_sources():
             sources = ", ".join(providers.list_sources())
             raise invalid(path, f"'default_source' must be one of: {sources}")
+    elif key == "worktree_root":
+        if not isinstance(value, str) or not value.strip():
+            raise invalid(path, "'worktree_root' must be a non-empty string")
     elif key in ("scan_roots", "protected_branches"):
         if not isinstance(value, list) or not all(
             isinstance(item, str) and item.strip() for item in value
@@ -131,9 +139,13 @@ class Config:
     namespaces: dict[str, dict]
     products: dict[Product, dict]
 
-    def effective(self, namespace: str, product: str | None = None) -> dict:
-        layers = [self.root, self.namespaces.get(namespace, {})]
-        if product:
+    def effective(
+        self, namespace: str | None = None, product: str | None = None
+    ) -> dict:
+        layers = [self.root]
+        if namespace:
+            layers.append(self.namespaces.get(namespace, {}))
+        if namespace and product:
             layers.append(self.products.get(Product(namespace, product), {}))
         merged: dict = {}
         for layer in layers:
