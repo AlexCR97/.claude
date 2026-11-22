@@ -1,6 +1,6 @@
 ---
 name: checkpoint
-description: Record the current session on a ticket as a new journal entry (where the code is, what was done, decided and is blocking, the next action), reconcile the plan's step statuses and refresh the ticket's pull request record.
+description: Records the current session on a ticket as a new journal entry (where the code is, what was done, decided and is blocking, the next action), reconciles the plan's step statuses and refreshes the ticket's pull request record.
 disable-model-invocation: true
 argument-hint: "[<ticket reference | spec file | text or idea>] [note]"
 ---
