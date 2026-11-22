@@ -217,19 +217,20 @@ def test_a_project_bound_nowhere_in_an_unbound_organization_is_an_error_naming_t
     assert not list(sdlc_home.glob("**/ado"))
 
 
-def test_a_project_unbound_in_a_bound_organization_lands_in_that_namespace_default_product(
-    run_cli, bound, stub_work_item, sdlc_home
+def test_a_team_project_unbound_in_a_bound_organization_is_an_error_naming_the_coordinates(
+    run_cli, bound, stub_work_item, az_stub, sdlc_home
 ):
     stub_work_item(project="payroll")
 
     result = run_cli("fetch", "ado:1234")
 
-    assert result.code == 0, result.err
-    assert result.json["product"] == "acme/default"
-    assert read(sdlc_home, "acme/default/ado/1234/ticket.json")["coordinates"] == {
-        "organization": "acme",
-        "project": "payroll",
-    }
+    assert result.code == 1
+    assert "organization 'acme'" in result.err
+    assert "project 'payroll'" in result.err
+    assert "/sdlc:setup" in result.err
+    assert len(az_stub.calls) == 1
+    assert not list(sdlc_home.glob("**/ado"))
+    assert not (sdlc_home / "acme/default").exists()
 
 
 def test_two_bound_organizations_need_the_context_or_a_coordinate_to_pick_one(

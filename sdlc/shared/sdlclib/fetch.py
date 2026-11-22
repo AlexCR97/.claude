@@ -17,8 +17,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from . import config as configuration
-from . import providers, resolve
-from .config import Config
+from . import filing, layout, providers, resolve
+from .config import Config, describe
 from .errors import EXIT_AMBIGUOUS, SdlcError
 from .layout import Scope
 
@@ -71,6 +71,24 @@ def bound_namespace_value(
     )
 
 
+def require_bound_product(config: Config, source: str, found: dict[str, str]) -> None:
+    """
+    A ticket's own coordinates must name a product, never fall back to a default one.
+
+    Nothing moves a ticket after it is filed, so a work item filed under
+    `default` because its project was unbound could only be fixed by hand.
+    """
+    if not any(
+        not product.is_fallback
+        and filing.binds_all(config.binding(source, product), found)
+        for product in layout.products()
+    ):
+        raise SdlcError(
+            f"no product is bound to {source} {describe(found)}",
+            hint="Run `/sdlc:setup` to bind them, naming the namespace and product.",
+        )
+
+
 def discoverer(config: Config, context: Scope | None):
     """
     Lets a source that cannot tell a ticket's product from its id ask upstream first.
@@ -88,7 +106,9 @@ def discoverer(config: Config, context: Scope | None):
         for name, level in declared.items():
             if level == "namespace" and name not in known:
                 known[name] = bound_namespace_value(config, source, name, context)
-        return find(ticket_id, known)
+        found = find(ticket_id, known)
+        require_bound_product(config, source, found)
+        return found
 
     return discover
 

@@ -34,7 +34,7 @@ Turn what `$ARGUMENTS` holds into a ticket. A GitHub issue or an Azure DevOps wo
 ## An Azure DevOps work item
 
 1. Turn the input into `fetch` arguments; `fetch` reads no URL. A bare id is `ado:{id}`. A URL `https://dev.azure.com/{organization}/{project}/_workitems/edit/{id}`, or the legacy `https://{organization}.visualstudio.com/{project}/_workitems/edit/{id}`, is `ado:{id} --coordinate organization={organization}`. Leave the project out: `fetch` reads the work item's team project upstream and files it under the product bound to it. A board, query or pull request URL is not a ticket: say so and stop.
-2. Run `fetch` as above (exit 3 means more than one organization or product matches; ask which). It stops, with nothing written, when no organization is bound, or when the work item's organization is bound nowhere: ask the user to bind it with `/sdlc:setup`; never guess an organization or project. A project unbound inside a bound organization is filed in that namespace's `default` product; say so.
+2. Run `fetch` as above (exit 3 means more than one organization or product matches; ask which). It stops, with nothing written, when no organization is bound or the work item's team project is bound to no product: ask the user to bind it with `/sdlc:setup`; never guess an organization or project, and never file under `default`.
 3. Decide and record the `type` once, as above, from the work item type, tags and content in the mirror.
 
 ## Invariants
