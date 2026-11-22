@@ -1,0 +1,13 @@
+{
+  "name": "alexcr97",
+  "description": "Personal plugins.",
+  "owner": { "name": "AlexCR97" },
+  "plugins": [
+    {
+      "name": "sdlc",
+      "source": "./sdlc",
+      "description": "Carry a unit of work from intake to documented code.",
+      "author": { "name": "AlexCR97" }
+    }
+  ]
+}

@@ -1,0 +1,6 @@
+{
+  "name": "sdlc",
+  "description": "Carry a unit of work from intake to documented code.",
+  "version": "0.1.0",
+  "author": { "name": "AlexCR97" }
+}

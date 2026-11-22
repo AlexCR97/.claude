@@ -1,0 +1,9 @@
+{
+  "source": "local",
+  "kind": "local",
+  "prefixes": ["local", "l"],
+  "id": {
+    "pattern": "[a-z0-9][a-z0-9-]*",
+    "shape": "a lowercase slug derived from the title"
+  }
+}
