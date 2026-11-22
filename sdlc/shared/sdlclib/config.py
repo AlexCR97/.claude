@@ -29,6 +29,7 @@ SHARED_KEYS = {
     "default_source",
     "scan_roots",
     "protected_branches",
+    "sensitive",
     "worktree_root",
 }
 
@@ -82,7 +83,7 @@ def check_value(path: Path, level: str, key: str, value: object) -> None:
     elif key == "worktree_root":
         if not isinstance(value, str) or not value.strip():
             raise invalid(path, "'worktree_root' must be a non-empty string")
-    elif key in ("scan_roots", "protected_branches"):
+    elif key in ("scan_roots", "protected_branches", "sensitive"):
         if not isinstance(value, list) or not all(
             isinstance(item, str) and item.strip() for item in value
         ):
