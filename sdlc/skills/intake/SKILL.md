@@ -1,6 +1,6 @@
 ---
 name: intake
-description: Bring a unit of work into the sdlc store, from a GitHub issue (a number, owner/repo#n or a URL), an Azure DevOps work item (an id or a URL), a spec file, pasted text or an idea, or the current branch.
+description: Brings a unit of work into the sdlc store, from a GitHub issue (a number, owner/repo#n or a URL), an Azure DevOps work item (an id or a URL), a spec file, pasted text or an idea, or the current branch.
 disable-model-invocation: true
 argument-hint: "[<github issue> | <azure devops work item> | <spec file path> | <text or idea>]"
 ---
