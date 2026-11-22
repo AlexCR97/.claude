@@ -3,20 +3,25 @@ Mirror an Azure DevOps work item through the `az` CLI, which holds the
 credentials: no token is read, printed or stored here.
 """
 
+import html
 import json
 import re
 import shutil
 import subprocess
 import tempfile
 from pathlib import Path
-from urllib.parse import quote
+from urllib.parse import parse_qs, quote, urlparse
 
-from sdlclib.errors import SdlcError
+from sdlclib.errors import EXIT_NOT_FOUND, SdlcError
 
 AZ_HINT = "Install the Azure CLI and run `az login`, then try again."
+# What `az` prints when the sign-in, not the request, is what failed.
+SIGN_IN_MARKERS = ("AADSTS", "az login", "Unauthorized")
+NOT_FOUND_MARKERS = ("TF401232", "Not Found", "404")
 
 # The audience a token must be issued for to be accepted by dev.azure.com.
 RESOURCE = "499b84ac-1321-427f-aa17-267ca6975798"
+SIGN_IN_HINT = f"Sign in with `az login --scope {RESOURCE}/.default`, then try again."
 
 API_VERSION = "7.1"
 BATCH_SIZE = 200  # the most work item ids one request accepts
@@ -47,10 +52,17 @@ def az_rest(url: str, params: list[str], api_version: str, output: Path) -> None
     result = subprocess.run(command, capture_output=True, timeout=120, check=False)
     if result.returncode != 0:
         detail = result.stderr.decode("utf-8", "replace").strip()
-        raise SdlcError(f"`az rest` for {url} failed: {detail}")
+        if any(marker in detail for marker in SIGN_IN_MARKERS):
+            raise SdlcError(
+                f"Azure DevOps rejected the sign-in: {detail}", hint=SIGN_IN_HINT
+            )
+        code = EXIT_NOT_FOUND if any(m in detail for m in NOT_FOUND_MARKERS) else 1
+        raise SdlcError(f"`az rest` for {url} failed: {detail}", code)
 
 
-def get_json(url: str, params: list[str] | None = None, api_version: str = API_VERSION) -> dict:
+def get_json(
+    url: str, params: list[str] | None = None, api_version: str = API_VERSION
+) -> dict:
     # `az` writes to a file because the console codepage it prints in on
     # Windows would turn any non-ASCII character in a ticket into mojibake.
     with tempfile.TemporaryDirectory() as scratch:
@@ -140,13 +152,95 @@ def group_relations(organization_url: str, relations: list[dict]) -> dict:
     return grouped
 
 
+def all_comments(organization_url: str, project: str, ticket_id: str) -> list[dict]:
+    url = f"{organization_url}/{quote(project, safe='')}/_apis/wit/workItems/{ticket_id}/comments"
+    comments: list[dict] = []
+    params: list[str] = []
+    while True:
+        page = get_json(url, params, COMMENTS_API_VERSION)
+        comments += page["comments"]
+        token = page.get("continuationToken")
+        if not token:
+            return comments
+        params = [f"continuationToken={token}"]
+
+
+ATTACHMENT_URL = re.compile(r"https?://[^\s\"'<>)]*/_apis/wit/attachments/[^\s\"'<>)]*")
+
+
+def attachment_guid(url: str) -> str:
+    return urlparse(url).path.rstrip("/").rsplit("/", 1)[-1]
+
+
+def find_attachments(work_item: dict, comments: list[dict]) -> list[dict]:
+    """
+    Every attachment the work item references, once per attachment id.
+
+    A pasted image is embedded in a field or comment and is not an
+    `AttachedFile` relation, so the text is scanned as well. A relation and
+    an embed carry different URLs for one file, hence the id, not the URL.
+    """
+    found: dict[str, dict] = {}
+
+    def record(url: str, name: str, found_in: str) -> None:
+        found.setdefault(
+            attachment_guid(url), {"url": url, "name": name, "found_in": found_in}
+        )
+
+    for relation in work_item.get("relations") or []:
+        if relation["rel"] == "AttachedFile":
+            name = relation.get("attributes", {}).get("name") or attachment_guid(
+                relation["url"]
+            )
+            record(relation["url"], name, "relation")
+
+    texts = [
+        (f"field:{name}", value)
+        for name, value in work_item["fields"].items()
+        if isinstance(value, str)
+    ]
+    for comment in comments:
+        for key in ("text", "renderedText"):
+            texts.append((f"comment:{comment['id']}", comment.get(key) or ""))
+    for found_in, text in texts:
+        for url in ATTACHMENT_URL.findall(text):
+            url = html.unescape(url)
+            names = parse_qs(urlparse(url).query).get("fileName")
+            record(url, names[0] if names else attachment_guid(url), found_in)
+    return list(found.values())
+
+
+def download(attachment: dict, raw_dir: Path) -> str:
+    """Returns "kept", "downloaded" or "failed", recording the file name or the error on the attachment."""
+    guid = attachment_guid(attachment["url"])
+    # ADO names every pasted screenshot `image.png`, so the id names the file;
+    # being deterministic, it is also how a refresh recognises what it already holds.
+    suffix = re.sub(r"[^A-Za-z0-9.]", "", Path(attachment["name"]).suffix)
+    destination = raw_dir / f"{guid}{suffix}"
+    if destination.exists():
+        attachment["local_filename"] = destination.name
+        return "kept"
+    try:
+        # The query is dropped: an attachment is addressed by its id, and `fileName` only names it.
+        az_rest(attachment["url"].partition("?")[0], [], API_VERSION, destination)
+    except (SdlcError, subprocess.TimeoutExpired) as error:
+        destination.unlink(missing_ok=True)
+        attachment.update(local_filename=None, error=str(error))
+        return "failed"
+    attachment["local_filename"] = destination.name
+    return "downloaded"
+
+
 def discover_coordinates(ticket_id: str, known: dict) -> dict:
     """An id names no project; the work item does, and asking an organization-level URL needs none."""
     item = get_json(
         f"https://dev.azure.com/{known['organization']}/_apis/wit/workItems/{ticket_id}",
         ["fields=System.TeamProject"],
     )
-    return {"organization": known["organization"], "project": item["fields"]["System.TeamProject"]}
+    return {
+        "organization": known["organization"],
+        "project": item["fields"]["System.TeamProject"],
+    }
 
 
 def fetch(ticket_id: str, coordinates: dict, raw_dir: Path) -> dict:
@@ -157,12 +251,13 @@ def fetch(ticket_id: str, coordinates: dict, raw_dir: Path) -> dict:
     work_item = get_json(
         f"{organization_url}/_apis/wit/workItems/{ticket_id}", ["$expand=all"]
     )
-    comments = get_json(
-        f"{organization_url}/{quote(project, safe='')}/_apis/wit/workItems/{ticket_id}/comments",
-        api_version=COMMENTS_API_VERSION,
-    )["comments"]
+    comments = all_comments(organization_url, project, ticket_id)
 
     relations = group_relations(organization_url, work_item.get("relations") or [])
+
+    attachments = find_attachments(work_item, comments)
+    raw_dir.mkdir(parents=True, exist_ok=True)
+    outcomes = [download(attachment, raw_dir) for attachment in attachments]
 
     raw = {
         "meta": {
@@ -173,8 +268,8 @@ def fetch(ticket_id: str, coordinates: dict, raw_dir: Path) -> dict:
         "work_item": work_item,
         "comments": comments,
         "relations": relations,
+        "attachments": attachments,
     }
-    raw_dir.mkdir(parents=True, exist_ok=True)
     (raw_dir / "raw.json").write_text(
         json.dumps(raw, indent=2, ensure_ascii=False), encoding="utf-8"
     )
@@ -189,6 +284,16 @@ def fetch(ticket_id: str, coordinates: dict, raw_dir: Path) -> dict:
         "report": {
             "raw_json": str(raw_dir / "raw.json"),
             "comments": len(comments),
+            "attachments": {
+                "found": len(attachments),
+                "downloaded": outcomes.count("downloaded"),
+                "kept": outcomes.count("kept"),
+                "failed": [
+                    {"url": a["url"], "error": a["error"]}
+                    for a in attachments
+                    if a.get("error")
+                ],
+            },
             "relations": {
                 label: (len(found) if isinstance(found, list) else found is not None)
                 for label, found in relations.items()

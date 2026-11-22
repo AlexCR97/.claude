@@ -117,7 +117,9 @@ def test_a_fetch_records_what_the_source_determines_and_invents_no_type(
     assert record["id"] == "1234"
     assert record["title"] == "Cache the ledger lookup"
     assert record["state"] == "Active"
-    assert record["url"] == "https://dev.azure.com/acme/billing-app/_workitems/edit/1234"
+    assert (
+        record["url"] == "https://dev.azure.com/acme/billing-app/_workitems/edit/1234"
+    )
     assert record["coordinates"] == {"organization": "acme", "project": "billing-app"}
     assert record["fingerprint"] == {"rev": 7}
     assert record["last_fetched_at"].endswith("+00:00")
@@ -135,12 +137,19 @@ def test_the_url_of_a_project_with_a_space_in_its_name_is_encoded(
     stub_work_item(project="Billing App")
 
     result = run_cli(
-        "fetch", "ado:1234", "--coordinate", "organization=acme", "--coordinate", "project=Billing App"
+        "fetch",
+        "ado:1234",
+        "--coordinate",
+        "organization=acme",
+        "--coordinate",
+        "project=Billing App",
     )
 
     assert result.code == 0, result.err
     record = read(sdlc_home, f"{TICKET}/ticket.json")
-    assert record["url"] == "https://dev.azure.com/acme/Billing%20App/_workitems/edit/1234"
+    assert (
+        record["url"] == "https://dev.azure.com/acme/Billing%20App/_workitems/edit/1234"
+    )
 
 
 @pytest.fixture
@@ -361,3 +370,188 @@ def test_a_work_item_without_relations_has_no_parent_and_empty_lists(
     relations = read(sdlc_home, f"{TICKET}/raw/raw.json")["relations"]
     assert relations["parent"] is None
     assert relations["children"] == relations["related"] == []
+
+
+def test_comments_are_read_page_by_page_until_none_is_left(
+    run_cli, bound, stub_work_item, az_stub, sdlc_home
+):
+    base = stub_work_item(comments=[{"id": 1, "text": "first"}])
+    comments = f"{base}/billing-app/_apis/wit/workItems/1234/comments"
+    az_stub.respond(
+        comments, {"comments": [{"id": 1, "text": "first"}], "continuationToken": "abc"}
+    )
+    az_stub.respond(
+        f"{comments}?continuationToken=abc", {"comments": [{"id": 2, "text": "second"}]}
+    )
+
+    result = run_cli("fetch", "ado:1234", *BOTH)
+
+    assert result.code == 0, result.err
+    raw = read(sdlc_home, f"{TICKET}/raw/raw.json")
+    assert [comment["text"] for comment in raw["comments"]] == ["first", "second"]
+
+
+GUID_FILE = "11111111-aaaa-4aaa-8aaa-111111111111"
+GUID_PASTED = "22222222-bbbb-4bbb-8bbb-222222222222"
+GUID_COMMENT = "33333333-cccc-4ccc-8ccc-333333333333"
+ATTACHMENTS = "https://dev.azure.com/acme/0f1e2d3c-project/_apis/wit/attachments"
+
+
+@pytest.fixture
+def with_attachments(stub_work_item, az_stub):
+    """A work item holding an attached file, an image pasted into the description and one in a comment."""
+    az_stub.respond_bytes(f"{ATTACHMENTS}/{GUID_FILE}", b"PK\x03\x04archive")
+    az_stub.respond_bytes(f"{ATTACHMENTS}/{GUID_PASTED}", b"\x89PNGpasted")
+    az_stub.respond_bytes(f"{ATTACHMENTS}/{GUID_COMMENT}", b"\x89PNGcomment")
+    stub_work_item(
+        fields={
+            "System.Description": f'<img src="{ATTACHMENTS}/{GUID_PASTED}?fileName=image.png">'
+        },
+        relations=[
+            {
+                "rel": "AttachedFile",
+                "url": f"{ATTACHMENTS}/{GUID_FILE}",
+                "attributes": {"name": "ledger-export.zip"},
+            }
+        ],
+        comments=[
+            {
+                "id": 9,
+                "text": f'<div><img src="{ATTACHMENTS}/{GUID_COMMENT}?fileName=image.png"></div>',
+            }
+        ],
+    )
+
+
+def test_every_attachment_reference_is_recorded_and_downloaded_under_its_guid(
+    run_cli, bound, with_attachments, sdlc_home
+):
+    result = run_cli("fetch", "ado:1234", *BOTH)
+
+    assert result.code == 0, result.err
+    raw = read(sdlc_home, f"{TICKET}/raw/raw.json")
+    recorded = {
+        item["url"].rsplit("/", 1)[-1].split("?")[0]: item
+        for item in raw["attachments"]
+    }
+    assert set(recorded) == {GUID_FILE, GUID_PASTED, GUID_COMMENT}
+    assert recorded[GUID_FILE]["name"] == "ledger-export.zip"
+    assert recorded[GUID_FILE]["local_filename"] == f"{GUID_FILE}.zip"
+    assert recorded[GUID_PASTED]["name"] == "image.png"
+    assert recorded[GUID_PASTED]["found_in"] == "field:System.Description"
+    assert recorded[GUID_COMMENT]["found_in"] == "comment:9"
+    raw_dir = sdlc_home / TICKET / "raw"
+    assert (raw_dir / f"{GUID_FILE}.zip").read_bytes() == b"PK\x03\x04archive"
+    assert (raw_dir / f"{GUID_PASTED}.png").read_bytes() == b"\x89PNGpasted"
+    assert result.json["fetched"]["attachments"] == {
+        "found": 3,
+        "downloaded": 3,
+        "kept": 0,
+        "failed": [],
+    }
+
+
+def test_an_attachment_that_cannot_be_downloaded_is_recorded_and_reported_not_fatal(
+    run_cli, bound, with_attachments, az_stub, sdlc_home
+):
+    az_stub.fail(f"{ATTACHMENTS}/{GUID_PASTED}", "Forbidden")
+
+    result = run_cli("fetch", "ado:1234", *BOTH)
+
+    assert result.code == 0, result.err
+    report = result.json["fetched"]["attachments"]
+    assert report["downloaded"] == 2
+    assert [item["url"].rsplit("?")[0] for item in report["failed"]] == [
+        f"{ATTACHMENTS}/{GUID_PASTED}"
+    ]
+    assert "Forbidden" in report["failed"][0]["error"]
+    raw = read(sdlc_home, f"{TICKET}/raw/raw.json")
+    pasted = next(a for a in raw["attachments"] if GUID_PASTED in a["url"])
+    assert pasted["local_filename"] is None
+    assert not (sdlc_home / TICKET / "raw" / f"{GUID_PASTED}.png").exists()
+
+
+def test_a_refresh_keeps_the_files_it_already_downloaded_and_fetches_only_new_ones(
+    run_cli, bound, with_attachments, az_stub, sdlc_home
+):
+    run_cli("fetch", "ado:1234", *BOTH)
+    kept = sdlc_home / TICKET / "raw" / f"{GUID_FILE}.zip"
+    kept.write_bytes(b"edited by hand")
+    downloads_before = sum(GUID_FILE in " ".join(call) for call in az_stub.calls)
+
+    result = run_cli("fetch", "ado:1234", *BOTH)
+
+    assert result.code == 0, result.err
+    assert kept.read_bytes() == b"edited by hand"
+    assert (
+        sum(GUID_FILE in " ".join(call) for call in az_stub.calls) == downloads_before
+    )
+    assert result.json["fetched"]["attachments"]["kept"] == 3
+    assert result.json["fetched"]["attachments"]["downloaded"] == 0
+
+
+def test_only_az_rest_is_ever_run_and_no_credential_is_passed_to_it(
+    run_cli, bound, with_attachments, az_stub
+):
+    run_cli("fetch", "ado:1234", *BOTH)
+
+    assert az_stub.calls
+    for call in az_stub.calls:
+        assert call[0] == "rest"
+        assert "--headers" not in call
+        assert "--access-token" not in call
+
+
+def test_a_rejected_sign_in_aborts_with_nothing_written_and_says_how_to_sign_in(
+    run_cli, bound, stub_work_item, az_stub, sdlc_home
+):
+    base = stub_work_item()
+    az_stub.fail(
+        f"{base}/_apis/wit/workItems/1234?$expand=all",
+        "AADSTS700082: The refresh token has expired. Run az login.",
+    )
+
+    result = run_cli("fetch", "ado:1234", *BOTH)
+
+    assert result.code == 1
+    assert (
+        "az login --scope 499b84ac-1321-427f-aa17-267ca6975798/.default" in result.err
+    )
+    assert not list(sdlc_home.glob("**/ado"))
+
+
+def test_a_work_item_that_does_not_exist_exits_not_found_with_nothing_written(
+    run_cli, bound, stub_work_item, az_stub, sdlc_home
+):
+    base = stub_work_item()
+    az_stub.fail(
+        f"{base}/_apis/wit/workItems/1234?fields=System.TeamProject",
+        'Not Found({"message":"TF401232: Work item 1234 does not exist, or you do not have permissions to read it."})',
+    )
+
+    result = run_cli("fetch", "ado:1234")
+
+    assert result.code == 5
+    assert "1234" in result.err
+    assert not list(sdlc_home.glob("**/ado"))
+
+
+@pytest.mark.parametrize("failing", ["comments", "related"])
+def test_a_failed_request_for_a_part_of_the_mirror_aborts_instead_of_writing_a_partial_one(
+    run_cli, bound, stub_work_item, az_stub, sdlc_home, failing
+):
+    base = stub_work_item(
+        relations=[link("System.LinkTypes.Related", 1400)],
+        related={1400: ("Audit export", "Active", "Bug")},
+    )
+    route = {
+        "comments": f"{base}/billing-app/_apis/wit/workItems/1234/comments",
+        "related": f"{base}/_apis/wit/workitems?errorPolicy=Omit"
+        "&fields=System.Title,System.State,System.WorkItemType&ids=1400",
+    }[failing]
+    az_stub.fail(route, "Service Unavailable")
+
+    result = run_cli("fetch", "ado:1234", *BOTH)
+
+    assert result.code == 1
+    assert not list(sdlc_home.glob("**/ado"))
