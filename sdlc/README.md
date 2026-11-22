@@ -93,9 +93,9 @@ Everything lives under the SDLC home, `~/.sdlc` or `$SDLC_HOME`:
 | `sdlc.json` | the home | `default_namespace`, `default_source`, `scan_roots`, `protected_branches`, `sensitive`, `worktree_root` |
 | `{namespace}/namespace.json` | a namespace | the same keys (`default_product` instead of `default_namespace`), and the namespace-level source coordinates |
 | `{namespace}/{product}/product.json` | a product | the same keys and the product-level source coordinates |
-| `…/{id}/ticket.json` | a ticket | its source, id, title, type, `fingerprint` (the revision marker) and, for an adopted file, `origin` |
+| `…/{id}/ticket.json` | a ticket | its record, keyed as [shared/store.md](shared/store.md) lists |
 
-The inner level wins. [GLOSSARY.md](GLOSSARY.md) defines the terms, [shared/conventions.md](shared/conventions.md) the filing, mirror and path rules, and `/sdlc:setup` the keys. Specific formats sit beside it in [shared/](shared/): [plan.md](shared/plan.md), [journal.md](shared/journal.md), [artifacts.md](shared/artifacts.md), [guard.md](shared/guard.md), [tdd.md](shared/tdd.md) and [types.md](shared/types.md).
+The inner level wins. [GLOSSARY.md](GLOSSARY.md) defines the terms, [shared/conventions.md](shared/conventions.md) the filing, mirror and path rules, and `/sdlc:setup` the keys. Specific formats sit beside it in [shared/](shared/): [store.md](shared/store.md) (the layout and `ticket.json`), [plan.md](shared/plan.md), [journal.md](shared/journal.md), [artifacts.md](shared/artifacts.md), [guard.md](shared/guard.md), [tdd.md](shared/tdd.md) and [types.md](shared/types.md).
 
 ## Scripts
 

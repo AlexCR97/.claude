@@ -8,6 +8,7 @@ The rules the terms in [`GLOSSARY.md`](../GLOSSARY.md) carry. The glossary says 
 - **Namespace and product names are lowercase slugs.** `default` is reserved for the fallback products, and a name starting with `.` is never a namespace or a product. A provider's own spelling, such as `Billing.App`, belongs in a binding, never in a directory name.
 - **Two products are never bound to the same coordinates**, or a pasted address could be filed in two places. A fallback product is never bound at all: it holds what no binding fits.
 - **The default product and the session context never file a ticket against its coordinates, and the default product never decides which existing ticket a reference means.** A wrong filing is visible and fixed by renaming the ticket directory; a wrong resolution attaches a session's work to the wrong ticket.
+- **The session context never moves a ticket already filed.** It only prefers: which ticket a reference means, and where a new ticket goes.
 - **A reference stored in a ticket is short within its own product and qualified across products**, because it is resolved from its own ticket's product first.
 
 ## Mirrors and local tickets

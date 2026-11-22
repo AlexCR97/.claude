@@ -29,7 +29,7 @@ The namespace a new ticket is filed under when neither the ticket nor the sessio
 The product a namespace files a new ticket under when nothing else decides: the one its `namespace.json` names in `default_product`, else its fallback product.
 
 **Session context**:
-The namespace, and optionally the product, a conversation chose with `/sdlc:setup`. It decides which ticket a reference means first and where a new ticket is filed; it changes nothing about a ticket already filed.
+The namespace, and optionally the product, a conversation chose with `/sdlc:setup`. It decides which ticket a reference means first and where a new ticket is filed.
 _Avoid_: Context (on its own), ticket-context
 
 **Source**:
@@ -57,7 +57,7 @@ Choosing the product a ticket not yet on disk is placed under: first which produ
 _Avoid_: Routing, moving, ticket-move
 
 **Ticket directory**:
-One ticket's directory, at `{namespace}/{product}/{source}/{id}` in the SDLC home: `ticket.json`, `plan.md`, `journal/`, `pulls.md`, `raw/` and `artifacts/`.
+One ticket's directory, at `{namespace}/{product}/{source}/{id}` in the SDLC home: `ticket.json`, `plan.md`, `journal/`, `pulls.md`, `raw/` and `artifacts/`. Its layout is in `shared/store.md`.
 _Avoid_: Ticket folder
 
 **Qualified reference**:
@@ -86,7 +86,7 @@ The non-authoritative, refreshable cache of a remote ticket in its `raw/` direct
 _Avoid_: Digest, snapshot, copy, ticket-fetch
 
 **Revision**:
-The marker a source gives for a ticket's current state, such as an Azure DevOps revision number or, where a source has none, a hash of its content. It is recorded when the ticket is mirrored, in `ticket.json` under the key `fingerprint`, and compared with the live one to learn that the ticket changed.
+The marker a source gives for a ticket's current state, such as an Azure DevOps revision number or, where a source has none, a hash of its content. It is recorded when the ticket is mirrored and compared with the live one to learn that the ticket changed.
 _Avoid_: Version, drift
 
 **Intake**:
@@ -240,6 +240,3 @@ _Avoid_: PR list
 **Checkpoint**:
 The act of recording a session on a ticket: writing a new journal entry, correcting the plan's stale step statuses and refreshing the pull request record. Run by `/sdlc:checkpoint`.
 _Avoid_: Save, snapshot
-
-**Canonical URL**:
-A ticket's address in its source's preferred form. A ticket pasted under another form of its address is recorded under this one.

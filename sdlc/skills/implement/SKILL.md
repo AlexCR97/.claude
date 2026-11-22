@@ -34,7 +34,7 @@ Carry out the phases of the plan of the ticket `$ARGUMENTS` names. Run scripts a
 
 ## Completion rule of the type
 
-Apply `types.md` both ways, and report what it requires for the type first. Two inversions are gates: a `spike` that changes no source file succeeded, and a `tech-debt` run whose tests had to be edited **failed**: stop, report each edited assertion and do not fix it to pass.
+Apply `types.md` both ways, and report what it requires for the type first. Two inversions are gates: a `spike` that changes no source file succeeded, and a `tech-debt` run in which an existing test's assertion had to change **failed**: stop, report each such assertion and do not fix it to pass. A purely mechanical edit (rename, namespace, constructor signature) is allowed and listed one by one.
 
 ## Report
 
