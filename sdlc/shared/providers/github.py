@@ -67,13 +67,15 @@ SIGNATURES = (
 
 def is_attachment(url: str) -> bool:
     parsed = urlparse(url)
+    # `gh api` signs a request for the host it is given, so the host must be one
+    # of GitHub's own, compared exactly and with no userinfo or port.
+    if parsed.scheme != "https" or parsed.netloc != parsed.hostname:
+        return False
     if parsed.hostname == "github.com":
         return parsed.path.startswith("/user-attachments/") or bool(
             re.match(r"/[^/]+/[^/]+/files/\d+/", parsed.path)
         )
-    return bool(parsed.hostname) and parsed.hostname.endswith(
-        "user-images.githubusercontent.com"
-    )
+    return parsed.hostname == "user-images.githubusercontent.com"
 
 
 def find_attachments(texts: list[tuple[str, str | None]]) -> list[dict]:

@@ -484,3 +484,27 @@ def test_a_local_ticket_has_no_upstream_to_fetch(run_cli, make_ticket):
 
     assert result.code == 1
     assert "no upstream" in result.err
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://evil.example/user-attachments/assets/" + UUID,
+        "https://github.com.evil.example/user-attachments/assets/" + UUID,
+        "https://github.com@evil.example/user-attachments/assets/" + UUID,
+        "https://github.com:8443/user-attachments/assets/" + UUID,
+        "http://github.com/user-attachments/assets/" + UUID,
+        "https://xuser-images.githubusercontent.com/1/pic.png",
+        "https://user-images.githubusercontent.com.evil.example/1/pic.png",
+    ],
+)
+def test_a_url_that_is_not_githubs_own_upload_host_is_no_attachment_and_never_sent_to_gh(
+    run_cli, bound, stub_issue, gh_stub, sdlc_home, url
+):
+    stub_issue(comments=[{"id": 5, "body": f"Look: {url}"}])
+
+    result = run_cli("fetch", "github:1234")
+
+    assert result.code == 0, result.err
+    assert read(sdlc_home, f"{TICKET}/raw/raw.json")["attachments"] == []
+    assert not any(url in call for call in gh_stub.calls)

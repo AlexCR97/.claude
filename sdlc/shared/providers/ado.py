@@ -172,20 +172,50 @@ def attachment_guid(url: str) -> str:
     return urlparse(url).path.rstrip("/").rsplit("/", 1)[-1]
 
 
-def find_attachments(work_item: dict, comments: list[dict]) -> list[dict]:
+def belongs_to_organization(url: str, organization: str) -> bool:
+    """
+    Whether `url` is on the ticket's own organization, the only place `az rest` may be sent.
+
+    `az rest --resource` attaches a bearer token to whatever URL it is given,
+    and these URLs come from work item text and comments that anyone with
+    access can write. The host is compared exactly after parsing: a prefix or
+    a substring test is fooled by `dev.azure.com.evil.example` and by
+    `dev.azure.com@evil.example`.
+    """
+    parsed = urlparse(url)
+    if parsed.scheme != "https" or parsed.netloc != parsed.hostname:
+        return False
+    if parsed.hostname == "dev.azure.com":
+        first_segment = parsed.path.lstrip("/").partition("/")[0]
+        return first_segment.casefold() == organization.casefold()
+    return parsed.hostname == f"{organization.casefold()}.visualstudio.com"
+
+
+def find_attachments(
+    work_item: dict, comments: list[dict], organization: str
+) -> list[dict]:
     """
     Every attachment the work item references, once per attachment id.
 
     A pasted image is embedded in a field or comment and is not an
     `AttachedFile` relation, so the text is scanned as well. A relation and
     an embed carry different URLs for one file, hence the id, not the URL.
+    A URL outside the organization is recorded with the reason it is not
+    downloaded; keyed by the URL, it cannot displace a genuine attachment
+    that happens to share its id.
     """
     found: dict[str, dict] = {}
 
     def record(url: str, name: str, found_in: str) -> None:
-        found.setdefault(
-            attachment_guid(url), {"url": url, "name": name, "found_in": found_in}
-        )
+        attachment = {"url": url, "name": name, "found_in": found_in}
+        key = attachment_guid(url)
+        if not belongs_to_organization(url, organization):
+            attachment.update(
+                local_filename=None,
+                error=f"not downloaded: the URL is not on the ticket's organization '{organization}'",
+            )
+            key = url
+        found.setdefault(key, attachment)
 
     for relation in work_item.get("relations") or []:
         if relation["rel"] == "AttachedFile":
@@ -212,6 +242,8 @@ def find_attachments(work_item: dict, comments: list[dict]) -> list[dict]:
 
 def download(attachment: dict, raw_dir: Path) -> str:
     """Returns "kept", "downloaded" or "failed", recording the file name or the error on the attachment."""
+    if attachment.get("error"):
+        return "failed"
     guid = attachment_guid(attachment["url"])
     # ADO names every pasted screenshot `image.png`, so the id names the file;
     # being deterministic, it is also how a refresh recognises what it already holds.
@@ -264,7 +296,7 @@ def fetch(ticket_id: str, coordinates: dict, raw_dir: Path) -> dict:
 
     relations = group_relations(organization_url, work_item.get("relations") or [])
 
-    attachments = find_attachments(work_item, comments)
+    attachments = find_attachments(work_item, comments, organization)
     raw_dir.mkdir(parents=True, exist_ok=True)
     outcomes = [download(attachment, raw_dir) for attachment in attachments]
 

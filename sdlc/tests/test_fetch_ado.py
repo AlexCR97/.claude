@@ -556,3 +556,94 @@ def test_a_failed_request_for_a_part_of_the_mirror_aborts_instead_of_writing_a_p
 
     assert result.code == 1
     assert not list(sdlc_home.glob("**/ado"))
+
+
+FOREIGN_ATTACHMENTS = [
+    pytest.param(
+        f"https://evil.example/_apis/wit/attachments/{GUID_COMMENT}", id="foreign-host"
+    ),
+    pytest.param(
+        f"http://dev.azure.com/acme/p/_apis/wit/attachments/{GUID_COMMENT}",
+        id="plain-http",
+    ),
+    pytest.param(
+        f"https://dev.azure.com.evil.example/acme/_apis/wit/attachments/{GUID_COMMENT}",
+        id="look-alike-host",
+    ),
+    pytest.param(
+        f"https://dev.azure.com@evil.example/acme/_apis/wit/attachments/{GUID_COMMENT}",
+        id="userinfo-trick",
+    ),
+    pytest.param(
+        f"https://dev.azure.com:8443/acme/_apis/wit/attachments/{GUID_COMMENT}",
+        id="other-port",
+    ),
+    pytest.param(
+        f"https://evil.example/dev.azure.com/acme/_apis/wit/attachments/{GUID_COMMENT}",
+        id="trusted-name-in-the-path",
+    ),
+    pytest.param(
+        f"https://dev.azure.com/globex/p/_apis/wit/attachments/{GUID_COMMENT}",
+        id="another-organization",
+    ),
+    pytest.param(
+        f"https://acme.visualstudio.com.evil.example/p/_apis/wit/attachments/{GUID_COMMENT}",
+        id="look-alike-legacy-host",
+    ),
+]
+
+
+@pytest.mark.parametrize("url", FOREIGN_ATTACHMENTS)
+def test_an_attachment_url_outside_the_tickets_organization_is_recorded_and_never_sent_to_az(
+    run_cli, bound, stub_work_item, az_stub, sdlc_home, url
+):
+    stub_work_item(comments=[{"id": 9, "text": f'<img src="{url}">'}])
+
+    result = run_cli("fetch", "ado:1234", *BOTH)
+
+    assert result.code == 0, result.err
+    assert not any(GUID_COMMENT in " ".join(call) for call in az_stub.calls)
+    attachment = read(sdlc_home, f"{TICKET}/raw/raw.json")["attachments"][0]
+    assert attachment["url"] == url
+    assert attachment["local_filename"] is None
+    report = result.json["fetched"]["attachments"]
+    assert report["downloaded"] == 0
+    assert [item["url"] for item in report["failed"]] == [url]
+    assert "organization" in report["failed"][0]["error"]
+
+
+def test_a_foreign_url_does_not_displace_the_organizations_own_attachment_with_the_same_id(
+    run_cli, bound, stub_work_item, az_stub, sdlc_home
+):
+    foreign = f"https://evil.example/_apis/wit/attachments/{GUID_FILE}"
+    az_stub.respond_bytes(f"{ATTACHMENTS}/{GUID_FILE}", b"PK\x03\x04archive")
+    stub_work_item(
+        comments=[{"id": 9, "text": f'<img src="{foreign}">'}],
+        relations=[
+            {
+                "rel": "AttachedFile",
+                "url": f"{ATTACHMENTS}/{GUID_FILE}",
+                "attributes": {"name": "ledger-export.zip"},
+            }
+        ],
+    )
+
+    result = run_cli("fetch", "ado:1234", *BOTH)
+
+    assert result.code == 0, result.err
+    assert (sdlc_home / TICKET / "raw" / f"{GUID_FILE}.zip").is_file()
+    assert not any("evil.example" in " ".join(call) for call in az_stub.calls)
+
+
+def test_an_attachment_on_the_legacy_host_of_the_organization_is_downloaded(
+    run_cli, bound, stub_work_item, az_stub, sdlc_home
+):
+    url = f"https://acme.visualstudio.com/p/_apis/wit/attachments/{GUID_COMMENT}"
+    az_stub.respond_bytes(url, b"\x89PNGlegacy")
+    stub_work_item(comments=[{"id": 9, "text": f'<img src="{url}">'}])
+
+    result = run_cli("fetch", "ado:1234", *BOTH)
+
+    assert result.code == 0, result.err
+    assert result.json["fetched"]["attachments"]["downloaded"] == 1
+    assert (sdlc_home / TICKET / "raw" / f"{GUID_COMMENT}").is_file()
