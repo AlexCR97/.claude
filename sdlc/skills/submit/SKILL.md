@@ -1,6 +1,6 @@
 ---
 name: submit
-description: Create one ticket upstream, a GitHub issue or an Azure DevOps work item, or edit one (title, description, acceptance criteria, state, labels or tags), after showing exactly what will be written and getting an explicit yes. Accepts the to-spec and to-tickets Markdown as a body.
+description: Creates one ticket upstream, a GitHub issue or an Azure DevOps work item, or edits one (title, description, acceptance criteria, state, labels or tags), after showing exactly what will be written and getting an explicit yes. Accepts the to-spec and to-tickets Markdown as a body.
 disable-model-invocation: true
 argument-hint: "[<ticket reference>] [what to create or change]"
 ---
@@ -22,7 +22,7 @@ Write one ticket to its source, from `$ARGUMENTS` and the conversation. Run scri
 3. Build the change from the mirror (`raw/raw.json`). Where a field is one combined value (labels, tags, a body holding several sections), build its new value from the whole of its current one, so nothing unnamed is lost. Never invent text; ask for it.
 4. Show a before and after of every field that changes, exactly as it will be written. Nothing would change: say so and stop.
 5. Ask for a yes. Anything else (silence, "maybe", a question) is not one; on a no, send nothing.
-6. After the yes run the revision check again, since time has passed, then write as the provider notes say. On Azure DevOps the patch opens with the `test /rev` guard.
+6. After the yes run the revision check again, since time has passed; any result but `unchanged` stops the write as in step 2. Otherwise write as the provider notes say. On Azure DevOps the patch opens with the `test /rev` guard.
 7. **Fetch it back**: `fetch <reference>` so the mirror is what is now upstream. Say what each field now holds against what was confirmed. The plan, if there is one, was built from the old content: say so.
 
 ## Create
