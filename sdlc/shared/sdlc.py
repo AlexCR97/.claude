@@ -5,6 +5,7 @@ The command every sdlc skill invokes, so a skill's instructions name one command
 Usage:
     python sdlc.py resolve [<ref>] [--new --title "..."] [--context namespace[/product]]
                            [--coordinate name=value ...]
+    python sdlc.py effect <script> [--context namespace[/product]]
 
 Exit codes:
     0  ok
@@ -25,7 +26,8 @@ for stream in (sys.stdout, sys.stderr):
     if callable(reconfigure):
         reconfigure(encoding="utf-8", errors="replace")
 
-from sdlclib import resolve
+from sdlclib import config as configuration
+from sdlclib import effect, layout, resolve
 from sdlclib.errors import EXIT_OK, SdlcError
 
 
@@ -39,6 +41,22 @@ def verb_resolve(args: argparse.Namespace) -> int:
             args.ref, args.new, args.title, args.context, args.coordinate, Path.cwd()
         )
     )
+    return EXIT_OK
+
+
+def verb_effect(args: argparse.Namespace) -> int:
+    script = Path(args.script).expanduser()
+    if not script.is_file():
+        raise SdlcError(f"script not found: {script}")
+    config = configuration.load()
+    context = layout.parse_scope(args.context) if args.context else None
+    effective = config.effective(
+        context.namespace if context else config.default_namespace(),
+        context.product if context else None,
+    )
+    report = effect.check(script, effective.get("sensitive", [])).as_dict()
+    report["file"] = str(script)
+    emit(report)
     return EXIT_OK
 
 
@@ -68,6 +86,16 @@ def build_parser() -> argparse.ArgumentParser:
         help="where the ticket lives upstream, once per coordinate",
     )
     resolving.set_defaults(handler=verb_resolve)
+
+    effecting = verbs.add_parser(
+        "effect", help="report whether a script may run without asking"
+    )
+    effecting.add_argument("script")
+    effecting.add_argument(
+        "--context",
+        help="the ticket's namespace[/product], whose `sensitive` targets apply",
+    )
+    effecting.set_defaults(handler=verb_effect)
     return parser
 
 

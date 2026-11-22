@@ -25,7 +25,7 @@ from . import layout, paths, providers
 from .errors import SdlcError
 from .layout import Product
 
-SHARED_KEYS = {"default_source", "scan_roots", "protected_branches"}
+SHARED_KEYS = {"default_source", "scan_roots", "protected_branches", "sensitive"}
 
 # A key describing a level's relationship to what is inside it belongs to that
 # level alone: a product inheriting `default_product` would name a product that
@@ -74,7 +74,7 @@ def check_value(path: Path, level: str, key: str, value: object) -> None:
         if not isinstance(value, str) or value not in providers.list_sources():
             sources = ", ".join(providers.list_sources())
             raise invalid(path, f"'default_source' must be one of: {sources}")
-    elif key in ("scan_roots", "protected_branches"):
+    elif key in ("scan_roots", "protected_branches", "sensitive"):
         if not isinstance(value, list) or not all(
             isinstance(item, str) and item.strip() for item in value
         ):

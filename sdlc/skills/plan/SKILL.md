@@ -21,7 +21,7 @@ Plan the ticket `$ARGUMENTS` names. Run scripts as `python "${CLAUDE_PLUGIN_ROOT
 3. **A ticket that has a plan** goes to the re-run below instead of the next steps, unless the user asked for a new plan.
 4. **Discover the workspace**: repositories, their worktrees, plain directories and projects. Start from the effective config's `scan_roots` (reported by `resolve`), the directories the user gave and the invocation directory, as `conventions.md` says. Never include the SDLC home or any ticket directory. Follow evidence, not proximity, to related repositories (submodules, relative project references). Where there is nowhere to look, ask. List only the worktrees the work happens in. Note a listed worktree whose branch is protected, as a prerequisite: `implement` will not edit there.
 5. **Show the workspace and confirm it once** with the user, who can add, drop or correct. Nothing is planned before the yes.
-6. **Research by reading.** Read the files the plan will name, fully enough to name them correctly; never invent a file, class or command. What reading cannot settle, ask the user, or write as an assumption in the step that rests on it.
+6. **Research by reading.** Read the files the plan will name, fully enough to name them correctly; never invent a file, class or command. What reading cannot settle, ask the user, or write as an assumption in the step that rests on it. When a fact the plan's shape depends on can be learned by running something, write a small probe script under `artifacts/planning/` with the header and run it only as `${CLAUDE_PLUGIN_ROOT}/shared/artifacts.md` says. Record what each probe found in `artifacts/planning/README.md`, and cite it on the **Artifacts:** line of every step that rests on it.
 7. **Write `plan.md`** from the template, with the phase shape the type calls for, and absolute paths in the Workspace section. Say where it is and show its Progress table.
 
 ## Re-run on a ticket with a plan
@@ -30,9 +30,10 @@ Do not regenerate it. Show the Progress table and every `In Progress` or `Blocke
 
 ## Invariants
 
-- The skill writes `plan.md` (and a missing `type` in `ticket.json`), nothing else. It writes no source code and changes nothing in the workspace.
+- The skill writes `plan.md` (and a missing `type` in `ticket.json`) and the probes and their captures under `artifacts/planning/`, nothing else. It writes no source code and changes nothing in the workspace.
 - Git is used for reads only: no fetch, checkout, branch, worktree, commit or push, and nothing is ever written to a protected branch.
-- Test-first phases and probe scripts are not planned yet: use the Development and Testing activities and ask where a fact needs running to learn.
+- Test-first phases are not planned yet: use the Development and Testing activities.
+- A probe is never run unless `effect` says it may run unasked; any other waits for the user's approval of that run. Nothing that writes to an external system is run at all.
 - Statuses are honest, as `plan.md` defines. A new plan holds `Pending` only.
 - The ticket's content is read from the ticket, never copied into the plan.
 - Do not read or write the journal.
