@@ -1,6 +1,6 @@
 ---
 name: document
-description: Update a project's own README for what a phase or a set of paths changed, touching only the sections the change affects, with the code as the source of truth. Writes only after the offer from implement or an explicit invocation; never commits.
+description: Updates a project's own README for what a phase or a set of paths changed, touching only the sections the change affects, with the code as the source of truth. Writes only after the offer from implement or an explicit invocation; never commits.
 disable-model-invocation: true
 argument-hint: "[<ticket reference> <phase> | <paths or projects> | all]"
 ---
