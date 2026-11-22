@@ -13,11 +13,10 @@ A fast-forward is allowed here but not run here: the model runs
 
 import fnmatch
 import shutil
-import subprocess
 from pathlib import Path
 
 from . import config as configuration
-from . import resolve
+from . import process, resolve
 from .errors import SdlcError
 
 # Operations that only read, or that bring a protected branch up to its remote.
@@ -45,15 +44,7 @@ def git(repo: Path, *args: str) -> tuple[int, str]:
     executable = shutil.which("git")
     if not executable:
         raise SdlcError("git was not found on PATH")
-    result = subprocess.run(
-        [executable, *args],
-        cwd=repo,
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        timeout=60,
-        check=False,
-    )
+    result = process.run([executable, *args], cwd=repo, text=True)
     return result.returncode, (result.stdout or result.stderr).strip()
 
 

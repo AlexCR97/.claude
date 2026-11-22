@@ -7,11 +7,11 @@ import html
 import json
 import re
 import shutil
-import subprocess
 import tempfile
 from pathlib import Path
 from urllib.parse import parse_qs, quote, urlparse
 
+from sdlclib import process
 from sdlclib.errors import EXIT_NOT_FOUND, SdlcError
 
 AZ_HINT = "Install the Azure CLI and run `az login`, then try again."
@@ -49,7 +49,7 @@ def az_rest(url: str, params: list[str], api_version: str, output: Path) -> None
         *params,
         f"api-version={api_version}",
     ]
-    result = subprocess.run(command, capture_output=True, timeout=120, check=False)
+    result = process.run(command)
     if result.returncode != 0:
         detail = result.stderr.decode("utf-8", "replace").strip()
         if any(marker in detail for marker in SIGN_IN_MARKERS):
@@ -255,7 +255,7 @@ def download(attachment: dict, raw_dir: Path) -> str:
     try:
         # The query is dropped: an attachment is addressed by its id, and `fileName` only names it.
         az_rest(attachment["url"].partition("?")[0], [], API_VERSION, destination)
-    except (SdlcError, subprocess.TimeoutExpired) as error:
+    except SdlcError as error:
         destination.unlink(missing_ok=True)
         attachment.update(local_filename=None, error=str(error))
         return "failed"

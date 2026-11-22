@@ -647,3 +647,33 @@ def test_an_attachment_on_the_legacy_host_of_the_organization_is_downloaded(
     assert result.code == 0, result.err
     assert result.json["fetched"]["attachments"]["downloaded"] == 1
     assert (sdlc_home / TICKET / "raw" / f"{GUID_COMMENT}").is_file()
+
+
+def test_an_az_that_hangs_is_an_error_with_a_hint_not_a_traceback(
+    run_cli, bound, stub_work_item, az_stub, sdlc_home, monkeypatch
+):
+    monkeypatch.setenv("SDLC_CLI_TIMEOUT", "1")
+    base = stub_work_item()
+    az_stub.hang(f"{base}/_apis/wit/workItems/1234?$expand=all", 4)
+
+    result = run_cli("fetch", "ado:1234", *BOTH)
+
+    assert result.code == 1
+    assert "did not answer" in result.err
+    assert "HINT:" in result.err
+    assert "Traceback" not in result.err
+    assert not list(sdlc_home.glob("**/ado"))
+
+
+def test_an_attachment_download_that_hangs_is_reported_and_does_not_abort_the_fetch(
+    run_cli, bound, with_attachments, az_stub, monkeypatch
+):
+    monkeypatch.setenv("SDLC_CLI_TIMEOUT", "1")
+    az_stub.hang(f"{ATTACHMENTS}/{GUID_PASTED}", 4)
+
+    result = run_cli("fetch", "ado:1234", *BOTH)
+
+    assert result.code == 0, result.err
+    failed = result.json["fetched"]["attachments"]["failed"]
+    assert len(failed) == 1
+    assert "did not answer" in failed[0]["error"]

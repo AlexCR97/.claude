@@ -11,6 +11,7 @@ import subprocess
 from pathlib import Path
 from urllib.parse import unquote, urlparse
 
+from sdlclib import process
 from sdlclib.errors import EXIT_NOT_FOUND, SdlcError
 
 GH_HINT = "Install the GitHub CLI and run `gh auth login`, then try again."
@@ -20,9 +21,7 @@ def gh(args: list[str]) -> subprocess.CompletedProcess:
     executable = shutil.which("gh")
     if not executable:
         raise SdlcError("the GitHub CLI ('gh') was not found on PATH", hint=GH_HINT)
-    return subprocess.run(
-        [executable, *args], capture_output=True, timeout=120, check=False
-    )
+    return process.run([executable, *args])
 
 
 def require_auth() -> None:
@@ -121,7 +120,7 @@ def download(attachment: dict, raw_dir: Path) -> str:
 
     try:
         result = gh(["api", attachment["url"]])
-    except (SdlcError, subprocess.TimeoutExpired) as error:
+    except SdlcError as error:
         attachment.update(local_filename=None, error=str(error))
         return "failed"
     if result.returncode != 0 or not result.stdout:

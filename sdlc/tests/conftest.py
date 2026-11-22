@@ -74,7 +74,7 @@ def make_ticket(sdlc_home: Path):
 
 GH_STUB = textwrap.dedent(
     """
-    import base64, json, sys
+    import base64, json, sys, time
     from pathlib import Path
 
     here = Path(__file__).parent
@@ -114,6 +114,7 @@ GH_STUB = textwrap.dedent(
         counter.write_text(json.dumps(seen))
         route = route[min(index, len(route) - 1)]
 
+    time.sleep(route.get("sleep", 0))
     body = route.get("stdout", "")
     if "--slurp" in args and body:
         body = json.dumps([json.loads(body)])
@@ -160,6 +161,10 @@ class GhStub:
 
     def fail(self, path: str, message: str, code: int = 1) -> None:
         self.routes[path] = {"stderr": message, "code": code}
+        self.save()
+
+    def hang(self, path: str, seconds: float) -> None:
+        self.routes[path] = {"sleep": seconds}
         self.save()
 
     def fail_then_respond(self, path: str, message: str, payload: object) -> None:
@@ -223,7 +228,7 @@ def stub_issue(gh_stub: GhStub):
 
 AZ_STUB = textwrap.dedent(
     """
-    import base64, json, sys
+    import base64, json, sys, time
     from pathlib import Path
 
     here = Path(__file__).parent
@@ -252,6 +257,7 @@ AZ_STUB = textwrap.dedent(
     key = url + ("?" + "&".join(params) if params else "")
     route = routes.get(key, {"stderr": "stub has no route for " + key, "code": 1})
 
+    time.sleep(route.get("sleep", 0))
     if "stderr" in route:
         sys.stderr.write(route["stderr"])
     output = Path(values("--output-file")[0])
@@ -302,6 +308,10 @@ class AzStub:
 
     def fail(self, route: str, message: str, code: int = 1) -> None:
         self.routes[route] = {"stderr": message, "code": code}
+        self.save()
+
+    def hang(self, route: str, seconds: float) -> None:
+        self.routes[route] = {"sleep": seconds}
         self.save()
 
     @property

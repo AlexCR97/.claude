@@ -508,3 +508,37 @@ def test_a_url_that_is_not_githubs_own_upload_host_is_no_attachment_and_never_se
     assert result.code == 0, result.err
     assert read(sdlc_home, f"{TICKET}/raw/raw.json")["attachments"] == []
     assert not any(url in call for call in gh_stub.calls)
+
+
+@pytest.fixture
+def short_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("SDLC_CLI_TIMEOUT", "1")
+
+
+def test_a_gh_that_hangs_is_an_error_with_a_hint_not_a_traceback(
+    run_cli, bound, stub_issue, gh_stub, sdlc_home, short_timeout
+):
+    stub_issue()
+    gh_stub.hang("auth status", 4)
+
+    result = run_cli("fetch", "github:1234")
+
+    assert result.code == 1
+    assert "did not answer" in result.err
+    assert "HINT:" in result.err
+    assert "Traceback" not in result.err
+    assert not list(sdlc_home.glob("**/github"))
+
+
+def test_an_attachment_download_that_hangs_is_reported_and_does_not_abort_the_fetch(
+    run_cli, bound, with_attachments, gh_stub, sdlc_home, short_timeout
+):
+    with_attachments()
+    gh_stub.hang(IMAGE_URL, 4)
+
+    result = run_cli("fetch", "github:1234")
+
+    assert result.code == 0, result.err
+    failed = result.json["fetched"]["attachments"]["failed"]
+    assert [item["url"] for item in failed] == [IMAGE_URL]
+    assert "did not answer" in failed[0]["error"]
