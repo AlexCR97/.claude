@@ -209,6 +209,20 @@ A project that holds tests and a runner able to execute them against another pro
 **Test-setup phase**:
 A `Testing` phase that creates the test project a TDD phase needs, where none can exercise its code yet.
 
+### Research and running scripts
+
+**Artifact**:
+A file a run produces that is not a change to the workspace: a probe, its captured output, or a note of what was found. Kept under the ticket directory's `artifacts/`, as a record of how the ticket was investigated, never as a deliverable.
+_Avoid_: Output, attachment, deliverable
+
+**Probe**:
+A small script written to learn a fact by running it, such as how many rows a table holds, rather than by reading. Its output is an artifact.
+_Avoid_: Spike (that names a ticket type), experiment
+
+**Effect**:
+What a script does to the world: `read-only`, or `writes`. A script declares it in its header, and the `effect` verb checks the declaration against the code before the script may run without asking.
+_Avoid_: Side effect, permission
+
 ### Recording a session
 
 **Journal**:
