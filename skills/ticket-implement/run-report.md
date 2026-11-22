@@ -6,6 +6,10 @@ Done. Projects touched:
 
 <!-- Where the run changed no source file, replace the list above with the artifact paths and what they establish. Never report an empty project list. -->
 
+Tests:
+
+- {testProject} in {location} — {passed} passed, {failed} failed
+
 Decisions:
 
 - {stepId} — <!-- what was chosen, over what, and why -->
