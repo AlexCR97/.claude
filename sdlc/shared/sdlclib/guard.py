@@ -16,7 +16,7 @@ import shutil
 from pathlib import Path
 
 from . import config as configuration
-from . import process, resolve
+from . import layout, process
 from .errors import SdlcError
 
 # Operations that only read, or that bring a protected branch up to its remote.
@@ -103,7 +103,7 @@ def policy_for(
     repo = Path(repo_text).expanduser().resolve() if repo_text else Path.cwd()
     require_repository(repo)
 
-    context = resolve.parse_context(context_text)
+    context = layout.parse_context(context_text)
     effective = configuration.load().effective(
         context.namespace if context else None,
         context.product if context else None,

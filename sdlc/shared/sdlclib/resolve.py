@@ -278,14 +278,6 @@ def resolve_existing(
     )
 
 
-def parse_context(text: str | None) -> Scope | None:
-    if not text:
-        return None
-    context = layout.parse_scope(text)
-    layout.require_exists(context, "the session context")
-    return context
-
-
 def resolve(
     reference: str | None,
     new: bool,
@@ -296,7 +288,7 @@ def resolve(
 ) -> dict:
     config = configuration.load()
 
-    context = parse_context(context_text)
+    context = layout.parse_context(context_text)
 
     if new:
         if reference or not title or coordinate_arguments:

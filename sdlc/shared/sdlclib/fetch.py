@@ -139,7 +139,7 @@ def fetch(
     cwd: Path,
 ) -> dict:
     config = configuration.load()
-    context = resolve.parse_context(context_text)
+    context = layout.parse_context(context_text)
     found = resolve.locate_existing(
         config,
         resolve.parse_reference(reference_text),
@@ -192,7 +192,7 @@ def check(
     asking upstream.
     """
     config = configuration.load()
-    context = resolve.parse_context(context_text)
+    context = layout.parse_context(context_text)
     found = resolve.locate_existing(
         config,
         resolve.parse_reference(reference_text),

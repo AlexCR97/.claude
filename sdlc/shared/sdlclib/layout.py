@@ -127,6 +127,15 @@ def require_exists(scope: Scope, what: str) -> None:
         )
 
 
+def parse_context(text: str | None) -> Scope | None:
+    """The session context, which must name something on disk; None when none was given."""
+    if not text:
+        return None
+    context = parse_scope(text)
+    require_exists(context, "the session context")
+    return context
+
+
 def namespaces() -> list[str]:
     home = paths.sdlc_home()
     if not home.is_dir():

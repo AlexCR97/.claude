@@ -20,6 +20,10 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from . import config as configuration
+from . import layout
+from .errors import SdlcError
+
 # A header is read from the first lines only, so a stray comment deep in the file is not one.
 HEADER_LINES = 15
 
@@ -200,3 +204,19 @@ def check(path: Path, sensitive: list[str]) -> Verdict:
         reasons.append("it targets a sensitive pattern: " + ", ".join(hits))
 
     return Verdict(not reasons, effect, cost, reasons)
+
+
+def report(script: Path, context_text: str | None) -> dict:
+    """The verdict on a script under the config effective for the session context."""
+    if not script.is_file():
+        raise SdlcError(f"script not found: {script}")
+    config = configuration.load()
+    context = layout.parse_context(context_text)
+    effective = config.effective(
+        context.namespace if context else config.default_namespace(),
+        context.product if context else None,
+    )
+    return {
+        **check(script, effective.get("sensitive", [])).as_dict(),
+        "file": str(script),
+    }

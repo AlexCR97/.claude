@@ -34,8 +34,7 @@ for stream in (sys.stdout, sys.stderr):
     if callable(reconfigure):
         reconfigure(encoding="utf-8", errors="replace")
 
-from sdlclib import config as configuration
-from sdlclib import effect, fetch, guard, layout, resolve
+from sdlclib import effect, fetch, guard, resolve
 from sdlclib.errors import EXIT_OK, EXIT_REFUSED, SdlcError
 
 
@@ -53,18 +52,7 @@ def verb_resolve(args: argparse.Namespace) -> int:
 
 
 def verb_effect(args: argparse.Namespace) -> int:
-    script = Path(args.script).expanduser()
-    if not script.is_file():
-        raise SdlcError(f"script not found: {script}")
-    config = configuration.load()
-    context = layout.parse_scope(args.context) if args.context else None
-    effective = config.effective(
-        context.namespace if context else config.default_namespace(),
-        context.product if context else None,
-    )
-    report = effect.check(script, effective.get("sensitive", [])).as_dict()
-    report["file"] = str(script)
-    emit(report)
+    emit(effect.report(Path(args.script).expanduser(), args.context))
     return EXIT_OK
 
 

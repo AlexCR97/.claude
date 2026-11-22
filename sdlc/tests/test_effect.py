@@ -190,3 +190,16 @@ def test_a_sensitive_setting_must_be_a_list_of_strings(run_cli, write_config, tm
 
     assert result.code == 1
     assert "sensitive" in result.err
+
+
+def test_a_context_naming_nothing_on_disk_is_an_error_like_every_other_verb(
+    run_cli, write_config, tmp_path
+):
+    write_config("acme/billing-app/product.json", {})
+    script = tmp_path / "probe.py"
+    script.write_text(READ_ONLY_PY, encoding="utf-8")
+
+    result = run_cli("effect", str(script), "--context", "ghost")
+
+    assert result.code == 1
+    assert "ghost" in result.err
