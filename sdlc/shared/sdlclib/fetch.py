@@ -18,7 +18,9 @@ from pathlib import Path
 
 from . import config as configuration
 from . import providers, resolve
-from .errors import SdlcError
+from .config import Config
+from .errors import EXIT_AMBIGUOUS, SdlcError
+from .layout import Scope
 
 FETCHED_FIELDS = ("title", "state", "url", "fingerprint")
 
@@ -44,6 +46,53 @@ def write_record(path: Path, record: dict) -> None:
     os.replace(scratch, path)
 
 
+def bound_namespace_value(
+    config: Config, source: str, name: str, context: Scope | None
+) -> str:
+    """The one value of a namespace-level coordinate to read upstream with, from the bindings."""
+    searched = [[context.namespace] if context else [], sorted(config.namespaces)]
+    for namespaces in searched:
+        values: dict[str, str] = {}
+        for namespace in namespaces:
+            value = config.namespace_binding(source, namespace).get(name)
+            if value:
+                values.setdefault(value.casefold(), value)
+        if len(values) == 1:
+            return next(iter(values.values()))
+        if len(values) > 1:
+            raise SdlcError(
+                f"more than one {source} {name} is bound: {', '.join(sorted(values.values()))}",
+                EXIT_AMBIGUOUS,
+                f"Pass --context namespace, or --coordinate {name}=...",
+            )
+    raise SdlcError(
+        f"no {source} {name} is bound, so there is nowhere to read the ticket from",
+        hint=f"Run `/sdlc:setup` to bind {source}, or pass --coordinate {name}=...",
+    )
+
+
+def discoverer(config: Config, context: Scope | None):
+    """
+    Lets a source that cannot tell a ticket's product from its id ask upstream first.
+
+    An Azure DevOps id names no project, so reading it from the work item is
+    what files it, the first time, under the product bound to that project.
+    """
+
+    def discover(source: str, ticket_id: str, given: dict[str, str]) -> dict[str, str]:
+        find = getattr(providers.load_fetcher(source), "discover_coordinates", None)
+        declared = providers.coordinates(source)
+        if find is None or all(name in given for name in declared):
+            return {}
+        known = dict(given)
+        for name, level in declared.items():
+            if level == "namespace" and name not in known:
+                known[name] = bound_namespace_value(config, source, name, context)
+        return find(ticket_id, known)
+
+    return discover
+
+
 def fetch(
     reference_text: str,
     coordinate_arguments: list[str],
@@ -58,6 +107,7 @@ def fetch(
         coordinate_arguments,
         context,
         cwd,
+        discoverer(config, context),
     )
     location = found.location
 
