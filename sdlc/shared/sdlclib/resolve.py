@@ -194,13 +194,21 @@ def resolve_new(
     return report(config, location, exists=False, context=context, chosen=chosen)
 
 
-def resolve_existing(
+@dataclass(frozen=True)
+class Found:
+    location: Location
+    exists: bool
+    chosen: filing.Filing | None
+    coordinates: dict[str, str]
+
+
+def locate_existing(
     config: Config,
     reference: Reference,
     coordinate_arguments: list[str],
     context: Scope | None,
     cwd: Path,
-) -> dict:
+) -> Found:
     coordinates = parse_coordinates(coordinate_arguments, reference.source)
     sources = (
         [reference.source]
@@ -222,7 +230,7 @@ def resolve_existing(
     if len(matches) > 1:
         raise ambiguous(matches)
     if matches:
-        return report(config, matches[0], exists=True, context=context)
+        return Found(matches[0], True, None, coordinates)
 
     source = reference.source or default_source_for(config, reference.named, context)
     validate_id(source, reference.id)
@@ -234,8 +242,34 @@ def resolve_existing(
         context=context,
         cwd=cwd,
     )
-    location = Location(chosen.product, source, reference.id)
-    return report(config, location, exists=False, context=context, chosen=chosen)
+    return Found(
+        Location(chosen.product, source, reference.id), False, chosen, coordinates
+    )
+
+
+def resolve_existing(
+    config: Config,
+    reference: Reference,
+    coordinate_arguments: list[str],
+    context: Scope | None,
+    cwd: Path,
+) -> dict:
+    found = locate_existing(config, reference, coordinate_arguments, context, cwd)
+    return report(
+        config,
+        found.location,
+        exists=found.exists,
+        context=context,
+        chosen=found.chosen,
+    )
+
+
+def parse_context(text: str | None) -> Scope | None:
+    if not text:
+        return None
+    context = layout.parse_scope(text)
+    layout.require_exists(context, "the session context")
+    return context
 
 
 def resolve(
@@ -248,10 +282,7 @@ def resolve(
 ) -> dict:
     config = configuration.load()
 
-    context = None
-    if context_text:
-        context = layout.parse_scope(context_text)
-        layout.require_exists(context, "the session context")
+    context = parse_context(context_text)
 
     if new:
         if reference or not title or coordinate_arguments:

@@ -1,8 +1,10 @@
 """A source's flat manifest, shipped beside the code as `providers/{source}.json`."""
 
+import importlib.util
 import json
 import re
 from pathlib import Path
+from types import ModuleType
 
 from .errors import SdlcError
 
@@ -50,3 +52,14 @@ def split_by_level(source: str, values: dict) -> tuple[dict, dict]:
 
 def id_fits(source: str, ticket_id: str) -> bool:
     return bool(re.fullmatch(load_manifest(source)["id"]["pattern"], ticket_id))
+
+
+def load_fetcher(source: str) -> ModuleType:
+    """The source's `providers/{source}.py`, which exposes `fetch(ticket_id, coordinates, raw_dir)`."""
+    path = PROVIDERS_DIR / f"{source}.py"
+    if not path.is_file():
+        raise SdlcError(f"source '{source}' has no fetcher")
+    spec = importlib.util.spec_from_file_location(f"sdlc_provider_{source}", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module

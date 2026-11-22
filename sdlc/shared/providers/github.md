@@ -1,0 +1,9 @@
+# GitHub
+
+`fetch` goes through the `gh` CLI only: it holds the credentials, and nothing here reads, prints or stores a token. Coordinates are `owner` (namespace level) and `repository` (product level).
+
+- **Mirror shape.** `raw/raw.json` holds `meta`, `issue` (the REST issue, labels included), `comments`, `parent`, `sub_issues`, `blocked_by`, `blocking` and `attachments`. Bodies and comments are Markdown. A parent, sub-issue or blocker can live in another repository: read its `repository_url`.
+- **No parent is `null`.** The parent endpoint answers 404 for an issue without one; that is not a failure. Every other failure aborts the fetch and writes nothing, so a mirror is never half there. `gh` drops a connection now and then; each call is tried twice.
+- **Revision.** GitHub has none, so `ticket.json` `fingerprint.sha256` hashes the title, body, state, label names, comment ids and bodies, the parent, and the number and state of each sub-issue and blocker. `updated_at` is left out: it moves without anything in the mirror changing.
+- **A pull request is not an issue.** The issues endpoint answers a pull request number too; `fetch` refuses it.
+- **Attachments.** Every URL in the body and comments that is a GitHub upload (`github.com/user-attachments/...`, `github.com/{owner}/{repository}/files/...`, `user-images.githubusercontent.com`) is recorded with its URL and the name its author gave it, whether or not it downloads. A download is `gh api <url>`, with `gh` supplying its own authentication; a failure is listed in the report and never aborts the fetch. Verified downloading images from a public repository; uploads in a private repository were not verified. An `assets` upload has no file name, so it is saved as `{uuid}` plus an extension read from the file's first bytes (png, jpg, gif, pdf, zip; none otherwise); other uploads as `{id}-{file name}`. A file already in `raw/` is the same attachment and is kept on refresh.
