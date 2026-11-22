@@ -223,5 +223,9 @@ _Avoid_: Checkpoint (that names the act of writing one), note
 The ticket directory's `pulls.md`: one link to each pull request that delivers the ticket's work, each with the status it had when the record was last refreshed, and the time of that refresh.
 _Avoid_: PR list
 
+**Checkpoint**:
+The act of recording a session on a ticket: writing a new journal entry, correcting the plan's stale step statuses and refreshing the pull request record. Run by `/sdlc:checkpoint`.
+_Avoid_: Save, snapshot
+
 **Canonical URL**:
 A ticket's address in its source's preferred form. A ticket pasted under another form of its address is recorded under this one.
