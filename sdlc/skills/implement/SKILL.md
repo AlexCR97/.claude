@@ -18,7 +18,7 @@ Carry out the phases of the plan of the ticket `$ARGUMENTS` names. Run scripts a
 ## Before the first edit
 
 1. **Open blockers warn, they do not refuse.** Read the ticket's blockers with their state from its mirror (for GitHub `raw/raw.json`, `blocked_by`; for other sources read whatever relations the mirror holds, such as predecessors). If any is open, name it and ask whether to start anyway. A local ticket has none.
-2. **Protected branches.** For each worktree in the plan's Workspace section, ask `guard check --op edit --repo <worktree directory>`. Refuse to start while any is refused: name each worktree and its branch, then offer one ticket branch and one ticket worktree per repository the chosen phases change, named as `guard.md` says. First `git fetch` there and report each workspace worktree's staleness (commits behind `origin/{default branch}`), then cut from the up-to-date default branch. On a yes, create them, rewrite the plan's Workspace section (and any path to the old worktree in `plan.md` and `artifacts/`) to match with a one-line note why, and work in the new worktrees. On a no, stop. A workspace already on ticket branches proceeds with no offer.
+2. **Protected branches.** For each worktree in the plan's Workspace section that the chosen phases change, ask `guard check --op edit --repo <worktree directory>`. Refuse to start while any is refused: name each worktree and its branch, then offer one ticket branch and one ticket worktree per repository the chosen phases change, named as `guard.md` says. First `git fetch` there and report each workspace worktree's staleness (commits behind `origin/{default branch}`), then cut from the up-to-date default branch. On a yes, create them, rewrite the plan's Workspace section (and any path to the old worktree in `plan.md` and `artifacts/`) to match with a one-line note why, and work in the new worktrees. On a no, stop. A workspace already on ticket branches proceeds with no offer, and so does a run whose phases write only under `artifacts/`, such as a spike's.
 3. Read `plan.md` and the type from `ticket.json`. Read the ticket's `artifacts/` for what earlier runs established; treat it as fact and do not re-run a probe whose output is on disk.
 
 ## Doing the work
@@ -30,7 +30,7 @@ Carry out the phases of the plan of the ticket `$ARGUMENTS` names. Run scripts a
 - After a phase, build each affected project and run the tests that cover it, detecting tools from the project's files. A phase that changed no source file has nothing to build. If a build or test still fails after one fix attempt, stop and report with the output; do not mark the phase done or go on to the next. A failing test is fixed in production code, never by changing its assertion.
 - Non-code files go under `artifacts/step-{N}.{M}/` or `artifacts/shared/`, never overwriting or deleting an existing one, and each producing step's `**Artifacts:**` line is kept accurate. Never write into `artifacts/planning/`.
 - Say every decision and inference in chat as it is made, with the step it affects: `checkpoint` builds its entry from this conversation.
-- After each phase offer `/sdlc:document` when it exists; never run it unasked.
+- After each phase offer `/sdlc:document` if that skill is installed; never run it unasked.
 
 ## Completion rule of the type
 
