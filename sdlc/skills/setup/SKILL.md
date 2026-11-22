@@ -15,9 +15,11 @@ Under the SDLC home (`~/.sdlc`, or `$SDLC_HOME`), one file per level; the inner 
 
 | File | Keys |
 | --- | --- |
-| `sdlc.json` | `default_namespace`, `default_source`, `scan_roots`, `protected_branches` |
-| `{namespace}/namespace.json` | `default_product`, `default_source`, `scan_roots`, `protected_branches`, `sources` |
-| `{namespace}/{product}/product.json` | `default_source`, `scan_roots`, `protected_branches`, `sources` |
+| `sdlc.json` | `default_namespace`, `default_source`, `scan_roots`, `protected_branches`, `sensitive` |
+| `{namespace}/namespace.json` | `default_product`, `default_source`, `scan_roots`, `protected_branches`, `sensitive`, `sources` |
+| `{namespace}/{product}/product.json` | `default_source`, `scan_roots`, `protected_branches`, `sensitive`, `sources` |
+
+`sensitive` is a list of hosts, databases or other targets a script must never touch unasked: the `effect` verb makes a script that names one ask first, even when it is read-only.
 
 A binding is `sources.{source}.{coordinate}`. Each coordinate lives at the level its provider declares in `${CLAUDE_PLUGIN_ROOT}/shared/providers/{source}.json`: Azure DevOps `organization` in `namespace.json` and `project` in `product.json`; GitHub `owner` in `namespace.json` and `repository` in `product.json`. A namespace or product with no binding is valid: create its directory with a `{}` config file.
 
