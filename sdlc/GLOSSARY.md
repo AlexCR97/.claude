@@ -144,6 +144,28 @@ _Avoid_: Service, application, module, component
 Everything a ticket's code work happens in: its repositories with the worktrees the work happens in, its plain directories, and the projects inside them, plus the scan roots it was found from.
 _Avoid_: Environment, sandbox
 
+### Planning the work
+
+**Plan**:
+The ticket directory's `plan.md`: the confirmed workspace and the work as phases of steps, with each step's status. One plan per ticket.
+_Avoid_: Implementation plan, plan file, digest
+
+**Phase**:
+A part of a plan with one activity, a scope and the projects it touches. Its status is derived from its steps.
+_Avoid_: Stage, milestone
+
+**Step**:
+The smallest unit of a plan: one change to one target, with a status.
+_Avoid_: Task, subtask
+
+**Activity**:
+What a phase does: `TDD`, `Development`, `Testing`, `Design`, `Deployment`, `Documentation` or `Human Review`.
+_Avoid_: Kind, category
+
+**Step status**:
+Where a step stands: `Pending`, `In Progress`, `Blocked` or `Done`. The honest record of progress that `plan`, `implement` and `checkpoint` share.
+_Avoid_: State
+
 ### Branches and worktrees
 
 **Default branch**:
