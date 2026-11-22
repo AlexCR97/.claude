@@ -7,11 +7,15 @@ Usage:
                            [--coordinate name=value ...]
     python sdlc.py effect <script> [--context namespace[/product]]
     python sdlc.py fetch <ref> [--context namespace[/product]] [--coordinate name=value ...]
+    python sdlc.py guard check --op <operation> [--repo <dir>] [--branch <name>]
+                               [--context namespace[/product]]
+    python sdlc.py guard protected [--repo <dir>] [--branch <name>] [--context namespace[/product]]
 
 Exit codes:
     0  ok
     1  error
     3  ambiguous
+    4  guard refused the operation
     5  not found upstream
 """
 
@@ -30,8 +34,8 @@ for stream in (sys.stdout, sys.stderr):
         reconfigure(encoding="utf-8", errors="replace")
 
 from sdlclib import config as configuration
-from sdlclib import effect, fetch, layout, resolve
-from sdlclib.errors import EXIT_OK, SdlcError
+from sdlclib import effect, fetch, guard, layout, resolve
+from sdlclib.errors import EXIT_OK, EXIT_REFUSED, SdlcError
 
 
 def emit(data: dict) -> None:
@@ -66,6 +70,17 @@ def verb_effect(args: argparse.Namespace) -> int:
 def verb_fetch(args: argparse.Namespace) -> int:
     emit(fetch.fetch(args.ref, args.coordinate, args.context, Path.cwd()))
     return EXIT_OK
+
+
+def verb_guard(args: argparse.Namespace) -> int:
+    if args.action == "protected":
+        emit(guard.protected_branches(args.repo, args.branch, args.context))
+        return EXIT_OK
+    if not args.op:
+        raise SdlcError("guard check takes --op")
+    verdict = guard.check(args.op, args.repo, args.branch, args.context)
+    emit(verdict)
+    return EXIT_OK if verdict["allowed"] else EXIT_REFUSED
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -123,6 +138,25 @@ def build_parser() -> argparse.ArgumentParser:
         help="where the ticket lives upstream, once per coordinate",
     )
     fetching.set_defaults(handler=verb_fetch)
+
+    guarding = verbs.add_parser(
+        "guard", help="ask whether an operation may run on a branch"
+    )
+    guarding.add_argument("action", choices=["check", "protected"])
+    guarding.add_argument(
+        "--op", help=f"the operation to check: {', '.join(guard.OPERATIONS)}"
+    )
+    guarding.add_argument(
+        "--repo", help="a directory inside the repository (default: the current one)"
+    )
+    guarding.add_argument(
+        "--branch", help="the branch to judge (default: the one checked out in --repo)"
+    )
+    guarding.add_argument(
+        "--context",
+        help="the session's namespace[/product], whose protected_branches apply",
+    )
+    guarding.set_defaults(handler=verb_guard)
     return parser
 
 

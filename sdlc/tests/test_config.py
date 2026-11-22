@@ -61,3 +61,12 @@ def test_a_namespace_inherits_the_machine_level_and_not_its_products(
     assert ledger["scan_roots"] == ["/code/acme"]
     assert ledger["protected_branches"] == ["main", "release/*"]
     assert billing["scan_roots"] == ["/code/billing"]
+
+
+def test_a_worktree_root_cascades_like_any_shared_setting(run_cli, write_config):
+    write_config("sdlc.json", {"worktree_root": "/code/worktrees"})
+    write_config("acme/billing-app/product.json", {})
+
+    effective = run_cli("resolve", "acme/billing-app/local:fix-it").json["config"]
+
+    assert effective["worktree_root"] == "/code/worktrees"
