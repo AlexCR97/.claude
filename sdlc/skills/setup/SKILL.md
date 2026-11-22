@@ -1,6 +1,6 @@
 ---
 name: setup
-description: Bind a ticket source (an Azure DevOps organization and project, a GitHub owner and repository) to a namespace and product, set the defaults and scan roots, and set, show or clear the session context.
+description: Binds a ticket source (an Azure DevOps organization and project, a GitHub owner and repository) to a namespace and product, sets the defaults and scan roots, and sets, shows or clears the session context.
 disable-model-invocation: true
 argument-hint: "[what to set up]"
 ---
