@@ -2,7 +2,7 @@
 `guard`: the one definition of a protected branch, and what may be done to it.
 
 A protected branch is the repository's default branch (the one `origin/HEAD`
-names) plus any branch matching a pattern in the effective config's
+names, or `main` or `master` where it is unset) plus any branch matching a pattern in the effective config's
 `protected_branches`. A skill may read one and fast-forward it from its remote;
 it never writes to one (ADR 0001). The rule lives here and not in each skill's
 prose so that every skill agrees on what is protected, and so it can be tested.
@@ -37,6 +37,11 @@ FORBIDDEN_ON_PROTECTED = {
     "edit": "the files would change in a worktree that has it checked out",
 }
 
+USUAL_DEFAULTS = ("main", "master")
+SOURCE_ORIGIN_HEAD = "origin/HEAD"
+SOURCE_INFERRED = "inferred"
+SOURCE_UNKNOWN = "unknown"
+
 OPERATIONS = tuple(sorted(ALLOWED_ON_PROTECTED | set(FORBIDDEN_ON_PROTECTED)))
 
 
@@ -53,12 +58,29 @@ def require_repository(repo: Path) -> None:
         raise SdlcError(f"{repo} is not inside a git repository")
 
 
-def default_branch(repo: Path) -> str | None:
-    """The branch `origin/HEAD` names, or None where the remote has no HEAD recorded."""
+def local_branches(repo: Path) -> list[str]:
+    code, out = git(repo, "for-each-ref", "--format=%(refname:short)", "refs/heads")
+    return out.splitlines() if code == 0 else []
+
+
+def default_branch(repo: Path) -> tuple[str | None, str]:
+    """
+    The default branch and how it was found: `origin/HEAD`, `inferred` or `unknown`.
+
+    A clone made without `origin/HEAD` (or one whose remote was added by hand)
+    must not leave `main` writable, so the usual names are tried before giving up.
+    """
     code, out = git(repo, "symbolic-ref", "--short", "refs/remotes/origin/HEAD")
-    if code != 0 or "/" not in out:
-        return None
-    return out.split("/", 1)[1]
+    if code == 0 and "/" in out:
+        return out.split("/", 1)[1], SOURCE_ORIGIN_HEAD
+
+    usual = [name for name in USUAL_DEFAULTS if name in local_branches(repo)]
+    if len(usual) == 1:
+        return usual[0], SOURCE_INFERRED
+    current = current_branch(repo)
+    if current in USUAL_DEFAULTS:
+        return current, SOURCE_INFERRED
+    return None, SOURCE_UNKNOWN
 
 
 def current_branch(repo: Path) -> str | None:
@@ -76,8 +98,8 @@ def is_protected(branch: str | None, default: str | None, patterns: list[str]) -
 
 def policy_for(
     repo_text: str | None, context_text: str | None
-) -> tuple[Path, str | None, list[str]]:
-    """The repository, its default branch and the effective protected patterns."""
+) -> tuple[Path, str | None, str, list[str]]:
+    """The repository, its default branch, where that came from, and the effective protected patterns."""
     repo = Path(repo_text).expanduser().resolve() if repo_text else Path.cwd()
     require_repository(repo)
 
@@ -87,7 +109,8 @@ def policy_for(
         context.product if context else None,
     )
     patterns = [str(pattern) for pattern in effective.get("protected_branches", [])]
-    return repo, default_branch(repo), patterns
+    default, source = default_branch(repo)
+    return repo, default, source, patterns
 
 
 def check(
@@ -98,7 +121,7 @@ def check(
             f"unknown operation '{operation}'",
             hint="Known operations: " + ", ".join(OPERATIONS) + ".",
         )
-    repo, default, patterns = policy_for(repo_text, context_text)
+    repo, default, source, patterns = policy_for(repo_text, context_text)
     branch = branch or current_branch(repo)
 
     protected = is_protected(branch, default, patterns)
@@ -117,17 +140,19 @@ def check(
         "branch": branch,
         "protected": protected,
         "reason": reason,
+        "default_branch_source": source,
     }
 
 
 def protected_branches(
     repo_text: str | None, branch: str | None, context_text: str | None
 ) -> dict:
-    repo, default, patterns = policy_for(repo_text, context_text)
+    repo, default, source, patterns = policy_for(repo_text, context_text)
     branch = branch or current_branch(repo)
     return {
         "branch": branch,
         "default_branch": default,
+        "default_branch_source": source,
         "patterns": patterns,
         "protected_branches": [*([default] if default else []), *patterns],
         "protected": is_protected(branch, default, patterns),

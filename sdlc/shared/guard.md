@@ -4,7 +4,9 @@ The protected-branch policy and the naming of ticket branches and worktrees. The
 
 ## What is protected
 
-The repository's **default branch** (what `origin/HEAD` names) and any branch matching a pattern in `protected_branches` in the effective config (empty by default; `*` matches). `guard protected` lists them.
+The repository's **default branch** and any branch matching a pattern in `protected_branches` in the effective config (empty by default; `*` matches). `guard protected` lists them.
+
+The default branch is what `origin/HEAD` names. Where that is unset, the guard infers it rather than leave `main` writable: the one of `main` and `master` that exists as a local branch, else the checked-out branch if it is one of them. Both reports carry `default_branch_source`: `origin/HEAD`, `inferred` or `unknown`. With `unknown`, only the configured patterns protect anything: say that the default branch could not be determined, and ask which branch is the default before relying on the guard.
 
 ## Policy
 

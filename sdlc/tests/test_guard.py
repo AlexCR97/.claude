@@ -147,16 +147,88 @@ def test_protected_reports_whether_the_named_branch_is_protected(run_cli, reposi
     assert report["protected_branches"] == ["main"]
 
 
-def test_protected_without_a_recorded_default_branch_lists_only_the_patterns(
+def init_without_remote(path, branch: str, *, commit: bool = False):
+    path.mkdir()
+    git(path, "init", f"--initial-branch={branch}")
+    if commit:
+        git(path, "config", "user.email", "test@example.com")
+        git(path, "config", "user.name", "Test")
+        git(path, "config", "commit.gpgsign", "false")
+        (path / "README.md").write_text("x", encoding="utf-8")
+        git(path, "add", "README.md")
+        git(path, "commit", "-m", "init")
+    return path
+
+
+def test_the_default_branch_names_where_it_came_from(run_cli, repository):
+    verdict = check(run_cli, repository, "commit", "main")
+    report = protected(run_cli, repository).json
+
+    assert verdict.json["default_branch_source"] == "origin/HEAD"
+    assert report["default_branch_source"] == "origin/HEAD"
+
+
+@pytest.mark.parametrize("name", ["main", "master"])
+def test_without_origin_head_the_one_local_main_or_master_is_still_protected(
+    run_cli, make_repository, name
+):
+    repository = make_repository()
+    if name != "main":
+        repository.git("branch", "-m", "main", name)
+    repository.git("remote", "set-head", "origin", "-d")
+    repository.git("checkout", "-q", "-b", "feat/1-thing")
+
+    verdict = check(run_cli, repository, "commit", name)
+
+    assert verdict.code == 4
+    assert verdict.json["protected"] is True
+    assert verdict.json["default_branch_source"] == "inferred"
+    assert protected(run_cli, repository).json["default_branch"] == name
+
+
+def test_without_origin_head_the_checked_out_main_is_protected_when_both_names_exist(
+    run_cli, make_repository
+):
+    repository = make_repository()
+    repository.git("remote", "set-head", "origin", "-d")
+    repository.git("branch", "master")
+
+    on_main = check(run_cli, repository, "commit")
+    repository.git("checkout", "-q", "-b", "feat/1-thing")
+    on_feature = check(run_cli, repository, "commit")
+
+    assert on_main.code == 4
+    assert on_main.json["default_branch_source"] == "inferred"
+    assert on_feature.code == 0
+    assert on_feature.json["default_branch_source"] == "unknown"
+
+
+def test_a_repository_with_no_commits_on_main_infers_it_from_the_checked_out_branch(
+    run_cli, tmp_path
+):
+    path = init_without_remote(tmp_path / "fresh", "main")
+
+    result = run_cli("guard", "check", "--op", "commit", "--repo", str(path))
+
+    assert result.code == 4
+    assert result.json["default_branch_source"] == "inferred"
+
+
+def test_a_default_branch_that_cannot_be_determined_is_said_so_and_only_patterns_apply(
     run_cli, write_config, tmp_path
 ):
-    bare = tmp_path / "no-remote"
-    bare.mkdir()
-    git(bare, "init", "--initial-branch=main")
-    write_config("sdlc.json", {"protected_branches": ["develop"]})
+    path = init_without_remote(tmp_path / "odd", "trunk", commit=True)
+    write_config("sdlc.json", {"protected_branches": ["release/*"]})
 
-    result = run_cli("guard", "protected", "--repo", str(bare))
+    plain = run_cli("guard", "check", "--op", "commit", "--repo", str(path))
+    listed = run_cli("guard", "protected", "--repo", str(path))
+    pattern = run_cli(
+        "guard", "check", "--op", "commit", "--repo", str(path), "--branch", "release/1"
+    )
 
-    assert result.code == 0
-    assert result.json["default_branch"] is None
-    assert result.json["protected_branches"] == ["develop"]
+    assert plain.code == 0
+    assert plain.json["default_branch_source"] == "unknown"
+    assert listed.json["default_branch"] is None
+    assert listed.json["default_branch_source"] == "unknown"
+    assert listed.json["protected_branches"] == ["release/*"]
+    assert pattern.code == 4
