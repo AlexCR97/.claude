@@ -1,0 +1,5 @@
+# Scripts and instructions are for mechanical work only
+
+This extends [ADR 0003](./0003-scripts-are-for-mechanical-work-only.md) from scripts to the instructions around them. The old suite had roughly 6,800 lines of scripts and 4,700 lines of instructions, most of which prescribed judgement a model does well alone. Now a script exists only where a result must be identical every run: resolving a reference, downloading a ticket, the protected-branch policy, vetting a script's effect. An instruction states the goal, the inputs, the outputs and the invariants that protect data and upstream systems; step-by-step prose appears only for mechanical sequences. Everything else is left to the model with `git`, `gh` and `az`.
+
+We rejected keeping a script or a recipe per operation. It made the skills slow to change and limited what they could do to what the author had foreseen. The cost is the one ADR 0003 accepted: a gate written as an instruction is not caught by a test when skipped, and branch and worktree naming lose their byte-identical consistency because they become a rule line.
