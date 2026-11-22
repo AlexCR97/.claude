@@ -13,8 +13,10 @@ would read as a complete one.
 
 import json
 import os
+from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import NotRequired, TypedDict
 
 from . import config as configuration
 from . import filing, layout, providers, resolve
@@ -23,6 +25,22 @@ from .errors import EXIT_AMBIGUOUS, SdlcError
 from .layout import Scope
 
 FETCHED_FIELDS = ("title", "state", "url", "fingerprint")
+
+
+class FetchReport(resolve.ResolveReport):
+    fetched: dict
+
+
+class CheckReport(TypedDict):
+    ref: str
+    ticket_dir: str
+    changed: bool
+    status: str
+    recorded: dict | None
+    live: dict | None
+    reason: NotRequired[str]
+    coordinates: NotRequired[dict[str, str]]
+    last_fetched_at: NotRequired[str | None]
 
 
 def read_record(path: Path) -> dict:
@@ -89,7 +107,9 @@ def require_bound_product(config: Config, source: str, found: dict[str, str]) ->
         )
 
 
-def discoverer(config: Config, context: Scope | None):
+def discoverer(
+    config: Config, context: Scope | None
+) -> Callable[[str, str, dict[str, str]], dict[str, str]]:
     """
     Lets a source that cannot tell a ticket's product from its id ask upstream first.
 
@@ -137,7 +157,7 @@ def fetch(
     coordinate_arguments: list[str],
     context_text: str | None,
     cwd: Path,
-) -> dict:
+) -> FetchReport:
     config = configuration.load()
     context = layout.parse_context(context_text)
     found = resolve.locate_existing(
@@ -163,7 +183,7 @@ def fetch(
     record["last_fetched_at"] = datetime.now(UTC).isoformat(timespec="seconds")
     write_record(record_path, record)
 
-    return {
+    return FetchReport(
         **resolve.report(
             config,
             ticket,
@@ -171,8 +191,8 @@ def fetch(
             context=context,
             chosen=found.chosen,
         ),
-        "fetched": mirrored["report"],
-    }
+        fetched=mirrored["report"],
+    )
 
 
 def check(
@@ -180,7 +200,7 @@ def check(
     coordinate_arguments: list[str],
     context_text: str | None,
     cwd: Path,
-) -> dict:
+) -> CheckReport:
     """
     Whether the ticket changed upstream since it was mirrored, writing nothing.
 
@@ -201,51 +221,49 @@ def check(
         cwd,
     )
     ticket = found.ticket
-    report = {
+    report: CheckReport = {
         "ref": ticket.ref,
         "ticket_dir": str(ticket.dir),
         "recorded": None,
         "live": None,
+        "changed": False,
+        "status": "local",
     }
 
     if not providers.load_manifest(ticket.source)["capabilities"]["fetch"]:
-        return {
-            **report,
-            "changed": False,
-            "status": "local",
-            "reason": f"a {ticket.source} ticket has no upstream, so nothing can change under it",
-        }
+        report["reason"] = (
+            f"a {ticket.source} ticket has no upstream, so nothing can change under it"
+        )
+        return report
 
     record = read_record(ticket.dir / "ticket.json") if found.exists else {}
     recorded = record.get("fingerprint")
     if not recorded:
-        return {
-            **report,
-            "changed": True,
-            "status": "never_mirrored",
-            "reason": f"{ticket.ref} has never been fetched, so there is no recorded revision to compare",
-        }
+        report.update(changed=True, status="never_mirrored")
+        report["reason"] = (
+            f"{ticket.ref} has never been fetched, so there is no recorded revision to compare"
+        )
+        return report
 
     if not (ticket.dir / "raw" / "raw.json").is_file():
         # A mirror from before the current shape holds a revision that still
         # matches upstream, yet `resume` and `submit` read `raw/raw.json`.
-        return {
-            **report,
-            "changed": True,
-            "status": "stale_mirror",
-            "reason": f"the mirror of {ticket.ref} is in an older shape that lacks raw/raw.json; refresh it with `/sdlc:intake {ticket.ref}`",
-            "recorded": recorded,
-        }
+        report.update(changed=True, status="stale_mirror", recorded=recorded)
+        report["reason"] = (
+            f"the mirror of {ticket.ref} is in an older shape that lacks raw/raw.json; "
+            f"refresh it with `/sdlc:intake {ticket.ref}`"
+        )
+        return report
 
     coordinates = upstream_coordinates(config, found)
     live = providers.load_fetcher(ticket.source).check(ticket.id, coordinates)
     changed = live != recorded
-    return {
-        **report,
-        "changed": changed,
-        "status": "changed" if changed else "unchanged",
-        "recorded": recorded,
-        "live": live,
-        "coordinates": coordinates,
-        "last_fetched_at": record.get("last_fetched_at"),
-    }
+    report.update(
+        changed=changed,
+        status="changed" if changed else "unchanged",
+        recorded=recorded,
+        live=live,
+    )
+    report["coordinates"] = coordinates
+    report["last_fetched_at"] = record.get("last_fetched_at")
+    return report

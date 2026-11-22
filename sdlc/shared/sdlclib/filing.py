@@ -19,11 +19,18 @@ work item under a product bound to a different project.
 import os
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TypedDict
 
 from . import paths, providers
 from .config import Config, describe, same
 from .errors import EXIT_AMBIGUOUS, SdlcError
 from .layout import Product, Scope, namespaces, products, require_exists
+
+
+class FilingReport(TypedDict):
+    product: str
+    rule: str
+    reason: str
 
 
 @dataclass(frozen=True)
@@ -32,7 +39,7 @@ class Filing:
     rule: str
     reason: str
 
-    def as_dict(self) -> dict:
+    def as_dict(self) -> FilingReport:
         return {"product": self.product.ref, "rule": self.rule, "reason": self.reason}
 
 

@@ -19,6 +19,7 @@ import fnmatch
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import TypedDict
 
 from . import config as configuration
 from . import layout
@@ -111,6 +112,17 @@ WRITE_INDICATORS: tuple[tuple[str, re.Pattern[str]], ...] = (
 )
 
 
+class VerdictReport(TypedDict):
+    run_without_asking: bool
+    declared_effect: str | None
+    cost: str | None
+    reasons: list[str]
+
+
+class ScriptReport(VerdictReport):
+    file: str
+
+
 @dataclass
 class Verdict:
     run_without_asking: bool
@@ -118,7 +130,7 @@ class Verdict:
     cost: str | None
     reasons: list[str] = field(default_factory=list)
 
-    def as_dict(self) -> dict:
+    def as_dict(self) -> VerdictReport:
         return {
             "run_without_asking": self.run_without_asking,
             "declared_effect": self.declared_effect,
@@ -206,7 +218,7 @@ def check(path: Path, sensitive: list[str]) -> Verdict:
     return Verdict(not reasons, effect, cost, reasons)
 
 
-def report(script: Path, context_text: str | None) -> dict:
+def report(script: Path, context_text: str | None) -> ScriptReport:
     """The verdict on a script under the config effective for the session context."""
     if not script.is_file():
         raise SdlcError(f"script not found: {script}")
@@ -216,7 +228,5 @@ def report(script: Path, context_text: str | None) -> dict:
         context.namespace if context else config.default_namespace(),
         context.product if context else None,
     )
-    return {
-        **check(script, effective.get("sensitive", [])).as_dict(),
-        "file": str(script),
-    }
+    verdict = check(script, effective.get("sensitive", [])).as_dict()
+    return ScriptReport(**verdict, file=str(script))

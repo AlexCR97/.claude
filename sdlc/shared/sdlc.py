@@ -23,6 +23,7 @@ Exit codes:
 import argparse
 import json
 import sys
+from collections.abc import Mapping
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -38,7 +39,7 @@ from sdlclib import effect, fetch, guard, resolve
 from sdlclib.errors import EXIT_OK, EXIT_REFUSED, SdlcError
 
 
-def emit(data: dict) -> None:
+def emit(data: Mapping[str, object]) -> None:
     print(json.dumps(data, indent=2, ensure_ascii=False))
 
 

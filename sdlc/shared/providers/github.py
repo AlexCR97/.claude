@@ -9,6 +9,7 @@ import re
 import shutil
 import subprocess
 from pathlib import Path
+from typing import Any
 from urllib.parse import unquote, urlparse
 
 from sdlclib import process
@@ -31,7 +32,8 @@ def require_auth() -> None:
         raise SdlcError(f"not signed in to GitHub: {detail}", hint=GH_HINT)
 
 
-def api(path: str, paginate: bool = False) -> object:
+def api(path: str, paginate: bool = False) -> Any:
+    """The decoded JSON of a `gh api` call: an object, or with `paginate` the list of every page's items."""
     args = ["api", "-H", "Accept: application/vnd.github+json", path]
     if paginate:
         args += ["--paginate", "--slurp"]

@@ -28,7 +28,6 @@ def run(
     command: list[str], *, cwd: Path | None = None, text: bool = False
 ) -> subprocess.CompletedProcess:
     limit = timeout_seconds()
-    options = {"text": True, "encoding": "utf-8"} if text else {}
     try:
         return subprocess.run(
             command,
@@ -36,7 +35,8 @@ def run(
             capture_output=True,
             timeout=limit,
             check=False,
-            **options,
+            text=text,
+            encoding="utf-8" if text else None,
         )
     except subprocess.TimeoutExpired as error:
         tool = Path(command[0]).stem

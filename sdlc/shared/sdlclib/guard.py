@@ -14,6 +14,7 @@ A fast-forward is allowed here but not run here: the model runs
 import fnmatch
 import shutil
 from pathlib import Path
+from typing import TypedDict
 
 from . import config as configuration
 from . import layout, process
@@ -43,6 +44,24 @@ SOURCE_INFERRED = "inferred"
 SOURCE_UNKNOWN = "unknown"
 
 OPERATIONS = tuple(sorted(ALLOWED_ON_PROTECTED | set(FORBIDDEN_ON_PROTECTED)))
+
+
+class GuardVerdict(TypedDict):
+    allowed: bool
+    operation: str
+    branch: str | None
+    protected: bool
+    reason: str
+    default_branch_source: str
+
+
+class ProtectedReport(TypedDict):
+    branch: str | None
+    default_branch: str | None
+    default_branch_source: str
+    patterns: list[str]
+    protected_branches: list[str]
+    protected: bool
 
 
 def git(repo: Path, *args: str) -> tuple[int, str]:
@@ -115,7 +134,7 @@ def policy_for(
 
 def check(
     operation: str, repo_text: str | None, branch: str | None, context_text: str | None
-) -> dict:
+) -> GuardVerdict:
     if operation not in OPERATIONS:
         raise SdlcError(
             f"unknown operation '{operation}'",
@@ -146,7 +165,7 @@ def check(
 
 def protected_branches(
     repo_text: str | None, branch: str | None, context_text: str | None
-) -> dict:
+) -> ProtectedReport:
     repo, default, source, patterns = policy_for(repo_text, context_text)
     branch = branch or current_branch(repo)
     return {

@@ -17,6 +17,7 @@ import re
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
+from typing import NotRequired, TypedDict
 
 from . import config as configuration
 from . import filing, layout, paths, providers
@@ -141,6 +142,19 @@ def default_source_for(
     )
 
 
+class ResolveReport(TypedDict):
+    source: str
+    id: str
+    ref: str
+    namespace: str
+    product: str
+    exists: bool
+    outside_context: bool
+    paths: dict[str, str]
+    config: dict
+    filing: NotRequired[filing.FilingReport]
+
+
 def report(
     config: Config,
     ticket: TicketDirectory,
@@ -148,9 +162,9 @@ def report(
     exists: bool,
     context: Scope | None,
     chosen: filing.Filing | None = None,
-) -> dict:
+) -> ResolveReport:
     product = ticket.product
-    found = {
+    found: ResolveReport = {
         "source": ticket.source,
         "id": ticket.id,
         "ref": ticket.ref,
@@ -179,7 +193,7 @@ def ambiguous(matches: list[TicketDirectory]) -> SdlcError:
 
 def resolve_new(
     config: Config, title: str | None, context: Scope | None, cwd: Path
-) -> dict:
+) -> ResolveReport:
     ticket_id = slugify(title or "")
     if not ticket_id:
         raise SdlcError(
@@ -267,7 +281,7 @@ def resolve_existing(
     coordinate_arguments: list[str],
     context: Scope | None,
     cwd: Path,
-) -> dict:
+) -> ResolveReport:
     found = locate_existing(config, reference, coordinate_arguments, context, cwd)
     return report(
         config,
@@ -285,7 +299,7 @@ def resolve(
     context_text: str | None,
     coordinate_arguments: list[str],
     cwd: Path,
-) -> dict:
+) -> ResolveReport:
     config = configuration.load()
 
     context = layout.parse_context(context_text)

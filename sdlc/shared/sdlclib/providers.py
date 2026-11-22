@@ -60,6 +60,8 @@ def load_fetcher(source: str) -> ModuleType:
     if not path.is_file():
         raise SdlcError(f"source '{source}' has no fetcher")
     spec = importlib.util.spec_from_file_location(f"sdlc_provider_{source}", path)
+    if spec is None or spec.loader is None:
+        raise SdlcError(f"source '{source}' has a fetcher that cannot be loaded")
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
