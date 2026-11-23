@@ -1,0 +1,17 @@
+{
+  "source": "ado",
+  "kind": "remote",
+  "prefixes": ["ado", "azdo"],
+  "coordinates": { "organization": "namespace", "project": "product" },
+  "id": {
+    "pattern": "[1-9][0-9]*",
+    "shape": "a positive integer work item id, unique within its organization (it names no project)"
+  },
+  "capabilities": {
+    "fetch": true,
+    "related": true,
+    "attachments": true,
+    "comments": true,
+    "discovers_coordinates": ["project"]
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "source": "github",
+  "kind": "remote",
+  "prefixes": ["github", "gh"],
+  "coordinates": { "owner": "namespace", "repository": "product" },
+  "id": {
+    "pattern": "[1-9][0-9]*",
+    "shape": "a positive integer issue number in the bound repository"
+  },
+  "capabilities": { "fetch": true, "related": true, "attachments": true }
+}

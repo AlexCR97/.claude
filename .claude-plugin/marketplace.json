@@ -1,0 +1,17 @@
+{
+  "name": "alexcr97",
+  "description": "Personal plugins.",
+  "owner": {
+    "name": "AlexCR97"
+  },
+  "plugins": [
+    {
+      "name": "sdlc",
+      "source": "./sdlc",
+      "description": "Agentic software development life cycle: intake, plan, implement and document.",
+      "author": {
+        "name": "AlexCR97"
+      }
+    }
+  ]
+}
