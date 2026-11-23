@@ -52,3 +52,7 @@ __pycache__/
 
 # Visual Studio Open Folder state, anywhere in the tree
 .vs/
+
+# Git worktrees
+/.claude/worktrees/
+/.worktrees/
