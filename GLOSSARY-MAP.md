@@ -2,7 +2,7 @@
 
 ## Contexts
 
-- [SDLC](./sdlc/GLOSSARY.md): the plugin that carries a unit of work from intake to documented code, with its ADRs under [`sdlc/docs/adr/`](./sdlc/docs/adr/)
+- [SDLC](./sdlc/GLOSSARY.md): agentic software development life cycle: intake, plan, implement and document, with its ADRs under [`sdlc/docs/adr/`](./sdlc/docs/adr/)
 
 ## Relationships
 

@@ -1,6 +1,6 @@
 # sdlc
 
-A Claude Code plugin that carries a unit of work from intake to documented code. It mirrors a GitHub issue or an Azure DevOps work item (or adopts a spec, text or an idea) into a local store, then plans, implements, checkpoints and documents it, keeping what a later session needs on disk.
+Agentic software development life cycle: intake, plan, implement and document. A Claude Code plugin that mirrors a GitHub issue or an Azure DevOps work item (or adopts a spec, text or an idea) into a local store, then plans, implements, checkpoints and documents it, keeping what a later session needs on disk.
 
 Every skill is explicit-only (`disable-model-invocation: true`): nothing runs unless you type it.
 

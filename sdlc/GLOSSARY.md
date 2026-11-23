@@ -1,6 +1,6 @@
 # SDLC
 
-A personal plugin that carries a unit of work from intake to documented code: a ticket is taken in, planned, implemented and recorded so another session can resume it. It works with tickets from GitHub and Azure DevOps and with local ones.
+Agentic software development life cycle: intake, plan, implement and document. A ticket is taken in, planned, implemented and recorded so another session can resume it. It works with tickets from GitHub and Azure DevOps and with local ones.
 
 ## Language
 

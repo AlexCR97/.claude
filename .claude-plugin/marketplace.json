@@ -1,13 +1,17 @@
 {
   "name": "alexcr97",
   "description": "Personal plugins.",
-  "owner": { "name": "AlexCR97" },
+  "owner": {
+    "name": "AlexCR97"
+  },
   "plugins": [
     {
       "name": "sdlc",
       "source": "./sdlc",
-      "description": "Carry a unit of work from intake to documented code.",
-      "author": { "name": "AlexCR97" }
+      "description": "Agentic software development life cycle: intake, plan, implement and document.",
+      "author": {
+        "name": "AlexCR97"
+      }
     }
   ]
 }
