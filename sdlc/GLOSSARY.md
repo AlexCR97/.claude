@@ -255,11 +255,11 @@ _Avoid_: Save, snapshot
 ### Delivering the work
 
 **Delegate**:
-A skill from another plugin that an sdlc skill hands its work to, because it suits the situation better than sdlc's own procedure. Chosen by judgement each time, never from config.
+A skill outside sdlc, from another plugin or the repository's own, that an sdlc skill hands its work to, because it suits the situation better than sdlc's own procedure. Chosen by judgement each time, never from config.
 _Avoid_: Provider (that names the files describing a source), backend
 
 **Ship**:
-One autonomous run of a ticket through the whole cycle, from intake to its end point, on one ticket branch with one commit per phase. It asks nothing except at a hard stop, and decides everything else itself, recording each decision in the journal. Run by `/sdlc:ship`.
+One autonomous run of a ticket through the whole cycle, from intake to its end point, on one ticket branch with one commit per phase. It asks nothing except at a hard stop, waits for the steps only the developer can take, and decides everything else itself, recording each decision in the journal. Run by `/sdlc:ship`.
 _Avoid_: Autopilot, end-to-end run
 
 **Environment**:

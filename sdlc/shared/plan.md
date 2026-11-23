@@ -92,7 +92,7 @@ The format of `plan.md`, the file in a ticket directory that holds the phased pl
 
 - **The header links the ticket**: its URL for a remote ticket, `raw/ticket.md` for a local one. A plan never restates the ticket's content, only what the work needs from it.
 - **The Workspace section lists only what the plan works in** (see `conventions.md`). Its paths are absolute; the Projects table's path is relative to the worktree or plain directory in its `Lives in` column. Omit a table with no rows.
-- **Decisions** is written only by a [ship run](conventions.md#ship-runs)'s `plan`, which settles alone what it would otherwise ask: the workspace, the seams, a test-setup phase, an assumption the plan's shape rests on. One line per decision, in the form `checkpoint` carries into the journal's Decisions. Omitted otherwise.
+- **Decisions** is written only by `plan` under the [ship flag](conventions.md#ship-runs): one line per decision it made in place of a question (the workspace, the seams, a test-setup phase, an assumption the plan's shape rests on), which `checkpoint` carries into the journal. Omitted otherwise.
 - **Prerequisites** is omitted when empty.
 - **A phase** has one Activity and one scope sentence.
 - **A step** names one target: a path relative to its project's worktree, with `in {repository@branch}` added when the workspace holds more than one worktree of that repository. A step with no file target, such as one that answers a question, names what it produces instead.

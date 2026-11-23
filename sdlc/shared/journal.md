@@ -24,13 +24,15 @@ The format of a ticket's journal (`journal/`), of a journal entry posted upstrea
 
 **Next:** {the single next action: a file and an action}
 
+**Ship run:** {end point} (only in an entry a ship run wrote)
+
 ### Done
 
 - {what changed, as outcomes and not attempts; say where a change is uncommitted}
 
 ### Decisions
 
-- **{decision}** - {why, and what it was chosen over}; cost if wrong: {what breaks or must be redone}. Affects {step}.
+- **{decision}** - {why, and what it was chosen over}{; cost if wrong: what breaks or must be redone}. Affects {step}.
 
 ### Inferences
 
@@ -48,7 +50,8 @@ The format of a ticket's journal (`journal/`), of a journal entry posted upstrea
 - **Stage** is `Phase N, Step N.M`, or `Planning`, `Refinement` or `Review`.
 - **Where, Worktree state, Stopped at and Next are always present.** Where a fact is unavailable, say so; outside a repository, `**Where:** not in a repository`. When the work spans several worktrees, write one Where and one Worktree state per worktree, each naming its repository.
 - **Next is specific enough to start on without re-reading anything**: never a bare "Continue Phase 2". When nothing is pending: `Nothing pending; all phases complete. Awaiting review.`
-- **A decision carries its why and its cost if wrong**, in the form of the plan's Decisions (`plan.md`), so a ship run's decisions are carried over unchanged and `pr` lists them as they stand.
+- **A decision carries its cost if wrong when the ship flag was on**, as [Ship runs](conventions.md#ship-runs) says; elsewhere the cost is optional. A decision copied from the plan's Decisions (`plan.md`) keeps its wording.
+- **A ship run's entry has the Ship run line**, naming the run's end point: `checkpoint` writes it under the ship flag, and no other entry has it. `pr` lists the decisions of every entry so marked, whichever run wrote it, so a resumed run keeps the first run's.
 - **Omit an empty Done, Decisions, Inferences, Open questions or Blockers section.**
 - **Decisions and Inferences stated earlier in the session**, such as an `implement` run's report, are carried over verbatim: that report is their only record.
 

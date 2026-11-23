@@ -1,6 +1,6 @@
 ---
 name: document
-description: Brings the README of each project a change touched (an sdlc ticket's phase, or a set of paths) back in line with the code, touching only the sections the change affects. Use when implement offers it after a phase, or when asked to document an sdlc ticket's changes.
+description: Brings the README of each project a change touched (an sdlc ticket's phase, or a set of paths) back in line with the code, touching only the sections the change affects. Use when asked to document the changes of an sdlc ticket or one of its phases.
 argument-hint: "[<ticket reference> <phase> | <paths or projects> | all] [ship]"
 ---
 
@@ -14,7 +14,7 @@ Bring the README of each project the change touched back in line with the code. 
 - Paths or projects: exactly those.
 - `all`, or a project that has no README yet: a whole-project pass.
 - No argument: the projects with uncommitted or branch changes in the invocation directory; ask if that is unclear.
-- `ship`: the [ship flag](../../shared/conventions.md#ship-runs), never part of the scope. `implement` passes it under a ship run, always with a ticket and a phase. Under it this skill asks nothing: what it would have asked about stays out of the README and is named in the report, and a section it adds is a decision, said with why and its cost if wrong.
+- `ship`: the [ship flag](../../shared/conventions.md#ship-runs), never part of the scope. `implement` passes it under a ship run, always with a ticket and a phase. Under it, what this skill would have asked about stays out of the README and is named in the report, and a section it adds is a decision.
 
 ## Outputs
 

@@ -1,14 +1,14 @@
 ---
 name: ship
-description: Ships an sdlc ticket through the whole cycle unattended (intake, plan, one commit per phase on a ticket branch, a ready pull request, and optionally a deployment), asking only at hard stops. Use only when asked to ship a ticket, spec or idea end to end.
+description: Ships an sdlc ticket through the whole cycle unattended (intake, plan, one commit per phase on a ticket branch, a ready pull request, and optionally a deployment), asking only at hard stops and steps only the user can take. Use only when asked to ship a ticket, spec or idea end to end.
 argument-hint: "<ticket reference | spec file | \"text or idea\"> [pr | <environment>]"
 ---
 
 # Ship
 
-Run the work `$ARGUMENTS` names through the whole cycle in one go: intake, plan, then per phase implement, document, commit and checkpoint, a pull request, and a deployment when the end point is an environment. Ship is a sequencer: each step is another sdlc skill doing its own work by its own rules, and ship decides only the order, when to stop, and when to wait. Invoking it is the developer's approval for what [ADR 0008](../../docs/adr/0008-a-ship-run-may-commit-push-and-open-pull-requests.md) allows: one commit per phase on the ticket's own branch, pushing that branch, and opening its pull request and marking it ready. Nothing else.
+Run the work `$ARGUMENTS` names through the whole cycle in one go: intake, plan, then per phase implement, document, commit and checkpoint, a pull request, and a deployment when the end point is an environment. Ship is a sequencer: each step is another sdlc skill doing its own work by its own rules, and ship decides only the order, when to stop, and when to wait. Invoking it is the developer's approval for what [ADR 0008](../../docs/adr/0008-a-ship-run-may-commit-push-and-open-pull-requests.md) allows: one commit per phase on the ticket's own branch, pushing that branch, opening its pull request and marking it ready, and deploying to the end point when that environment is not production. Nothing else.
 
-Run scripts as `python "${CLAUDE_PLUGIN_ROOT}/shared/sdlc.py" <verb>` (`python3` where that is the interpreter's name). The flag, the hard stops and what the flag waives are [Ship runs](../../shared/conventions.md#ship-runs); branch rules are `${CLAUDE_PLUGIN_ROOT}/shared/guard.md`; terms mean what `${CLAUDE_PLUGIN_ROOT}/GLOSSARY.md` says.
+Run scripts as `python "${CLAUDE_PLUGIN_ROOT}/shared/sdlc.py" <verb>` (`python3` where that is the interpreter's name). The flag, what it waives, decisions, the hard stops, the waits and the questions that stop a skill are [Ship runs](../../shared/conventions.md#ship-runs); branch rules are `${CLAUDE_PLUGIN_ROOT}/shared/guard.md`; terms mean what `${CLAUDE_PLUGIN_ROOT}/GLOSSARY.md` says.
 
 ## Inputs
 
@@ -18,15 +18,15 @@ Run scripts as `python "${CLAUDE_PLUGIN_ROOT}/shared/sdlc.py" <verb>` (`python3`
 
 ## Running the other skills
 
-Invoke each sdlc skill with the Skill tool (`sdlc:intake`, `sdlc:plan` and so on), with the ticket's `ref` and `ship` among its arguments, and follow it to its end before the next step. Read its report: what it produced, every decision, and whether it stopped. A skill that stopped (a guard refusal, a failed build, a missing binding, a question nothing in the run can answer) ends the run through Failure.
+Invoke each sdlc skill with the Skill tool (`sdlc:intake`, `sdlc:plan` and so on), with the ticket's `ref` and `ship` among its arguments, and follow it to its end before the next step. Read its report: what it produced, every decision, and whether it stopped. A skill that stopped, on a refusal or a question the run cannot settle, ends the run through Failure.
 
-- **Decisions.** Every choice the run makes in place of a question, ship's own and each skill's, is said in chat as it is made: what was chosen, why, and its cost if wrong. `checkpoint` carries them into the journal and `pr` into the pull request body, so the developer can review every call afterwards.
-- **Waiting.** The run waits for the developer only where a skill still asks under `ship`: a hard stop (merging into a protected branch, deploying to a production environment, changing the upstream ticket's state), `deploy`'s table of the product's environments, a manual deployment step, a delegate only the user can invoke. Before the run first waits, run `/sdlc:checkpoint <ref> ship`, so a run left waiting is on record; then, before every wait, send a push notification with the `PushNotification` tool (load it with ToolSearch, `select:PushNotification`, when it is deferred) naming the ticket and what waits. Where the tool is unavailable, say so in chat and wait all the same. Show exactly what would happen; anything but an explicit yes is a no, and a no at a hard stop ends the run there, with what it reached so far.
+- **Decisions.** Ship's own choices, such as the end point it read, are decisions as Ship runs says, like every skill's.
+- **Waiting.** The run waits only where Ship runs says a skill still waits under the flag: a hard stop, or a step only the user can take. At every wait, each one and not only the first, and inside whichever skill reaches it, before asking: run `/sdlc:checkpoint <ref> ship`, so a run left waiting is on record, then send a push notification with the `PushNotification` tool (load it with ToolSearch, `select:PushNotification`, when it is deferred) naming the ticket and what waits. Where the tool is unavailable, say so in chat and wait all the same. A no at a hard stop ends the run there, with what it reached so far.
 
 ## Steps
 
 1. **Take the work in.** Run `resolve <work>`. An existing local ticket needs no intake. Anything else goes through `/sdlc:intake <work> ship`, which mirrors or refreshes a remote ticket and adopts any other input as a local ticket. From here on, name the ticket by the `ref` that `resolve` or `intake` reported.
-2. **Check the end point** before any work, from `product` and `config.environments` in `resolve <ref>`. `pr` needs nothing. An environment needs a product to deploy: a ticket in a fallback product (`default`) has none, so stop. A product that lists environments without this one (case-insensitively): stop and name those it lists. A product that lists none: go on; `deploy` proposes them at the end, and the run waits there. Say whether the end point is production: a production one means the run waits before deploying.
+2. **Check the end point** before any work, from `product` and `config.environments` in `resolve <ref>`. `pr` needs nothing. An environment needs a product to deploy: a ticket in a fallback product (`default`) has none, so stop. A product that lists no environments, or none named this (case-insensitively): `/sdlc:deploy <environment> <ref> check ship` proposes the product's environments and waits for their one yes (a wait: checkpoint and notify first), then deploys nothing. A list saved without this environment ends the run: name those it lists. Say whether the end point is production: a production one means the run waits again before deploying.
 3. **Plan.** `/sdlc:plan <ref> ship`. It settles the workspace and the seams itself and records each in the plan's Decisions. A ticket that already has a plan is reconciled, not replanned, so a run cut short carries on where it stopped.
 4. **Check the delivery path** before the first edit, for each repository the Workspace lists that a phase not `Done` changes:
    - Its remote, `git -C <worktree> remote get-url origin`, is on GitHub or Azure Repos. Otherwise no pull request can be opened: stop.
@@ -39,14 +39,14 @@ Invoke each sdlc skill with the Skill tool (`sdlc:intake`, `sdlc:plan` and so on
 
    A `Human Review` phase is the developer's: the run ends before it as Failure says, with the review it waits for as the failure, and the step left as it is.
 6. **Mark it ready.** `/sdlc:pr <ref> ready ship`: the body rewritten from the net change, with every decision the run made, and the pull request marked ready. A run that committed nothing (a spike writes only under `artifacts/`) has no pull request: say where its finding is.
-7. **Deploy**, when the end point is an environment: `/sdlc:deploy <environment> <ref> ship`. A production environment, or a merge into a protected branch that the deployment needs, is a hard stop: wait as Waiting says.
+7. **Deploy**, when the end point is an environment: `/sdlc:deploy <environment> <ref> ship`. A production environment, or a merge into a protected branch that the deployment needs, is a hard stop, and a manual step or a user-only delegate is a wait: each waits as Waiting says.
 8. **Checkpoint the end.** `/sdlc:checkpoint <ref> ship`, so the journal holds how the run ended. When `deploy` made decisions and the pull request is still open, run `/sdlc:pr <ref> ship` once more, so its body lists them too.
 
 ## Failure
 
 A phase still failing after one fix attempt, or a skill that stopped, ends the run:
 
-1. **The failing phase stays uncommitted** and its step `Blocked`, with the failure as its note, as `implement` left it. Nothing is retried a different way, and no test is changed to pass.
+1. **The failing phase stays uncommitted** and its step `Blocked`, with the failure as its note, as `implement` left it. The failed fix is not retried a different way, and no test is changed to pass.
 2. **Checkpoint**: `/sdlc:checkpoint <ref> ship`, so the entry records the failure, the `Blocked` step and the next action.
 3. **The earlier phases are pushed**: `commit` pushed each as it committed. When one is not on the remote, that push failing is the failure to report.
 4. **The pull request stays a draft that names the failure**: `/sdlc:pr <ref> ship <note>`, the note naming the phase, the step and the failure, without `ready`. A run that fails on its first phase has no commit and opens none; say so. A pull request already ready, as when `deploy` fails, stays ready: `pr` never moves one back, and the report names the failure.
