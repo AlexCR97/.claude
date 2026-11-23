@@ -10,10 +10,10 @@ The default branch is what `origin/HEAD` names. Where that is unset, the guard i
 
 ## Policy
 
-| On a protected branch | Operations |
-| --- | --- |
-| Allowed | `fetch`, `log`, `diff`, `blame`, `show`, `cherry-pick-from` (a commit taken from it) and `fast-forward` |
-| Refused | `commit`, `push`, `force-push`, `merge`, `rebase`, `reset`, `revert`, `cherry-pick` (onto it) and `edit` (changing files in a worktree that has it checked out) |
+| On a protected branch | Operations                                                                                                                                                      |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Allowed               | `fetch`, `log`, `diff`, `blame`, `show`, `cherry-pick-from` (a commit taken from it) and `fast-forward`                                                         |
+| Refused               | `commit`, `push`, `force-push`, `merge`, `rebase`, `reset`, `revert`, `cherry-pick` (onto it) and `edit` (changing files in a worktree that has it checked out) |
 
 On any other branch every operation is allowed, but commit and push only when the developer asks. A skill never decides on its own to commit, push or open a pull request.
 

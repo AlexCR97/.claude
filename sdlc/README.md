@@ -6,16 +6,16 @@ Every skill is explicit-only (`disable-model-invocation: true`): nothing runs un
 
 ## Skills
 
-| Skill | Takes | Produces |
-| --- | --- | --- |
-| `/sdlc:setup` | A source to bind (an Azure DevOps organization and project, a GitHub owner and repository), defaults, scan roots, or the session context | The config files under the SDLC home; once per binding |
-| `/sdlc:intake` | A GitHub issue, an Azure DevOps work item, a spec file, pasted text or an idea, or nothing (the current branch's work) | A ticket: the upstream mirror under `raw/`, or a local ticket, plus `ticket.json` |
-| `/sdlc:plan` | A ticket reference, or a non-ticket input, and optionally directories | `plan.md`: phased, file-level, with test-first phases where a seam allows; re-run to update step status |
-| `/sdlc:implement` | A ticket and the phases to run (`all`, or a list) | Code changes, built and tested; step status kept in `plan.md`. Never touches a protected branch, never commits unasked |
-| `/sdlc:checkpoint` | A ticket and an optional note | A journal entry (where the code is, what was done and decided, what blocks, the next action) and the pull request record |
-| `/sdlc:resume` | A ticket | One read-only briefing ending in the single next action, including what changed upstream |
-| `/sdlc:submit` | One ticket to create or edit upstream, with a to-spec or to-tickets body if you have one | A GitHub issue or Azure DevOps work item, written only after a preview and an explicit yes |
-| `/sdlc:document` | A ticket and phase, paths, or `all` | Edits to the README of each project the change touched; never commits |
+| Skill              | Takes                                                                                                                                    | Produces                                                                                                                 |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `/sdlc:setup`      | A source to bind (an Azure DevOps organization and project, a GitHub owner and repository), defaults, scan roots, or the session context | The config files under the SDLC home; once per binding                                                                   |
+| `/sdlc:intake`     | A GitHub issue, an Azure DevOps work item, a spec file, pasted text or an idea, or nothing (the current branch's work)                   | A ticket: the upstream mirror under `raw/`, or a local ticket, plus `ticket.json`                                        |
+| `/sdlc:plan`       | A ticket reference, or a non-ticket input, and optionally directories                                                                    | `plan.md`: phased, file-level, with test-first phases where a seam allows; re-run to update step status                  |
+| `/sdlc:implement`  | A ticket and the phases to run (`all`, or a list)                                                                                        | Code changes, built and tested; step status kept in `plan.md`. Never touches a protected branch, never commits unasked   |
+| `/sdlc:checkpoint` | A ticket and an optional note                                                                                                            | A journal entry (where the code is, what was done and decided, what blocks, the next action) and the pull request record |
+| `/sdlc:resume`     | A ticket                                                                                                                                 | One read-only briefing ending in the single next action, including what changed upstream                                 |
+| `/sdlc:submit`     | One ticket to create or edit upstream, with a to-spec or to-tickets body if you have one                                                 | A GitHub issue or Azure DevOps work item, written only after a preview and an explicit yes                               |
+| `/sdlc:document`   | A ticket and phase, paths, or `all`                                                                                                      | Edits to the README of each project the change touched; never commits                                                    |
 
 ## The cycle
 
@@ -88,12 +88,12 @@ Everything lives under the SDLC home, `~/.sdlc` or `$SDLC_HOME`:
     ticket.json  raw/  plan.md  journal/  artifacts/  pulls.md
 ```
 
-| File | Level | Holds |
-| --- | --- | --- |
-| `sdlc.json` | the home | `default_namespace`, `default_source`, `scan_roots`, `protected_branches`, `sensitive`, `worktree_root` |
-| `{namespace}/namespace.json` | a namespace | the same keys (`default_product` instead of `default_namespace`), and the namespace-level source coordinates |
-| `{namespace}/{product}/product.json` | a product | the same keys and the product-level source coordinates |
-| `…/{id}/ticket.json` | a ticket | its record, keyed as [shared/store.md](shared/store.md) lists |
+| File                                 | Level       | Holds                                                                                                        |
+| ------------------------------------ | ----------- | ------------------------------------------------------------------------------------------------------------ |
+| `sdlc.json`                          | the home    | `default_namespace`, `default_source`, `scan_roots`, `protected_branches`, `sensitive`, `worktree_root`      |
+| `{namespace}/namespace.json`         | a namespace | the same keys (`default_product` instead of `default_namespace`), and the namespace-level source coordinates |
+| `{namespace}/{product}/product.json` | a product   | the same keys and the product-level source coordinates                                                       |
+| `…/{id}/ticket.json`                 | a ticket    | its record, keyed as [shared/store.md](shared/store.md) lists                                                |
 
 The inner level wins. [GLOSSARY.md](GLOSSARY.md) defines the terms, [shared/conventions.md](shared/conventions.md) the filing, mirror and path rules, and `/sdlc:setup` the keys. Specific formats sit beside it in [shared/](shared/): [store.md](shared/store.md) (the layout and `ticket.json`), [plan.md](shared/plan.md), [journal.md](shared/journal.md), [artifacts.md](shared/artifacts.md), [guard.md](shared/guard.md), [tdd.md](shared/tdd.md) and [types.md](shared/types.md).
 

@@ -12,11 +12,11 @@ The format of `plan.md`, the file in a ticket directory that holds the phased pl
 
 ## Progress
 
-| Phase                          | Activity   | Estimate          | Status      |
-| ------------------------------ | ---------- | ----------------- | ----------- |
-| [Prerequisites](#prerequisites) | -          | -                 | [ ] Pending |
-| [Phase 1: {name}](#{anchor})   | {activity} | ~{hours} hrs      | [ ] Pending |
-| **Total**                      |            | **~{total} hrs**  |             |
+| Phase                           | Activity   | Estimate         | Status      |
+| ------------------------------- | ---------- | ---------------- | ----------- |
+| [Prerequisites](#prerequisites) | -          | -                | [ ] Pending |
+| [Phase 1: {name}](#{anchor})    | {activity} | ~{hours} hrs     | [ ] Pending |
+| **Total**                       |            | **~{total} hrs** |             |
 
 ## Workspace
 
@@ -38,8 +38,8 @@ The format of `plan.md`, the file in a ticket directory that holds the phased pl
 
 ### Projects
 
-| Project | Lives in                          | Path                      | Technology |
-| ------- | --------------------------------- | ------------------------- | ---------- |
+| Project | Lives in                                           | Path                   | Technology   |
+| ------- | -------------------------------------------------- | ---------------------- | ------------ |
 | {name}  | {repository, repository@branch or plain directory} | {relative to Lives in} | {technology} |
 
 ## Prerequisites
@@ -102,12 +102,12 @@ The format of `plan.md`, the file in a ticket directory that holds the phased pl
 
 A step's `**Status:**` line holds exactly one value, optionally followed by ` - ` and a one-line note.
 
-| Status        | Means                | Note                                              |
-| ------------- | -------------------- | ------------------------------------------------- |
-| `Pending`     | Not started          | None                                              |
-| `In Progress` | Started, not finished | **Required**: what is done and what remains      |
-| `Blocked`     | Cannot proceed       | **Required**: what blocks it and what would clear it |
-| `Done`        | Finished             | Optional: only where the outcome differed from the step |
+| Status        | Means                 | Note                                                    |
+| ------------- | --------------------- | ------------------------------------------------------- |
+| `Pending`     | Not started           | None                                                    |
+| `In Progress` | Started, not finished | **Required**: what is done and what remains             |
+| `Blocked`     | Cannot proceed        | **Required**: what blocks it and what would clear it    |
+| `Done`        | Finished              | Optional: only where the outcome differed from the step |
 
 - A new plan uses `Pending` only. Never write a bare `In Progress` or `Blocked`.
 - A phase's Progress row is derived, never set: any step `Blocked` gives `[!] Blocked`; every step `Done` gives `[x] Done`; any `Done` or `In Progress` step gives `[~] In Progress`; otherwise `[ ] Pending`. A short parenthetical may follow where the count misleads, as in `[x] Done (4 skipped)`.
@@ -118,13 +118,13 @@ A step's `**Status:**` line holds exactly one value, optionally followed by ` - 
 
 A project is a directory marked by a build or deployment file. The first match names its technology; add a row only where a file is not listed here.
 
-| File                                                                  | Technology                |
-| --------------------------------------------------------------------- | ------------------------- |
-| `*.sln`, `*.csproj`                                                   | .NET                      |
-| `package.json`                                                        | Node, or a frontend app when it names a framework |
-| `pyproject.toml`, `requirements.txt`, `setup.py`                      | Python                    |
-| `pom.xml`, `build.gradle*`                                            | JVM                       |
-| `go.mod`, `Cargo.toml`                                                | Go, Rust                  |
-| `Dockerfile`, `docker-compose.yml`                                    | Containerized service     |
-| `*.bicep`, `*.tf`, `azure-pipelines.yml`, `.github/workflows/`        | Infrastructure or CI/CD   |
-| `openapi.json`, `swagger.json`, `*.http`                              | API contract              |
+| File                                                           | Technology                                        |
+| -------------------------------------------------------------- | ------------------------------------------------- |
+| `*.sln`, `*.csproj`                                            | .NET                                              |
+| `package.json`                                                 | Node, or a frontend app when it names a framework |
+| `pyproject.toml`, `requirements.txt`, `setup.py`               | Python                                            |
+| `pom.xml`, `build.gradle*`                                     | JVM                                               |
+| `go.mod`, `Cargo.toml`                                         | Go, Rust                                          |
+| `Dockerfile`, `docker-compose.yml`                             | Containerized service                             |
+| `*.bicep`, `*.tf`, `azure-pipelines.yml`, `.github/workflows/` | Infrastructure or CI/CD                           |
+| `openapi.json`, `swagger.json`, `*.http`                       | API contract                                      |
