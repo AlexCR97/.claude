@@ -76,7 +76,12 @@ A remote ticket's `journal/` is part of its mirror. `fetch`, run by `intake`, wr
 - **The latest entry** is the greatest name among `journal/` and the entries upstream: names sort in time order on every machine. An unposted entry is in `journal/` only; an entry another machine posted is upstream only until the next intake.
 - **`fetch --check`** adds, for a remote ticket it reached upstream:
   - `journal`: `upstream`, every entry's name, oldest first; `unmirrored`, those `journal/` lacks; and while any is unmirrored, `newest_unmirrored`, `{name, entry, author}`, the newest of them in full. With `changed` it reads the live comments, otherwise the mirror's.
-  - `only_journal`, with `changed` only: true when nothing but journal entries differs from the mirror. Every post moves the revision, so after a checkpoint `changed` is true and `only_journal` says that is all it was.
+  - `status`, the one value a skill acts on. Every post moves the revision, so after a checkpoint `changed` is true and `status` says whether that is all it was:
+    - `unchanged`: the revision has not moved, and `journal/` holds every entry upstream.
+    - `journal_only`: nothing but journal entries differs from the mirror, all of them already in `journal/` (this machine's own posts).
+    - `journal_unmirrored`: nothing but journal entries differs from the mirror, and `journal.unmirrored` lists some `journal/` lacks.
+    - `changed`: something besides journal entries differs.
+    - `never_mirrored`, `stale_mirror` and `local` are answered before upstream is asked, as the provider notes say.
 
 ## Pull request record
 

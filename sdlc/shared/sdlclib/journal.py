@@ -9,7 +9,7 @@ one is a human's, not an entry.
 
 import re
 from pathlib import Path
-from typing import TypedDict
+from typing import NotRequired, TypedDict, TypeVar
 
 MARKER = re.compile(r"sdlc-journal-entry `(\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}Z\.md)`")
 
@@ -23,6 +23,20 @@ class Entry(TypedDict):
     name: str
     entry: str
     author: str | None
+
+
+class Mirrored(TypedDict):
+    written: list[str]
+    kept: list[str]
+
+
+class Comparison(TypedDict):
+    upstream: list[str]
+    unmirrored: list[str]
+    newest_unmirrored: NotRequired[Entry]
+
+
+Item = TypeVar("Item")
 
 
 def parse(comment: Comment) -> Entry | None:
@@ -48,8 +62,16 @@ def entries(comments: list[Comment]) -> list[Entry]:
     return [found[name] for name in sorted(found)]
 
 
-def mirror(comments: list[Comment], journal_dir: Path) -> dict:
-    """Write each entry upstream that `journal/` lacks; an existing file is never touched."""
+def without_entries(items: list[Item], comments: list[Comment]) -> list[Item]:
+    """The items whose comment is not a journal entry; `comments` holds each item's comment, in order."""
+    return [
+        item
+        for item, comment in zip(items, comments, strict=True)
+        if not parse(comment)
+    ]
+
+
+def mirror(comments: list[Comment], journal_dir: Path) -> Mirrored:
     written: list[str] = []
     kept: list[str] = []
     for entry in entries(comments):
@@ -64,13 +86,12 @@ def mirror(comments: list[Comment], journal_dir: Path) -> dict:
     return {"written": written, "kept": kept}
 
 
-def compare(comments: list[Comment], journal_dir: Path) -> dict:
-    """The entries upstream and those `journal/` lacks, with the newest of those in full; writes nothing."""
+def compare(comments: list[Comment], journal_dir: Path) -> Comparison:
     found = entries(comments)
     unmirrored = [
         entry for entry in found if not (journal_dir / entry["name"]).exists()
     ]
-    report: dict = {
+    report: Comparison = {
         "upstream": [entry["name"] for entry in found],
         "unmirrored": [entry["name"] for entry in unmirrored],
     }

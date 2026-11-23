@@ -2,7 +2,7 @@
 
 Agentic software development life cycle: intake, plan, implement and document. A Claude Code plugin that mirrors a GitHub issue or an Azure DevOps work item (or adopts a spec, text or an idea) into a local store, then plans, implements, checkpoints and documents it, keeping what a later session needs on disk.
 
-Every skill but `/sdlc:export` is explicit-only (`disable-model-invocation: true`): nothing runs unless you type it. `/sdlc:export` only reads the SDLC home and writes a new zip, so the model may run it when asked to move work off the machine. `/sdlc:import` merges an archive into the home, so it runs only when you type it ([ADR 0007](docs/adr/0007-skills-are-model-invokable-and-gate-themselves.md)).
+[ADR 0007](docs/adr/0007-skills-are-model-invokable-and-gate-themselves.md) sets the direction: skills the model may invoke, each gating its own writes. Until [issue #56](https://github.com/AlexCR97/.claude/issues/56) flips them, every skill but `/sdlc:export` is still explicit-only (`disable-model-invocation: true`) and runs only when you type it. `/sdlc:export` only reads the SDLC home and writes a new zip, so the model may already run it when asked to move work off the machine. `/sdlc:import` rewrites the home, so it stays explicit-only after #56 too.
 
 ## Skills
 

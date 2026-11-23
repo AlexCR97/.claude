@@ -5,18 +5,70 @@ Without `apply` it only reports what the merge would do. The merge rules are in
 `shared/archive.md`.
 """
 
+import copy
 import hashlib
 import json
-import os
 import re
 import zipfile
 from dataclasses import dataclass, field
 from itertools import count
 from pathlib import Path, PurePosixPath
+from typing import TypedDict, cast
 
-from . import layout, paths, providers
-from .archive import FORMAT_NAME, FORMAT_VERSION, MANIFEST_NAME
+from . import config, layout, paths, providers
+from .archive import FORMAT_NAME, FORMAT_VERSION, MANIFEST_NAME, Manifest
 from .errors import SdlcError
+from .layout import Product, TicketDirectory
+
+
+class KeptMine(TypedDict):
+    path: str
+    reason: str
+
+
+KeptBoth = TypedDict("KeptBoth", {"path": str, "as": str})
+
+
+class MirrorChoice(TypedDict):
+    ticket: str
+    mine: dict | None
+    theirs: dict | None
+    taken: bool
+
+
+class KeyChange(TypedDict):
+    path: str
+    keys: list[str]
+
+
+class MissingPaths(TypedDict):
+    ticket: str
+    paths: list[str]
+
+
+class Conflict(TypedDict):
+    ticket: str
+    files: list[str]
+
+
+class Summary(TypedDict):
+    adds: list[str]
+    new_tickets: list[str]
+    kept_mine: list[KeptMine]
+    kept_both: list[KeptBoth]
+    mirrors: list[MirrorChoice]
+    merges: list[KeyChange]
+    not_imported: list[KeyChange]
+    missing_workspace_paths: list[MissingPaths]
+    conflicts: list[Conflict]
+
+
+class ImportReport(Summary):
+    digest: str
+
+
+class ApplyReport(ImportReport):
+    applied: bool
 
 
 def read_archive(path: Path) -> dict[str, bytes]:
@@ -31,16 +83,13 @@ def read_archive(path: Path) -> dict[str, bytes]:
         raise SdlcError(f"{path} is not a readable zip ({error})") from error
 
 
-def check_manifest(path: Path, entries: dict[str, bytes]) -> dict:
+def check_manifest(path: Path, entries: dict[str, bytes]) -> Manifest:
     if MANIFEST_NAME not in entries:
         raise SdlcError(f"{path} has no {MANIFEST_NAME}, so it is not an sdlc archive")
-    try:
-        manifest = json.loads(entries.pop(MANIFEST_NAME))
-    except (json.JSONDecodeError, UnicodeDecodeError) as error:
-        raise SdlcError(
-            f"{path}: {MANIFEST_NAME} is not valid JSON ({error})"
-        ) from error
-    if not isinstance(manifest, dict) or manifest.get("format") != FORMAT_NAME:
+    manifest = layout.parse_json_object(
+        f"{path}: {MANIFEST_NAME}", entries.pop(MANIFEST_NAME)
+    )
+    if manifest.get("format") != FORMAT_NAME:
         raise SdlcError(f"{path} is not an sdlc archive")
     if manifest.get("version") != FORMAT_VERSION:
         raise SdlcError(
@@ -53,7 +102,16 @@ def check_manifest(path: Path, entries: dict[str, bytes]) -> dict:
         r"\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ", str(manifest.get("created_at"))
     ):
         raise SdlcError(f"{path}: the manifest's created_at is not a UTC time")
-    return manifest
+    return cast(Manifest, manifest)
+
+
+def locate(name: str) -> tuple[TicketDirectory, str] | None:
+    """The ticket an archive entry belongs to, and the entry's path inside its directory."""
+    parts = name.split("/", 4)
+    if len(parts) < 5 or parts[2] not in providers.list_sources():
+        return None
+    namespace, product, source, ticket_id, within = parts
+    return TicketDirectory(Product(namespace, product), source, ticket_id), within
 
 
 def in_layout(name: str) -> bool:
@@ -64,15 +122,14 @@ def in_layout(name: str) -> bool:
     if any(part in ("", ".", "..") for part in parts):
         return False
     if len(parts) == 1:
-        return name == "sdlc.json"
+        return name == paths.ROOT_CONFIG_NAME
     if not all(layout.is_name(part) for part in parts[:-1][:2]):
         return False
-    if len(parts) >= 5 and parts[2] in providers.list_sources():
-        return layout.is_name(parts[3])
-    return True
+    located = locate(name)
+    return located is None or layout.is_name(located[0].id)
 
 
-def load(archive_text: str, cwd: Path) -> tuple[dict, dict[str, bytes]]:
+def load(archive_text: str, cwd: Path) -> tuple[Manifest, dict[str, bytes]]:
     path = (cwd / Path(archive_text).expanduser()).resolve()
     entries = read_archive(path)
     manifest = check_manifest(path, entries)
@@ -86,18 +143,11 @@ def load(archive_text: str, cwd: Path) -> tuple[dict, dict[str, bytes]]:
     return manifest, entries
 
 
-def ticket_ref(relative: str) -> str | None:
-    parts = relative.split("/")
-    if len(parts) < 5 or parts[2] not in providers.list_sources():
-        return None
-    return f"{parts[0]}/{parts[1]}/{parts[2]}:{parts[3]}"
-
-
 @dataclass
 class Write:
     path: str
     content: bytes
-    new: bool
+    is_new: bool
 
 
 @dataclass
@@ -109,12 +159,12 @@ class Merge:
     created_at: str
     adds: list[str] = field(default_factory=list)
     new_tickets: list[str] = field(default_factory=list)
-    kept_mine: list[dict] = field(default_factory=list)
-    kept_both: list[dict] = field(default_factory=list)
-    mirrors: list[dict] = field(default_factory=list)
-    merges: list[dict] = field(default_factory=list)
-    not_imported: list[dict] = field(default_factory=list)
-    missing_workspace_paths: list[dict] = field(default_factory=list)
+    kept_mine: list[KeptMine] = field(default_factory=list)
+    kept_both: list[KeptBoth] = field(default_factory=list)
+    mirrors: list[MirrorChoice] = field(default_factory=list)
+    merges: list[KeyChange] = field(default_factory=list)
+    not_imported: list[KeyChange] = field(default_factory=list)
+    missing_workspace_paths: list[MissingPaths] = field(default_factory=list)
     conflicts: dict[str, list[str]] = field(default_factory=dict)
     writes: list[Write] = field(default_factory=list)
     theirs_writes: dict[str, list[Write]] = field(default_factory=dict)
@@ -123,12 +173,24 @@ class Merge:
         path = self.home / name
         return path.read_bytes() if path.is_file() else None
 
-    def add(self, name: str) -> None:
+    def add(self, name: str, content: bytes | None = None) -> None:
+        """Write a file this home lacks: the archive's entry, unless `content` is given."""
         self.adds.append(name)
-        self.writes.append(Write(name, self.entries[name], True))
+        if content is None:
+            content = self.entries[name]
+        self.writes.append(Write(name, content, is_new=True))
+
+    def add_ticket(self, ticket: TicketDirectory, names: list[str]) -> None:
+        self.new_tickets.append(ticket.qualified)
+        for name in names:
+            self.add(name)
 
     def replace(self, name: str, content: bytes) -> None:
-        self.writes.append(Write(name, content, False))
+        self.writes.append(Write(name, content, is_new=False))
+
+    def merge_keys(self, name: str, keys: list[str], content: bytes) -> None:
+        self.merges.append({"path": name, "keys": keys})
+        self.replace(name, content)
 
     def keep_mine(self, name: str, reason: str) -> None:
         self.kept_mine.append({"path": name, "reason": reason})
@@ -149,16 +211,36 @@ class Merge:
             if existing is None and beside not in self.entries:
                 break
         self.kept_both.append({"path": name, "as": beside})
-        self.writes.append(Write(beside, content, True))
+        self.writes.append(Write(beside, content, is_new=True))
 
-    def conflict(self, ref: str, file: str, theirs: Write) -> None:
+    def choose_mirror(
+        self, ticket: TicketDirectory, *, theirs: dict, mine: dict, taken: bool
+    ) -> None:
+        self.mirrors.append(
+            {
+                "ticket": ticket.qualified,
+                "mine": mine.get("fingerprint"),
+                "theirs": theirs.get("fingerprint"),
+                "taken": taken,
+            }
+        )
+
+    def leave_out(self, name: str, keys: list[str]) -> None:
+        self.not_imported.append({"path": name, "keys": keys})
+
+    def conflict(self, ticket: TicketDirectory, file: str, theirs: Write) -> None:
         """Ask keep-mine or take-theirs for the ticket; `theirs` is written only on take-theirs."""
-        self.conflicts.setdefault(ref, []).append(file)
-        self.theirs_writes.setdefault(ref, []).append(theirs)
+        self.conflicts.setdefault(ticket.qualified, []).append(file)
+        self.theirs_writes.setdefault(ticket.qualified, []).append(theirs)
 
-    def summary(self) -> dict:
+    def report_missing_paths(self, ticket: TicketDirectory, found: list[str]) -> None:
+        self.missing_workspace_paths.append(
+            {"ticket": ticket.qualified, "paths": found}
+        )
+
+    def summary(self) -> Summary:
         return {
-            "adds": self.adds,
+            "adds": sorted(self.adds),
             "new_tickets": self.new_tickets,
             "kept_mine": sorted(
                 self.kept_mine, key=lambda kept: (kept["path"], kept["reason"])
@@ -197,39 +279,32 @@ JOURNAL_NAME = re.compile(r"\d{4}-\d\d-\d\dT\d\d-\d\d-\d\dZ\.md")
 MIRROR_KEYS = ("title", "state", "url", "fingerprint", "last_fetched_at", "coordinates")
 
 
-def within_ticket(name: str) -> str:
-    return "/".join(name.split("/")[4:])
-
-
-def merge_file(merge: Merge, name: str, ref: str | None, local: bool) -> None:
+def merge_file(merge: Merge, name: str) -> None:
+    """A file outside every ticket directory: a differing one is kept beside this home's."""
     mine = merge.mine(name)
-    within = within_ticket(name) if ref else ""
+    if mine is None:
+        merge.add(name)
+    elif mine != merge.entries[name]:
+        merge.keep_both(name)
+
+
+def merge_ticket_file(
+    merge: Merge, ticket: TicketDirectory, within: str, name: str, *, is_local: bool
+) -> None:
+    mine = merge.mine(name)
     if mine is None:
         merge.add(name)
     elif mine == merge.entries[name]:
         return
-    elif ref and within.startswith("journal/"):
+    elif within.startswith("journal/"):
         merge.keep_mine(name, "a journal entry of the same name is already here")
-    elif ref and (within in ASKED_FILES or (local and within.startswith("raw/"))):
-        merge.conflict(ref, within, Write(name, merge.entries[name], False))
+    elif within in ASKED_FILES or (is_local and within.startswith("raw/")):
+        merge.conflict(ticket, within, Write(name, merge.entries[name], is_new=False))
     else:
         merge.keep_both(name)
 
 
-def parse_record(name: str, content: bytes | None) -> dict:
-    if content is None:
-        return {}
-    try:
-        record = json.loads(content)
-    except (json.JSONDecodeError, UnicodeDecodeError) as error:
-        raise SdlcError(f"{name} is not a valid ticket record ({error})") from error
-    if not isinstance(record, dict):
-        raise SdlcError(f"{name} must hold a JSON object")
-    return record
-
-
 def is_newer(theirs: dict, mine: dict) -> bool:
-    """Whether the archive's mirror is of a later revision than this home's."""
     their_print, my_print = theirs.get("fingerprint"), mine.get("fingerprint")
     if their_print == my_print:
         return False
@@ -244,7 +319,7 @@ def is_newer(theirs: dict, mine: dict) -> bool:
 
 
 def merge_mirror(
-    merge: Merge, ref: str, raw: list[str], theirs: dict, mine: dict
+    merge: Merge, ticket: TicketDirectory, raw: list[str], *, theirs: dict, mine: dict
 ) -> bool:
     """Take the archive's `raw/` whole when it is newer; returns whether it was taken."""
     if not any(merge.mine(name) is not None for name in raw):
@@ -255,14 +330,7 @@ def merge_mirror(
     if not differing:
         return False
     taken = is_newer(theirs, mine)
-    merge.mirrors.append(
-        {
-            "ticket": ref,
-            "mine": mine.get("fingerprint"),
-            "theirs": theirs.get("fingerprint"),
-            "taken": taken,
-        }
-    )
+    merge.choose_mirror(ticket, theirs=theirs, mine=mine, taken=taken)
     for name in differing if taken else []:
         if merge.mine(name) is None:
             merge.add(name)
@@ -271,19 +339,26 @@ def merge_mirror(
     return taken
 
 
-def merge_record(merge: Merge, ref: str, name: str, mirror_taken: bool) -> None:
+def merge_record(
+    merge: Merge,
+    ticket: TicketDirectory,
+    files: dict[str, str],
+    *,
+    mirror_taken: bool,
+) -> None:
+    name = files[RECORD]
     mine_bytes = merge.mine(name)
     if mine_bytes is None:
         merge.add(name)
         return
     if mine_bytes == merge.entries[name]:
         return
-    mine = parse_record(name, mine_bytes)
-    theirs = parse_record(name, merge.entries[name])
+    mine = layout.parse_json_object(name, mine_bytes)
+    theirs = layout.parse_json_object(name, merge.entries[name])
     merged = dict(mine)
     if mirror_taken:
         merged.update({key: theirs[key] for key in MIRROR_KEYS if key in theirs})
-    unposted = unposted_union(merge, name, mine, theirs)
+    unposted = unposted_union(ticket, files, mine=mine, theirs=theirs)
     if unposted:
         merged[UNPOSTED] = unposted
     asked = []
@@ -296,16 +371,18 @@ def merge_record(merge: Merge, ref: str, name: str, mirror_taken: bool) -> None:
             asked.append(key)
     changed = sorted(key for key in merged if merged.get(key) != mine.get(key))
     if changed:
-        merge.merges.append({"path": name, "keys": changed})
-        merge.replace(name, record_bytes(merged))
+        merge.merge_keys(name, changed, layout.json_bytes(merged))
     if asked:
         taken = {**merged, **{key: theirs[key] for key in asked}}
-        merge.conflict(ref, RECORD, Write(name, record_bytes(taken), False))
+        merge.conflict(
+            ticket, RECORD, Write(name, layout.json_bytes(taken), is_new=False)
+        )
 
 
-def unposted_union(merge: Merge, name: str, mine: dict, theirs: dict) -> list[str]:
+def unposted_union(
+    ticket: TicketDirectory, files: dict[str, str], *, mine: dict, theirs: dict
+) -> list[str]:
     """Entries either home has not posted yet still wait; checkpoint skips one already posted."""
-    journal = name.rsplit("/", 1)[0] + "/journal/"
     names = {
         entry
         for record in (mine, theirs)
@@ -316,54 +393,41 @@ def unposted_union(merge: Merge, name: str, mine: dict, theirs: dict) -> list[st
     return sorted(
         entry
         for entry in names
-        if journal + entry in merge.entries or merge.mine(journal + entry) is not None
+        if f"journal/{entry}" in files or (ticket.dir / "journal" / entry).is_file()
     )
 
 
-def record_bytes(record: dict) -> bytes:
-    return (json.dumps(record, indent=2, ensure_ascii=False) + "\n").encode()
-
-
-def merge_ticket(merge: Merge, ref: str, names: list[str]) -> None:
-    prefix = "/".join(names[0].split("/")[:4])
-    local = not providers.load_manifest(names[0].split("/")[2])["capabilities"]["fetch"]
-    record_name = f"{prefix}/{RECORD}"
-    theirs = parse_record(record_name, merge.entries.get(record_name))
-    mine = parse_record(record_name, merge.mine(record_name))
-    raw = [name for name in names if within_ticket(name).startswith("raw/")]
+def merge_ticket(merge: Merge, ticket: TicketDirectory, files: dict[str, str]) -> None:
+    """Merge a ticket this home has too; `files` maps each entry's path inside the ticket to its name."""
+    is_local = not providers.load_manifest(ticket.source)["capabilities"]["fetch"]
+    record = files.get(RECORD)
+    theirs = layout.parse_json_object(record, merge.entries[record]) if record else {}
+    mine = layout.read_json_object(ticket.dir / RECORD)
+    raw = [name for within, name in files.items() if within.startswith("raw/")]
     mirror_taken = False
-    if raw and not local:
-        mirror_taken = merge_mirror(merge, ref, raw, theirs, mine)
-    for name in names:
-        if name == record_name:
-            merge_record(merge, ref, name, mirror_taken)
-        elif local or name not in raw:
-            merge_file(merge, name, ref, local)
+    if raw and not is_local:
+        mirror_taken = merge_mirror(merge, ticket, raw, theirs=theirs, mine=mine)
+    for within, name in files.items():
+        if within == RECORD:
+            merge_record(merge, ticket, files, mirror_taken=mirror_taken)
+        elif is_local or name not in raw:
+            merge_ticket_file(merge, ticket, within, name, is_local=is_local)
 
 
-CONFIG_NAMES = ("sdlc.json", "namespace.json", "product.json")
-# Directories on the machine an archive came from, which mean nothing on this one.
-MACHINE_KEYS = ("scan_roots", "worktree_root")
-LIST_KEYS = ("protected_branches", "sensitive")
+CONFIG_NAMES = (
+    paths.ROOT_CONFIG_NAME,
+    paths.NAMESPACE_CONFIG_NAME,
+    paths.PRODUCT_CONFIG_NAME,
+)
 
 
 def is_config(name: str) -> bool:
     parts = name.split("/")
-    return len(parts) <= 3 and parts[-1] == CONFIG_NAMES[len(parts) - 1]
-
-
-def parse_config(name: str, content: bytes) -> dict:
-    try:
-        data = json.loads(content)
-    except (json.JSONDecodeError, UnicodeDecodeError) as error:
-        raise SdlcError(f"{name} is not valid JSON ({error})") from error
-    if not isinstance(data, dict):
-        raise SdlcError(f"{name} must hold a JSON object")
-    return data
+    return len(parts) <= len(CONFIG_NAMES) and parts[-1] == CONFIG_NAMES[len(parts) - 1]
 
 
 def merge_value(
-    mine: dict, key: str, value: object, path: str, kept: list[str]
+    mine: dict, key: str, value: object, *, path: str, kept: list[str]
 ) -> bool:
     """Merge one key of the archive's config into this home's; returns whether it changed."""
     if key not in mine:
@@ -375,9 +439,15 @@ def merge_value(
     if isinstance(current, dict) and isinstance(value, dict):
         changed = False
         for inner, inner_value in value.items():
-            changed |= merge_value(current, inner, inner_value, f"{path}.{inner}", kept)
+            changed |= merge_value(
+                current, inner, inner_value, path=f"{path}.{inner}", kept=kept
+            )
         return changed
-    if key in LIST_KEYS and isinstance(current, list) and isinstance(value, list):
+    if (
+        key in config.LIST_KEYS
+        and isinstance(current, list)
+        and isinstance(value, list)
+    ):
         mine[key] = current + [item for item in value if item not in current]
         return True
     kept.append(path)
@@ -385,36 +455,37 @@ def merge_value(
 
 
 def merge_config(merge: Merge, name: str) -> None:
-    theirs = parse_config(name, merge.entries[name])
-    dropped = [key for key in MACHINE_KEYS if key in theirs]
+    theirs = layout.parse_json_object(name, merge.entries[name])
     mine_bytes = merge.mine(name)
-    if mine_bytes is None:
-        merge.adds.append(name)
-        content = merge.entries[name]
-        if dropped:
-            portable = {k: v for k, v in theirs.items() if k not in MACHINE_KEYS}
-            content = record_bytes(portable)
-        merge.writes.append(Write(name, content, True))
-    elif mine_bytes != merge.entries[name]:
-        mine = parse_config(name, mine_bytes)
-        merged = json.loads(json.dumps(mine))
-        dropped = [key for key in dropped if theirs[key] != mine.get(key)]
-        kept: list[str] = []
-        changed = [
-            key
-            for key, value in theirs.items()
-            if key not in MACHINE_KEYS and merge_value(merged, key, value, key, kept)
-        ]
-        merge.kept_mine.extend(
-            {"path": name, "reason": f"keeps this home's {path}"} for path in kept
-        )
-        if changed:
-            merge.merges.append({"path": name, "keys": sorted(changed)})
-            merge.replace(name, record_bytes(merged))
+    if mine_bytes == merge.entries[name]:
+        return
+    mine = layout.parse_json_object(name, mine_bytes) if mine_bytes is not None else {}
+    portable = {
+        key: value for key, value in theirs.items() if key not in config.MACHINE_KEYS
+    }
+    if mine_bytes is None and len(portable) == len(theirs):
+        merge.add(name)
+    elif mine_bytes is None:
+        merge.add(name, layout.json_bytes(portable))
     else:
-        dropped = []
+        merged = copy.deepcopy(mine)
+        kept: list[str] = []
+        changed = sorted(
+            key
+            for key, value in portable.items()
+            if merge_value(merged, key, value, path=key, kept=kept)
+        )
+        for path in kept:
+            merge.keep_mine(name, f"keeps this home's {path}")
+        if changed:
+            merge.merge_keys(name, changed, layout.json_bytes(merged))
+    dropped = [
+        key
+        for key in sorted(config.MACHINE_KEYS)
+        if key in theirs and (key not in mine or theirs[key] != mine[key])
+    ]
     if dropped:
-        merge.not_imported.append({"path": name, "keys": dropped})
+        merge.leave_out(name, dropped)
 
 
 WORKSPACE_PATH = re.compile(r"`((?:[A-Za-z]:[\\/]|/|~)[^`]*)`")
@@ -438,52 +509,51 @@ def missing_workspace_paths(plan: bytes) -> list[str]:
     ]
 
 
-def build(manifest: dict, entries: dict[str, bytes]) -> Merge:
+def build(manifest: Manifest, entries: dict[str, bytes]) -> Merge:
     merge = Merge(paths.sdlc_home(), entries, manifest["created_at"])
-    tickets: dict[str, list[str]] = {}
+    tickets: dict[TicketDirectory, dict[str, str]] = {}
     for name in sorted(entries):
-        ref = ticket_ref(name)
-        if ref:
-            tickets.setdefault(ref, []).append(name)
+        located = locate(name)
+        if located:
+            ticket, within = located
+            tickets.setdefault(ticket, {})[within] = name
         elif is_config(name):
             merge_config(merge, name)
         else:
-            merge_file(merge, name, None, False)
-    for ref, names in sorted(tickets.items()):
-        if not (merge.home / "/".join(names[0].split("/")[:4])).is_dir():
-            merge.new_tickets.append(ref)
-            for name in names:
-                merge.add(name)
+            merge_file(merge, name)
+    in_order = sorted(tickets.items(), key=lambda item: item[0].qualified)
+    for ticket, files in in_order:
+        if ticket.dir.is_dir():
+            merge_ticket(merge, ticket, files)
         else:
-            merge_ticket(merge, ref, names)
-    for ref, names in sorted(tickets.items()):
-        plan = next((n for n in names if within_ticket(n) == ASKED_FILES[0]), None)
+            merge.add_ticket(ticket, list(files.values()))
+    for ticket, files in in_order:
+        plan = files.get(ASKED_FILES[0])
         missing = missing_workspace_paths(entries[plan]) if plan else []
         if missing:
-            merge.missing_workspace_paths.append({"ticket": ref, "paths": missing})
-    merge.adds.sort()
+            merge.report_missing_paths(ticket, missing)
     return merge
 
 
-def report(archive_text: str, cwd: Path) -> dict:
+def report(archive_text: str, cwd: Path) -> ImportReport:
     manifest, entries = load(archive_text, cwd)
     merge = build(manifest, entries)
     return {**merge.summary(), "digest": merge.digest()}
 
 
-def write(path: Path, content: bytes, new: bool) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    if new:
-        # Exclusive: a file that appeared since the digest was checked is never overwritten.
-        with path.open("xb") as created:
-            created.write(content)
+def write(path: Path, content: bytes, *, is_new: bool) -> None:
+    if not is_new:
+        layout.replace_file(path, content)
         return
-    scratch = path.with_name(path.name + ".import.tmp")
-    scratch.write_bytes(content)
-    os.replace(scratch, path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    # Exclusive: a file that appeared since the digest was checked is never overwritten.
+    with path.open("xb") as created:
+        created.write(content)
 
 
-def check_choices(merge: Merge, take_theirs: list[str], keep_mine: list[str]) -> None:
+def check_choices(
+    merge: Merge, *, take_theirs: list[str], keep_mine: list[str]
+) -> None:
     both = sorted(set(take_theirs) & set(keep_mine))
     unasked = sorted(set(take_theirs + keep_mine) - set(merge.conflicts))
     unchosen = sorted(set(merge.conflicts) - set(take_theirs + keep_mine))
@@ -502,11 +572,12 @@ def check_choices(merge: Merge, take_theirs: list[str], keep_mine: list[str]) ->
 
 def apply(
     archive_text: str,
+    *,
     digest: str,
     take_theirs: list[str],
     keep_mine: list[str],
     cwd: Path,
-) -> dict:
+) -> ApplyReport:
     manifest, entries = load(archive_text, cwd)
     merge = build(manifest, entries)
     if merge.digest() != digest:
@@ -515,16 +586,16 @@ def apply(
             hint="Nothing was written. Run `archive import` without --apply "
             "again and review the new report.",
         )
-    check_choices(merge, take_theirs, keep_mine)
+    check_choices(merge, take_theirs=take_theirs, keep_mine=keep_mine)
     writes = merge.writes + [
         planned for ref in take_theirs for planned in merge.theirs_writes[ref]
     ]
-    clashes = [w.path for w in writes if w.new and (merge.home / w.path).exists()]
+    clashes = [w.path for w in writes if w.is_new and (merge.home / w.path).exists()]
     if clashes:
         raise SdlcError(
             "files appeared since the report: " + ", ".join(clashes),
             hint="Nothing was written. Run `archive import` without --apply again.",
         )
     for planned in writes:
-        write(merge.home / planned.path, planned.content, planned.new)
+        write(merge.home / planned.path, planned.content, is_new=planned.is_new)
     return {**merge.summary(), "digest": digest, "applied": True}

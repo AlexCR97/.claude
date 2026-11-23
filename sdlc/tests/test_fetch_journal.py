@@ -221,8 +221,7 @@ def test_a_github_issue_changed_only_by_this_machines_own_entries_says_only_the_
 
     report = run_cli("fetch", "github:1234", "--check").json
 
-    assert report["status"] == "changed"
-    assert report["only_journal"] is True
+    assert report["status"] == "journal_only"
     assert report["journal"] == {
         "upstream": ["2026-11-23T14-05-09Z.md", "2026-11-24T09-00-00Z.md"],
         "unmirrored": [],
@@ -241,7 +240,7 @@ def test_an_entry_another_machine_posted_is_reported_unmirrored_in_full_with_its
 
     report = run_cli("fetch", "github:1234", "--check").json
 
-    assert report["only_journal"] is True
+    assert report["status"] == "journal_unmirrored"
     assert report["journal"]["unmirrored"] == ["2026-11-25T10-00-00Z.md"]
     assert report["journal"]["newest_unmirrored"] == {
         "name": "2026-11-25T10-00-00Z.md",
@@ -262,7 +261,6 @@ def test_a_github_issue_with_a_new_human_comment_beside_an_entry_is_more_than_th
     report = run_cli("fetch", "github:1234", "--check").json
 
     assert report["status"] == "changed"
-    assert report["only_journal"] is False
 
 
 ADO_ITEM = "https://dev.azure.com/acme/_apis/wit/workItems/1234"
@@ -290,9 +288,8 @@ def test_a_work_item_whose_rev_moved_only_for_this_machines_entry_says_only_the_
 
     report = run_cli("fetch", "ado:1234", "--check").json
 
-    assert report["status"] == "changed"
+    assert report["status"] == "journal_only"
     assert report["live"] == {"rev": 8}
-    assert report["only_journal"] is True
     assert report["journal"] == {
         "upstream": ["2026-11-24T09-00-00Z.md"],
         "unmirrored": [],
@@ -314,10 +311,10 @@ def test_a_work_item_retitled_beside_an_entry_is_more_than_the_journal(
 
     report = run_cli("fetch", "ado:1234", "--check").json
 
-    assert report["only_journal"] is False
+    assert report["status"] == "changed"
 
 
-def test_an_unchanged_ticket_still_reports_an_entry_its_mirror_holds_but_journal_lacks(
+def test_an_unmoved_ticket_whose_mirror_holds_an_entry_journal_lacks_reads_journal_unmirrored(
     run_cli, bound, source, sdlc_home, az_stub
 ):
     source.comments(posted("2026-11-23T14-05-09Z.md"))
@@ -327,7 +324,7 @@ def test_an_unchanged_ticket_still_reports_an_entry_its_mirror_holds_but_journal
 
     report = run_cli("fetch", f"{source.name}:1234", "--check").json
 
-    assert report["status"] == "unchanged"
-    assert "only_journal" not in report
+    assert report["status"] == "journal_unmirrored"
+    assert report["changed"] is False
     assert report["journal"]["unmirrored"] == ["2026-11-23T14-05-09Z.md"]
     assert report["journal"]["newest_unmirrored"]["entry"] == ENTRY

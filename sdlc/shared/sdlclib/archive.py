@@ -6,7 +6,6 @@ The format is `shared/archive.md`. Every entry is relative to the SDLC home
 with forward slashes, so the same zip reads the same on Windows and elsewhere.
 """
 
-import json
 import re
 import zipfile
 from dataclasses import dataclass
@@ -39,6 +38,15 @@ class ExportScope:
 
     def as_dict(self) -> ScopeRecord:
         return {"kind": self.kind, "ref": self.ref}
+
+
+class Manifest(TypedDict):
+    format: str
+    version: int
+    scope: ScopeRecord
+    created_at: str
+    source_home: str
+    tickets: list[str]
 
 
 class ExportReport(TypedDict):
@@ -184,14 +192,12 @@ def archive_path(scope: ExportScope, out: str | None, cwd: Path, now: datetime) 
     return target
 
 
-def write_zip(target: Path, home: Path, files: list[Path], manifest: dict) -> None:
+def write_zip(target: Path, home: Path, files: list[Path], manifest: Manifest) -> None:
     try:
         with zipfile.ZipFile(target, "x", zipfile.ZIP_DEFLATED) as archive:
             for path in files:
                 archive.write(path, path.relative_to(home).as_posix())
-            archive.writestr(
-                MANIFEST_NAME, json.dumps(manifest, indent=2, ensure_ascii=False)
-            )
+            archive.writestr(MANIFEST_NAME, layout.json_bytes(manifest))
     except OSError as error:
         target.unlink(missing_ok=True)
         raise SdlcError(f"could not write {target} ({error})") from error
@@ -205,7 +211,7 @@ def export(
     now = datetime.now(UTC).replace(microsecond=0)
     target = archive_path(scope, out, cwd, now)
     tickets = [found.qualified for found in scope.tickets]
-    manifest = {
+    manifest: Manifest = {
         "format": FORMAT_NAME,
         "version": FORMAT_VERSION,
         "scope": scope.as_dict(),

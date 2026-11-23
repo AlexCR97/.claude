@@ -79,25 +79,23 @@ def verb_guard(args: argparse.Namespace) -> int:
 
 
 def verb_archive(args: argparse.Namespace) -> int:
-    if args.action == "import":
-        if not args.scope:
-            raise SdlcError("archive import takes the zip to import")
-        if args.apply:
-            if not args.digest:
-                raise SdlcError("archive import --apply takes --digest from the report")
-            emit(
-                importing.apply(
-                    args.scope,
-                    args.digest,
-                    args.take_theirs,
-                    args.keep_mine,
-                    Path.cwd(),
-                )
-            )
-        else:
-            emit(importing.report(args.scope, Path.cwd()))
+    if args.action == "export":
+        emit(archive.export(args.scope, args.out, args.context, Path.cwd()))
         return EXIT_OK
-    emit(archive.export(args.scope, args.out, args.context, Path.cwd()))
+    if not args.apply:
+        emit(importing.report(args.archive, Path.cwd()))
+        return EXIT_OK
+    if not args.digest:
+        raise SdlcError("archive import --apply takes --digest from the report")
+    emit(
+        importing.apply(
+            args.archive,
+            digest=args.digest,
+            take_theirs=args.take_theirs,
+            keep_mine=args.keep_mine,
+            cwd=Path.cwd(),
+        )
+    )
     return EXIT_OK
 
 
@@ -185,44 +183,51 @@ def build_parser() -> argparse.ArgumentParser:
         "archive",
         help="write the SDLC home, or part of it, to a zip, or merge one into it",
     )
-    archiving.add_argument("action", choices=["export", "import"])
-    archiving.add_argument(
+    actions = archiving.add_subparsers(dest="action", required=True)
+
+    exporting = actions.add_parser("export", help="write a zip of the SDLC home")
+    exporting.add_argument(
         "scope",
         nargs="?",
-        help="export: a namespace, namespace/product or ticket reference "
-        "(default: the whole home); import: the zip",
+        help="a namespace, namespace/product or ticket reference "
+        "(default: the whole home)",
     )
-    archiving.add_argument(
+    exporting.add_argument(
         "--out",
         help="the zip to write, or an existing directory to write it in "
         "(default: the current directory)",
     )
-    archiving.add_argument(
+    exporting.add_argument(
         "--context",
         help="the session's namespace[/product]; it decides which ticket a reference means first",
     )
-    archiving.add_argument(
+
+    importing_zip = actions.add_parser(
+        "import", help="merge a zip `archive export` wrote into the SDLC home"
+    )
+    importing_zip.add_argument("archive", help="the zip to import")
+    importing_zip.add_argument(
         "--apply",
         action="store_true",
-        help="import: write the merge the report described (default: report only)",
+        help="write the merge the report described (default: report only)",
     )
-    archiving.add_argument(
-        "--digest", help="import --apply: the digest the report printed"
+    importing_zip.add_argument(
+        "--digest", help="--apply: the digest the report printed"
     )
-    archiving.add_argument(
+    importing_zip.add_argument(
         "--take-theirs",
         action="append",
         default=[],
         metavar="TICKET",
-        help="import --apply: take the archive's side of a conflicting ticket, "
+        help="--apply: take the archive's side of a conflicting ticket, "
         "once per ticket, by its qualified reference",
     )
-    archiving.add_argument(
+    importing_zip.add_argument(
         "--keep-mine",
         action="append",
         default=[],
         metavar="TICKET",
-        help="import --apply: keep this home's side of a conflicting ticket",
+        help="--apply: keep this home's side of a conflicting ticket",
     )
     archiving.set_defaults(handler=verb_archive)
     return parser

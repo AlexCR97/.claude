@@ -15,18 +15,9 @@ Merge the archive `$ARGUMENTS` names into the SDLC home. Run scripts as `python 
 
 ## 1. Report
 
-`archive import <zip>`. It prints the report as JSON and writes nothing.
+`archive import <zip>` prints the report as JSON and writes nothing; exit 1 refuses the archive: report the error and its hint, and stop.
 
-- Exit 1: report the error and its hint, and stop. A zip without a known manifest version, or with an entry outside the layout of a home, is refused.
-
-Show the report in one message:
-
-- **Adds**: the new tickets by qualified reference, then a count of the other files added.
-- **Merged without asking**: `mirrors` (taken or kept, with both revisions), `merges`, `kept_mine`, `kept_both` (each `path` and its `as`), and `not_imported`: this home's own paths stay as they are.
-- **Missing workspace paths**: each ticket and its paths. `plan` relocates them before `implement`.
-- **Conflicts**: each ticket and its files.
-
-The step is done when the user has seen the whole report. With no conflicts, ask one yes or no to apply. With conflicts, ask keep-mine or take-theirs per ticket, showing what differs in each file (read the home's file and the archive's entry) so the choice is informed.
+Show the whole report in one message, every key `archive.md` lists, missing workspace paths included (`plan` relocates them before `implement`). Done when the user has seen it and answered: with no conflicts, one yes or no to apply; with conflicts, keep-mine or take-theirs per ticket, chosen after seeing what differs in each file (the home's file against the archive's entry).
 
 ## 2. Apply
 

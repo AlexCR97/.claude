@@ -6,9 +6,15 @@ Every name is a lowercase slug, which is what lets one directory mean the same
 thing on a case-insensitive Windows disk as on a case-sensitive one. A
 provider's own spelling (`Billing.App`) lives in a binding, never in a
 directory name. A name starting with a dot is never a namespace or a product.
+
+The home's JSON files (the config levels, `ticket.json`) are each one JSON
+object, read and written here the same way by every verb.
 """
 
+import json
+import os
 import re
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -160,7 +166,6 @@ def products(namespace: str | None = None) -> list[Product]:
 
 
 def tickets(product: Product) -> list[TicketDirectory]:
-    """Every ticket directory filed under a product, by source then id."""
     return [
         TicketDirectory(product, source.name, entry.name)
         for source in sorted(product.dir.iterdir())
@@ -204,3 +209,36 @@ def nearest(
         if tier:
             return tier
     return matches
+
+
+def parse_json_object(name: str, content: bytes, hint: str = "") -> dict:
+    try:
+        data = json.loads(content)
+    except (json.JSONDecodeError, UnicodeDecodeError) as error:
+        raise SdlcError(f"{name}: is not valid JSON ({error})", hint=hint) from error
+    if not isinstance(data, dict):
+        raise SdlcError(f"{name}: must hold a JSON object", hint=hint)
+    return data
+
+
+def read_json_object(path: Path, hint: str = "") -> dict:
+    """An absent file reads as empty; one that exists must hold a JSON object."""
+    if not path.is_file():
+        return {}
+    try:
+        content = path.read_bytes()
+    except OSError as error:
+        raise SdlcError(f"{path}: could not be read ({error})", hint=hint) from error
+    return parse_json_object(str(path), content, hint)
+
+
+def json_bytes(data: Mapping) -> bytes:
+    return (json.dumps(data, indent=2, ensure_ascii=False) + "\n").encode()
+
+
+def replace_file(path: Path, content: bytes) -> None:
+    """Writes through a scratch file, so a reader never sees half of one."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    scratch = path.with_name(path.name + ".tmp")
+    scratch.write_bytes(content)
+    os.replace(scratch, path)

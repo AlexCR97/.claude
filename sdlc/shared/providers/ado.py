@@ -275,12 +275,12 @@ def discover_coordinates(ticket_id: str, known: dict) -> dict:
     }
 
 
-def comments_of(raw: dict) -> list[dict]:
+def comments_of(raw: dict) -> list[journal.Comment]:
     return [
-        {
-            "text": comment.get("text") or "",
-            "author": (comment.get("createdBy") or {}).get("displayName"),
-        }
+        journal.Comment(
+            text=comment.get("text") or "",
+            author=(comment.get("createdBy") or {}).get("displayName"),
+        )
         for comment in raw["comments"]
     ]
 
@@ -317,9 +317,8 @@ def signature(raw: dict) -> dict:
             for relation in work_item.get("relations") or []
         ),
         "comments": [
-            (comment["id"], text["text"])
-            for comment, text in zip(raw["comments"], comments_of(raw), strict=True)
-            if not journal.parse(text)
+            (comment["id"], comment.get("text") or "")
+            for comment in journal.without_entries(raw["comments"], comments_of(raw))
         ],
     }
 

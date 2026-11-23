@@ -176,14 +176,7 @@ def fingerprint(raw: dict) -> dict:
 
 def signature(raw: dict) -> dict:
     """The issue's content without its journal entries, so a post alone does not read as a change."""
-    return content(
-        raw,
-        [
-            comment
-            for comment, text in zip(raw["comments"], comments_of(raw), strict=True)
-            if not journal.parse(text)
-        ],
-    )
+    return content(raw, journal.without_entries(raw["comments"], comments_of(raw)))
 
 
 def read_issue(ticket_id: str, coordinates: dict) -> dict:
@@ -214,9 +207,11 @@ def read_issue(ticket_id: str, coordinates: dict) -> dict:
     }
 
 
-def comments_of(raw: dict) -> list[dict]:
+def comments_of(raw: dict) -> list[journal.Comment]:
     return [
-        {"text": comment["body"], "author": (comment.get("user") or {}).get("login")}
+        journal.Comment(
+            text=comment["body"], author=(comment.get("user") or {}).get("login")
+        )
         for comment in raw["comments"]
     ]
 

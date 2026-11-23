@@ -17,7 +17,6 @@ No credential lives in any of these files: `az` and `gh` hold them.
 """
 
 import copy
-import json
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -25,13 +24,10 @@ from . import layout, paths, providers
 from .errors import SdlcError
 from .layout import Product
 
-SHARED_KEYS = {
-    "default_source",
-    "scan_roots",
-    "protected_branches",
-    "sensitive",
-    "worktree_root",
-}
+LIST_KEYS = frozenset({"scan_roots", "protected_branches", "sensitive"})
+# Directories on one machine, which mean nothing on another.
+MACHINE_KEYS = frozenset({"scan_roots", "worktree_root"})
+SHARED_KEYS = {"default_source", *LIST_KEYS, *MACHINE_KEYS}
 
 # A key describing a level's relationship to what is inside it belongs to that
 # level alone: a product inheriting `default_product` would name a product that
@@ -44,24 +40,16 @@ ALLOWED_KEYS = {
 LEVEL_ONLY_KEYS = frozenset({"default_namespace", "default_product"})
 
 
+FIX_HINT = "Fix the file by hand, or rewrite it with `/sdlc:setup`."
+
+
 def invalid(path: Path, problem: str) -> SdlcError:
-    return SdlcError(
-        f"{path}: {problem}",
-        hint="Fix the file by hand, or rewrite it with `/sdlc:setup`.",
-    )
+    return SdlcError(f"{path}: {problem}", hint=FIX_HINT)
 
 
 def read_level(path: Path, level: str) -> dict:
     """An absent file reads as empty; one that exists must be a valid object of known keys."""
-    if not path.is_file():
-        return {}
-    try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError) as error:
-        raise invalid(path, f"is not valid JSON ({error})") from error
-    if not isinstance(data, dict):
-        raise invalid(path, "must hold a JSON object")
-
+    data = layout.read_json_object(path, FIX_HINT)
     for key, value in data.items():
         if key not in ALLOWED_KEYS[level]:
             allowed = ", ".join(sorted(ALLOWED_KEYS[level]))
@@ -83,7 +71,7 @@ def check_value(path: Path, level: str, key: str, value: object) -> None:
     elif key == "worktree_root":
         if not isinstance(value, str) or not value.strip():
             raise invalid(path, "'worktree_root' must be a non-empty string")
-    elif key in ("scan_roots", "protected_branches", "sensitive"):
+    elif key in LIST_KEYS:
         if not isinstance(value, list) or not all(
             isinstance(item, str) and item.strip() for item in value
         ):

@@ -23,12 +23,11 @@ Brief a fresh session on the ticket `$ARGUMENTS` names. Everything needed is on 
 4. **The code**: in each worktree of the plan's Workspace, git reads only (branch, HEAD, uncommitted and untracked files, stashes, commits ahead of the base branch). Compare the invocation directory and the entry's **Where** with the Workspace and say plainly when they differ: every plan target is relative to a worktree. The base branch's movement is as of the last fetch; this skill does not fetch.
 5. **Artifacts** the plan cites for the in-flight or next step, and `planning/`: their `README.md` files. Never run a script under `artifacts/`, even a read-only one.
 6. **Pull requests**, from `pulls.md` if present, with the time of its statuses.
-7. **Upstream**, for a remote ticket: `fetch <reference> --check`, with `--context` as above. It writes nothing; `changed` compares revisions, `only_journal` content.
-   - `unchanged`: one line. With `journal.unmirrored`, the mirror holds entries `journal/` lacks: suggest `/sdlc:intake <reference>`.
-   - `changed` with `only_journal` and no `journal.unmirrored`: the revision moved for this ticket's own journal entries, already in `journal/`. Say so in one line; there is nothing to refresh.
-   - `changed` with `only_journal` and `journal.unmirrored`: only journal entries were posted, some not yet mirrored. Name them; read 3 weighs the newest. Suggest `/sdlc:intake <reference>` to mirror them.
-   - `changed` otherwise: read the live ticket with `gh api` or `az rest` (reads only) and say what kind of change it is, comparing with the mirror: title, state, labels or tags, description, new comments (author, age, a snippet), relations. A journal entry is no new comment: read 3 covers it. A new comment answering an open question of the journal is the most valuable finding. Suggest `/sdlc:intake <reference>` to refresh before continuing; this skill never refreshes.
-   - `never_mirrored`: say so. `stale_mirror`: the mirror is in an old shape; suggest `/sdlc:intake <reference>`. `local`: nothing upstream. An error: report it in one line; a failed check never blocks the briefing.
+7. **Upstream**, for a remote ticket: `fetch <reference> --check`, with `--context` as above. It writes nothing; report from its `status` (defined in `journal.md`, "Mirrored entry"):
+   - `unchanged` or `journal_only`: one line; there is nothing to refresh.
+   - `journal_unmirrored`: name the entries in `journal.unmirrored`; read 3 weighs the newest. Suggest `/sdlc:intake <reference>` to mirror them.
+   - `changed`: read the live ticket with `gh api` or `az rest` (reads only) and say what kind of change it is, comparing with the mirror: title, state, labels or tags, description, new comments (author, age, a snippet), relations. A journal entry is no new comment: read 3 covers it. A new comment answering an open question of the journal is the most valuable finding. Suggest `/sdlc:intake <reference>` to refresh before continuing; this skill never refreshes.
+   - `never_mirrored`: say so. `stale_mirror`: suggest `/sdlc:intake <reference>`. `local`: nothing upstream. A failed check (a non-zero exit): report its error in one line; it never blocks the briefing.
 
 ## The briefing
 
