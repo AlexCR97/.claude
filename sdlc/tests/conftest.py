@@ -332,6 +332,65 @@ def az_stub(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> AzStub:
     return stub
 
 
+@pytest.fixture
+def stub_work_item(az_stub):
+    """Register a whole work item (no relations, no comments); a test changes any part."""
+
+    def register(
+        organization: str = "acme",
+        project: str = "billing-app",
+        number: int = 1234,
+        **parts,
+    ) -> str:
+        base = f"https://dev.azure.com/{organization}"
+        item = f"{base}/_apis/wit/workItems/{number}"
+        fields = {
+            "System.WorkItemType": "User Story",
+            "System.TeamProject": project,
+            "System.Title": "Cache the ledger lookup",
+            "System.State": "Active",
+            "System.Description": "<div>Lookups are slow.</div>",
+            **parts.pop("fields", {}),
+        }
+        az_stub.respond(
+            f"{item}?fields=System.TeamProject",
+            {"id": number, "fields": {"System.TeamProject": project}},
+        )
+        work_item = {"id": number, "rev": parts.pop("rev", 7), "fields": fields}
+        if "relations" in parts:
+            work_item["relations"] = parts.pop("relations")
+        az_stub.respond(f"{item}?$expand=all", work_item)
+        related = parts.pop("related", {})
+        if related:
+            ids = ",".join(str(related_id) for related_id in sorted(related))
+            az_stub.respond(
+                f"{base}/_apis/wit/workitems?errorPolicy=Omit"
+                f"&fields=System.Title,System.State,System.WorkItemType&ids={ids}",
+                {
+                    "count": len(related),
+                    "value": [
+                        {
+                            "id": related_id,
+                            "fields": {
+                                "System.Title": title,
+                                "System.State": state,
+                                "System.WorkItemType": kind,
+                            },
+                        }
+                        for related_id, (title, state, kind) in sorted(related.items())
+                    ],
+                },
+            )
+        encoded = project.replace(" ", "%20")
+        az_stub.respond(
+            f"{base}/{encoded}/_apis/wit/workItems/{number}/comments",
+            {"comments": parts.pop("comments", [])},
+        )
+        return base
+
+    return register
+
+
 def git(cwd: Path, *args: str) -> str:
     result = subprocess.run(
         ["git", *args], cwd=cwd, capture_output=True, text=True, check=True

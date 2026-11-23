@@ -1,5 +1,6 @@
 """
-`fetch`: mirror a ticket from its source into the ticket's `raw/` directory.
+`fetch`: mirror a ticket from its source into the ticket's `raw/` directory,
+and its journal entries upstream into `journal/`.
 
 The ticket is found, or filed, by the same logic `resolve` uses, so a ticket's
 own coordinates win over any binding and a first fetch lands under the bound
@@ -19,7 +20,7 @@ from pathlib import Path
 from typing import NotRequired, TypedDict
 
 from . import config as configuration
-from . import filing, layout, providers, resolve
+from . import filing, journal, layout, providers, resolve
 from .config import Config, describe
 from .errors import EXIT_AMBIGUOUS, SdlcError
 from .layout import Scope
@@ -41,6 +42,8 @@ class CheckReport(TypedDict):
     reason: NotRequired[str]
     coordinates: NotRequired[dict[str, str]]
     last_fetched_at: NotRequired[str | None]
+    journal: NotRequired[dict]
+    only_journal: NotRequired[bool]
 
 
 def read_record(path: Path) -> dict:
@@ -62,6 +65,16 @@ def write_record(path: Path, record: dict) -> None:
         json.dumps(record, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
     )
     os.replace(scratch, path)
+
+
+def read_mirror(path: Path) -> dict:
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError) as error:
+        raise SdlcError(
+            f"{path}: is not a readable mirror ({error})",
+            hint="Refresh it with `/sdlc:intake`.",
+        ) from error
 
 
 def bound_namespace_value(
@@ -176,6 +189,8 @@ def fetch(
         ticket.id, coordinates, ticket.dir / "raw"
     )
 
+    mirrored_journal = journal.mirror(mirrored["comments"], ticket.dir / "journal")
+
     record_path = ticket.dir / "ticket.json"
     record = read_record(record_path)
     record.update(source=ticket.source, id=ticket.id, coordinates=coordinates)
@@ -191,7 +206,7 @@ def fetch(
             context=context,
             chosen=found.chosen,
         ),
-        fetched=mirrored["report"],
+        fetched={**mirrored["report"], "journal": mirrored_journal},
     )
 
 
@@ -209,7 +224,7 @@ def check(
     is the safe answer for a caller about to write upstream. `status` tells the
     cases apart. `stale_mirror` is a recorded revision with no `raw/raw.json`
     (what a mirror from before that shape lacks); it is answered without
-    asking upstream.
+    asking upstream. `journal` and `only_journal` are defined in `journal.md`.
     """
     config = configuration.load()
     context = layout.parse_context(context_text)
@@ -255,8 +270,12 @@ def check(
         )
         return report
 
+    mirror = read_mirror(ticket.dir / "raw" / "raw.json")
     coordinates = upstream_coordinates(config, found)
-    live = providers.load_fetcher(ticket.source).check(ticket.id, coordinates)
+    fetcher = providers.load_fetcher(ticket.source)
+    answer = fetcher.check(ticket.id, coordinates, mirror)
+    live = answer["fingerprint"]
+    upstream = answer.get("upstream")
     changed = live != recorded
     report.update(
         changed=changed,
@@ -266,4 +285,13 @@ def check(
     )
     report["coordinates"] = coordinates
     report["last_fetched_at"] = record.get("last_fetched_at")
+    report["journal"] = journal.compare(
+        fetcher.comments_of(upstream or mirror), ticket.dir / "journal"
+    )
+    if changed:
+        # Every checkpoint posts a comment, which moves the revision; telling
+        # that apart keeps `resume` from calling for a refresh after each one.
+        report["only_journal"] = upstream is not None and fetcher.signature(
+            upstream
+        ) == fetcher.signature(mirror)
     return report

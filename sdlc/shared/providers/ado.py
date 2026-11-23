@@ -11,7 +11,7 @@ import tempfile
 from pathlib import Path
 from urllib.parse import parse_qs, quote, urlparse
 
-from sdlclib import process
+from sdlclib import journal, process
 from sdlclib.errors import EXIT_NOT_FOUND, SdlcError
 
 AZ_HINT = "Install the Azure CLI and run `az login`, then try again."
@@ -275,13 +275,72 @@ def discover_coordinates(ticket_id: str, known: dict) -> dict:
     }
 
 
-def check(ticket_id: str, coordinates: dict) -> dict:
-    """The live revision, in the shape `fetch` records, from a probe that returns no content."""
-    item = get_json(
-        f"https://dev.azure.com/{coordinates['organization']}/_apis/wit/workItems/{ticket_id}",
-        ["fields=System.Rev"],
-    )
-    return {"rev": item["rev"]}
+def comments_of(raw: dict) -> list[dict]:
+    return [
+        {
+            "text": comment.get("text") or "",
+            "author": (comment.get("createdBy") or {}).get("displayName"),
+        }
+        for comment in raw["comments"]
+    ]
+
+
+# Fields Azure DevOps moves on every revision, a comment's included; they say
+# that something changed, never what.
+REVISION_FIELDS = frozenset(
+    {
+        "System.Rev",
+        "System.ChangedDate",
+        "System.ChangedBy",
+        "System.AuthorizedDate",
+        "System.AuthorizedAs",
+        "System.RevisedDate",
+        "System.Watermark",
+        "System.PersonId",
+        "System.CommentCount",
+        "System.History",
+    }
+)
+
+
+def signature(raw: dict) -> dict:
+    """The work item's content without its journal entries or revision bookkeeping, so a post alone does not read as a change."""
+    work_item = raw["work_item"]
+    return {
+        "fields": {
+            name: value
+            for name, value in work_item["fields"].items()
+            if name not in REVISION_FIELDS
+        },
+        "relations": sorted(
+            (relation["rel"], relation["url"])
+            for relation in work_item.get("relations") or []
+        ),
+        "comments": [
+            (comment["id"], text["text"])
+            for comment, text in zip(raw["comments"], comments_of(raw), strict=True)
+            if not journal.parse(text)
+        ],
+    }
+
+
+def check(ticket_id: str, coordinates: dict, mirror: dict) -> dict:
+    """
+    The live revision, in the shape `fetch` records; nothing is downloaded or written.
+
+    A probe that returns no content answers an unmoved revision. Only a moved
+    one reads the work item and its comments, to tell a journal post apart.
+    """
+    organization_url = f"https://dev.azure.com/{coordinates['organization']}"
+    item_url = f"{organization_url}/_apis/wit/workItems/{ticket_id}"
+    rev = get_json(item_url, ["fields=System.Rev"])["rev"]
+    if rev == mirror["work_item"]["rev"]:
+        return {"fingerprint": {"rev": rev}}
+    upstream = {
+        "work_item": get_json(item_url, ["$expand=all"]),
+        "comments": all_comments(organization_url, coordinates["project"], ticket_id),
+    }
+    return {"fingerprint": {"rev": rev}, "upstream": upstream}
 
 
 def fetch(ticket_id: str, coordinates: dict, raw_dir: Path) -> dict:
@@ -322,6 +381,7 @@ def fetch(ticket_id: str, coordinates: dict, raw_dir: Path) -> dict:
         "url": f"{organization_url}/{quote(fields['System.TeamProject'], safe='')}"
         f"/_workitems/edit/{ticket_id}",
         "fingerprint": {"rev": work_item["rev"]},
+        "comments": comments_of(raw),
         "report": {
             "raw_json": str(raw_dir / "raw.json"),
             "comments": len(comments),

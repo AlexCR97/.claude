@@ -19,7 +19,7 @@ Turn what `$ARGUMENTS` holds into a ticket. A GitHub issue or an Azure DevOps wo
 
 ## Outputs
 
-- A GitHub issue or Azure DevOps work item: its mirror under `raw/` and `ticket.json`, at the ticket directory `fetch` reports. Report its `ref`, where it is filed, its `type`, what the mirror holds (comments, relations, attachments, naming any attachment that did not download).
+- A GitHub issue or Azure DevOps work item: its mirror under `raw/`, its journal entries upstream in `journal/`, and `ticket.json`, at the ticket directory `fetch` reports. Report its `ref`, where it is filed, its `type`, what the mirror holds (comments, journal entries written, relations, attachments, naming any attachment that did not download).
 - Anything else: a new local ticket, `ticket.json` and `raw/ticket.md` at the paths `resolve --new` reported. Report its `ref`, its `type` and its directory.
 
 ## A GitHub issue
@@ -43,4 +43,5 @@ Turn what `$ARGUMENTS` holds into a ticket. A GitHub issue or an Azure DevOps wo
 - The mirror is a cache of the source, never authoritative; store nothing derived from the issue.
 - The model decides the type once, says so, and the user can override it.
 - Never write to GitHub or Azure DevOps.
+- `fetch` mirrors the journal as `${CLAUDE_PLUGIN_ROOT}/shared/journal.md` "Mirrored entry" says; a journal file is never overwritten, so a refresh only adds entries.
 - For a local ticket: ask once and write nothing before the yes; copy the content, since the ticket's file is its single source of truth; never overwrite an existing ticket.
