@@ -27,7 +27,7 @@ Plan the ticket `$ARGUMENTS` names. Run scripts as `python "${CLAUDE_PLUGIN_ROOT
 
 ## Re-run on a ticket with a plan
 
-Do not regenerate it. Show the Progress table and every `In Progress` or `Blocked` step with its note, and ask what to update. Update only what the user says, or what the workspace evidences and the user confirms, honouring the status rules, and derive the Progress rows and Total again. Revise only the steps a change affects.
+Do not regenerate it. Show the Progress table and every `In Progress` or `Blocked` step with its note, and ask what to update. Update only what the user says, or what the workspace evidences and the user confirms, honouring the status rules, and derive the Progress rows again. Revise only the steps a change affects.
 
 ## Invariants
 
