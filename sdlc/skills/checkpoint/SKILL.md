@@ -1,7 +1,7 @@
 ---
 name: checkpoint
 description: Records the session on an sdlc ticket as a journal entry (where the code is, what was done and decided, what blocks, the next action), posts it on a remote ticket, and refreshes the plan's step statuses and the pull request record. Use when asked to checkpoint an sdlc ticket or record its progress in the journal.
-argument-hint: "[<ticket reference | spec file | text or idea>] [note]"
+argument-hint: "[<ticket reference | spec file | text or idea>] [ship] [note]"
 ---
 
 # Checkpoint
@@ -12,13 +12,14 @@ Record this session on the ticket `$ARGUMENTS` names, so a later `resume` can pi
 
 - A ticket reference, or a non-ticket input (a spec file, text or an idea) that is adopted first. Trailing free text is a note to fold into the entry, never a replacement for its content.
 - No reference: the ticket this session has been working on. Failing that, ask: list the tickets in the SDLC home (the session context's product first, each with its title and latest journal entry) and ask which. Never infer the ticket from the branch name: a wrong guess attaches a session's account to the wrong ticket, and nothing can regenerate it.
+- `ship`: the [ship flag](../../shared/conventions.md#ship-runs), never part of the reference or the note. Under it this skill asks nothing, and the ship run always names its ticket.
 
 ## Steps
 
-1. **Resolve.** Run `resolve <reference>`, adding `--context {namespace}[/{product}]` when the session has a context. A non-ticket input is adopted by `${CLAUDE_PLUGIN_ROOT}/shared/adoption.md` (one confirmation) and the new ticket is checkpointed. A ticket outside the session context: ask before going on, naming its product and the context, defaulting to no.
+1. **Resolve.** Run `resolve <reference>`, adding `--context {namespace}[/{product}]` when the session has a context. A non-ticket input is adopted by `${CLAUDE_PLUGIN_ROOT}/shared/adoption.md` (one confirmation, none under `ship`) and the new ticket is checkpointed. A ticket outside the session context: ask before going on, naming its product and the context, defaulting to no; under `ship`, name both and go on, since the run named the ticket.
 2. **Read the code's state with git reads** in each worktree the plan's Workspace lists, or the invocation directory when there is no plan: repository, worktree, branch, HEAD, base branch, uncommitted and untracked files, stashes. Read only.
-3. **Reconstruct the session** from the conversation: outcomes and not attempts, every decision with its why and the alternative, every inference with its basis, and where the step in flight honestly stands. Read the latest journal entry for what is still open.
-4. **Settle Next.** Derive it from the session. When several things could come next, give the best inference and ask the user to accept or correct it: a wrong Next is worse than none.
+3. **Reconstruct the session** from the conversation: outcomes and not attempts, every decision with its why and the alternative, every inference with its basis, and where the step in flight honestly stands. Read the latest journal entry for what is still open. Under `ship`, a decision keeps its cost if wrong, and the decisions in the plan's Decisions section join the session's: carry each over verbatim unless an entry this run already wrote holds it, so every decision the run made reaches the journal once.
+4. **Settle Next.** Derive it from the session. When several things could come next, give the best inference and ask the user to accept or correct it: a wrong Next is worse than none. Under `ship`, write the best inference without asking, and name the alternative under Inferences.
 5. **Write the entry** as a new file in the ticket directory's `journal/`, in the format of `journal.md`.
 6. **Post upstream**, when the ticket's source declares `writes_comments` in `${CLAUDE_PLUGIN_ROOT}/shared/providers/{source}.json` (GitHub and Azure DevOps). A local ticket's journal stays on disk; skip to the next step. Post, oldest first, each entry `ticket.json` lists under `unposted_journal`, then the new one: one comment each, in the posted form and by the backlog rules of `journal.md`, with the commands of the source's provider note (`${CLAUDE_PLUGIN_ROOT}/shared/providers/{source}.md`, "Posting a journal entry"). Posting is always on; there is nothing to ask. At the first failed post, stop posting: list it and every entry after it in `unposted_journal`, oldest first, keep their files, and carry on with the checkpoint. Done when every entry has a comment or a place in `unposted_journal`.
 7. **Reconcile `plan.md`.** Correct each step `**Status:**` the session left stale (`In Progress` or `Blocked` with their one-line note, or `Done`) and derive the affected Progress rows again. Change nothing else in the plan.
@@ -31,5 +32,5 @@ Record this session on the ticket `$ARGUMENTS` names, so a later `resume` can pi
 - Git is used to read. `gh` and `az` are used to read and to post journal entries as comments on the ticket, and for nothing else upstream: the plan, the pull request record and artifacts stay local. Never commit, stash, push, fetch, check out, or open or change a pull request, an issue or a work item.
 - Never edit or delete an existing entry or its comment; a correction is a new entry.
 - Does not re-fetch the ticket, not even after posting: `resume` checks whether it changed.
-- A pull request is found from the branches the plan's Workspace lists or from what the session says, never from a branch name that resembles the ticket. Where it is unclear which ticket one belongs to, ask.
+- A pull request is found from the branches the plan's Workspace lists or from what the session says, never from a branch name that resembles the ticket. Where it is unclear which ticket one belongs to, ask; under `ship`, leave it out of the record and say so in the entry.
 - Never record where the ticket is filed.

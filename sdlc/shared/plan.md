@@ -41,6 +41,10 @@ The format of `plan.md`, the file in a ticket directory that holds the phased pl
 | ------- | -------------------------------------------------- | ---------------------- | ------------ |
 | {name}  | {repository, repository@branch or plain directory} | {relative to Lives in} | {technology} |
 
+## Decisions
+
+- **{what was decided}** - {why, and what it was chosen over}; cost if wrong: {what breaks or must be redone}. Affects {Workspace, or the phase or step}.
+
 ## Prerequisites
 
 - [ ] {something that must be true before any phase starts}
@@ -65,7 +69,7 @@ The format of `plan.md`, the file in a ticket directory that holds the phased pl
 
 ### TDD phase additions
 
-**Seams:** confirmed by the user on {date} (a TDD phase only)
+**Seams:** confirmed by the user on {date}, or decided by a ship run on {date} (a TDD phase only)
 
 - `{public interface}` - {what testing there catches and misses}
 
@@ -88,10 +92,11 @@ The format of `plan.md`, the file in a ticket directory that holds the phased pl
 
 - **The header links the ticket**: its URL for a remote ticket, `raw/ticket.md` for a local one. A plan never restates the ticket's content, only what the work needs from it.
 - **The Workspace section lists only what the plan works in** (see `conventions.md`). Its paths are absolute; the Projects table's path is relative to the worktree or plain directory in its `Lives in` column. Omit a table with no rows.
+- **Decisions** is written only by a [ship run](conventions.md#ship-runs)'s `plan`, which settles alone what it would otherwise ask: the workspace, the seams, a test-setup phase, an assumption the plan's shape rests on. One line per decision, in the form `checkpoint` carries into the journal's Decisions. Omitted otherwise.
 - **Prerequisites** is omitted when empty.
 - **A phase** has one Activity and one scope sentence.
 - **A step** names one target: a path relative to its project's worktree, with `in {repository@branch}` added when the workspace holds more than one worktree of that repository. A step with no file target, such as one that answers a question, names what it produces instead.
-- **A TDD phase** (see [`tdd.md`](./tdd.md)) records the seams the user confirmed in its `**Seams:**` list, and none is planned before that confirmation. Each of its steps is one slice: its `**Target:**` names two paths, the test then the production code, and its `**Seam:**` names one confirmed seam. A phase over behaviour that is not TDD says why on its `**Not TDD:**` line; configuration, documentation, spikes and infrastructure need none.
+- **A TDD phase** (see [`tdd.md`](./tdd.md)) records the seams the user confirmed in its `**Seams:**` list, and none is planned before that confirmation; under a ship run, the seams the run decided, each also in Decisions. Each of its steps is one slice: its `**Target:**` names two paths, the test then the production code, and its `**Seam:**` names one confirmed seam. A phase over behaviour that is not TDD says why on its `**Not TDD:**` line; configuration, documentation, spikes and infrastructure need none.
 - **A test-setup phase** is a `Testing` phase placed right before the first TDD phase that needs it, planned where no test project can exercise that code. Its steps create the test project, reference the project under test and register it.
 - **`**Artifacts:**`** holds paths relative to `plan.md` of anything a step produced or rests on, or `-`. Nothing generated is written directly in the ticket directory; it goes under `artifacts/`.
 - **Progress rows link to their phase heading**: the heading's GitHub slug (lowercase, drop everything but letters, digits, spaces and hyphens, spaces to hyphens), as in `#phase-1-build` for `## Phase 1: Build`.

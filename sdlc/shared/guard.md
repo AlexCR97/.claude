@@ -17,6 +17,8 @@ The default branch is what `origin/HEAD` names. Where that is unset, the guard i
 
 On any other branch every operation is allowed, but commit and push only when the developer asks. A skill never decides on its own to commit, push or open a pull request.
 
+A ship run is the one exception ([ADR 0008](../docs/adr/0008-a-ship-run-may-commit-push-and-open-pull-requests.md)): invoking `/sdlc:ship` is the developer's approval for one commit per phase on its own ticket branch, for pushing that branch, and for opening its pull request and marking it ready. Under it, `implement` creates the ticket branch and worktree below without offering them. The refusals above hold unchanged, and so do the hard stops of [Ship runs](conventions.md#ship-runs).
+
 ## Asking the guard
 
 ```
@@ -34,5 +36,5 @@ python "${CLAUDE_PLUGIN_ROOT}/shared/sdlc.py" guard protected [--repo <directory
 - **Branch**: `{prefix}/{id}-{title-slug}`. The prefix is `feat` for a `user-story` or `task`, `fix` for a `bug`, `spike` for a `spike` and `chore` for `tech-debt`. At most **28 characters**: cut the title slug back to its leading whole words that fit, as in `feat/18159-invoice-export`. A local ticket's id is already a title slug, so its branch is `{prefix}/{id}` cut at whole words to fit, with no title slug added. A branch name is a label; never infer a ticket from it.
 - **Base**: cut from `origin/{default branch}` after a `git fetch`, never from a local default branch that may be behind. Create it with `--no-track`, so that it does not take the default branch as its upstream.
 - **Worktree**: a directory named after the branch with `/` as `-` (so also at most 28 characters), under `{repository}/.worktrees/`, or under `{worktree_root}/{repository}/` when the effective config sets `worktree_root`. Reuse an existing worktree of the branch.
-- **`.worktrees/` is assumed git-ignored.** When it is not, offer to add it to the repository's ignore file and add it only on a yes.
+- **`.worktrees/` is assumed git-ignored.** When it is not, offer to add it to the repository's ignore file and add it only on a yes. Under the ship flag, leave the ignore file as it is and say so as a decision: the ignore file sits on the default branch, which no ship run writes.
 - **Never create a ticket branch whose name matches a protected pattern.**
