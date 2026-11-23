@@ -1,0 +1,5 @@
+# Skills are model-invokable and gate themselves
+
+Every skill used to be explicit-only (`disable-model-invocation: true`), so nothing ran unless the developer typed it. A ship run has to invoke intake, plan, implement, commit, pr, deploy and checkpoint itself, so these skills are now model-invokable. The safety the flag gave moves inside each skill: a skill that writes outside the machine asks before it does, unless a ship run invoked it, and a hard stop always asks. `setup` and `import` stay explicit-only, because they rewrite the SDLC home and nothing in a ship run needs them.
+
+We rejected two ways to keep the flag. A ship run that reads each `SKILL.md` and follows it by hand bypasses the harness's argument handling and drifts from how the skill is invoked. Moving every procedure into `shared/` behind thin explicit-only skills doubles the files that describe one skill. The cost is that an ordinary session can now start a skill the developer did not type, so each description must say narrowly when the skill applies.
