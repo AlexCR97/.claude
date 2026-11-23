@@ -1,0 +1,5 @@
+# A remote ticket's journal lives upstream
+
+`checkpoint` used to write only to the SDLC home and to use `gh` and `az` only to read. A remote ticket's journal now lives on the ticket itself, one comment per journal entry, and the local `journal/` is part of its mirror. This lets another machine or person resume from the source alone. Posting is always on for remote tickets, with no config to turn it off. Only the journal goes upstream. The plan, the pull request record and the artifacts stay local, and an archive carries them between machines.
+
+We rejected posting a short status for stakeholders, because it cannot carry enough to resume from. We also rejected keeping the local journal canonical with upstream as a published copy, because then two machines can disagree about which entry is the latest. The cost is that every checkpoint on an employer's work item is visible to colleagues, and an entry is public as soon as it is written. A failed post is retried at the next checkpoint, so no entry is lost.

@@ -1,0 +1,5 @@
+# A ship run may commit, push and open pull requests
+
+[`guard.md`](../../shared/guard.md) says a skill never decides on its own to commit, push or open a pull request. A ship run is the one exception: invoking `/sdlc:ship` is the developer's approval for one commit per phase on its own ticket branch, for pushing that branch, and for opening its pull request and marking it ready. Everything else holds. The guard still refuses any write to a protected branch, and a hard stop (merging into a protected branch, deploying to a production environment, changing the upstream ticket's state) still waits for an explicit yes.
+
+We rejected asking before each commit, which is the developer's standing rule elsewhere, because a run that stops once per phase is not autonomous. These actions are allowed because each can be undone: a ticket branch can be reset or deleted, and a pull request closed. The cost is commits and a pull request the developer did not see before they were made, so a ship run lists every decision it made in the journal and in the pull request body.

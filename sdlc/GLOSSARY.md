@@ -60,6 +60,17 @@ _Avoid_: Routing, moving, ticket-move
 One ticket's directory, at `{namespace}/{product}/{source}/{id}` in the SDLC home: `ticket.json`, `plan.md`, `journal/`, `pulls.md`, `raw/` and `artifacts/`. Its layout is in `shared/store.md`.
 _Avoid_: Ticket folder
 
+**Archive**:
+A zip of the SDLC home, or of one namespace, product or ticket in it, made to carry that work to another of the developer's machines.
+_Avoid_: Backup, snapshot, bundle
+
+**Export**:
+Writing an archive from the SDLC home.
+
+**Import**:
+Merging an archive into the SDLC home: what is missing is added, what differs is asked about, and nothing is deleted. Never a name for intake.
+_Avoid_: Restore, sync
+
 **Qualified reference**:
 `{namespace}/{product}/{source}:{id}`: names one ticket on the machine without ambiguity.
 _Avoid_: Full reference, absolute reference
@@ -142,7 +153,7 @@ _Avoid_: Service, application, module, component
 
 **Workspace**:
 Everything a ticket's code work happens in: its repositories with the worktrees the work happens in, its plain directories, and the projects inside them, plus the scan roots it was found from.
-_Avoid_: Environment, sandbox
+_Avoid_: Sandbox, environment (that names a place work is deployed)
 
 ### Planning the work
 
@@ -226,7 +237,7 @@ _Avoid_: Side effect, permission
 ### Recording a session
 
 **Journal**:
-The ticket directory's `journal/`: one entry per file, each named by its UTC timestamp so the files sort by time.
+A ticket's sequence of journal entries, ordered by the UTC time each was written. A local ticket's journal is the ticket directory's `journal/`. A remote ticket's journal lives upstream, one comment per entry, and its `journal/` is part of the mirror, so another machine or person can resume from the source alone.
 _Avoid_: Log, journal.md
 
 **Journal entry**:
@@ -240,3 +251,24 @@ _Avoid_: PR list
 **Checkpoint**:
 The act of recording a session on a ticket: writing a new journal entry, correcting the plan's stale step statuses and refreshing the pull request record. Run by `/sdlc:checkpoint`.
 _Avoid_: Save, snapshot
+
+### Delivering the work
+
+**Delegate**:
+A skill from another plugin that an sdlc skill hands its work to, because it suits the situation better than sdlc's own procedure. Chosen by judgement each time, never from config.
+_Avoid_: Provider (that names the files describing a source), backend
+
+**Ship**:
+One autonomous run of a ticket through the whole cycle, from intake to its end point, on one ticket branch with one commit per phase. It asks nothing except at a hard stop, and decides everything else itself, recording each decision in the journal. Run by `/sdlc:ship`.
+_Avoid_: Autopilot, end-to-end run
+
+**Environment**:
+A place a product's work is deployed and runs live, such as dev, QA or production. A product records its environments once, with each one marked as production or not, and a deployment to a production one is a hard stop.
+_Avoid_: Stage (that names where a journal entry stands), deployment target, workspace
+
+**End point**:
+Where a ship run stops: a ready pull request, or a named environment the work is deployed to.
+
+**Hard stop**:
+An action a ship run never takes without an explicit yes, because it cannot be undone or it reaches production: merging into a protected branch, deploying to a production environment, or changing the upstream ticket's state.
+_Avoid_: Gate, checkpoint (that names recording a session)
