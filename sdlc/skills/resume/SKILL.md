@@ -1,7 +1,6 @@
 ---
 name: resume
-description: Rebuilds a ticket's context in a fresh session and prints one briefing that ends in the single next action, covering what the work is, where it stopped, the live state of the code and what changed upstream since the ticket was last mirrored. Read-only.
-disable-model-invocation: true
+description: Briefs a fresh session on an sdlc ticket (what the work is, where it stopped, the live state of the code and what changed upstream), ending in the single next action. Read-only. Use when asked to resume or pick back up an sdlc ticket.
 argument-hint: "[<ticket reference>]"
 ---
 

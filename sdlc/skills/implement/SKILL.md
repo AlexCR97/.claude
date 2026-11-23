@@ -1,7 +1,6 @@
 ---
 name: implement
-description: Implements one, several or all phases of a ticket's plan.md by making the code changes each step names, then building and testing the affected projects. Keeps step status honest, never writes to a protected branch, and never commits or pushes unasked.
-disable-model-invocation: true
+description: Implements phases of an sdlc ticket's plan.md, making the code changes each step names, building and testing the affected projects, and keeping step status honest. Use when asked to implement, continue or run phases of a ticket that has an sdlc plan.
 argument-hint: "<ticket reference | spec file | text or idea> [phases | all]"
 ---
 

@@ -1,7 +1,6 @@
 ---
 name: plan
-description: Writes a phased, file-level plan for a ticket into its ticket directory, after discovering and confirming the workspace. On a ticket that already has a plan, shows progress and updates step status.
-disable-model-invocation: true
+description: Writes the plan.md of a ticket in the sdlc store, with a confirmed workspace and phased, file-level steps. On a ticket that has one, shows progress and updates step status. Use when asked to plan an sdlc ticket or update its plan.
 argument-hint: "<ticket reference | spec file | text or idea> [directory ...]"
 ---
 

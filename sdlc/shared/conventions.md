@@ -15,7 +15,7 @@ The rules the terms in [`GLOSSARY.md`](../GLOSSARY.md) carry. The glossary says 
 
 - **The source is the truth.** A mirror is a cache that a refresh may replace; no skill treats it as authoritative, and ticket content is never copied into a document derived from it.
 - **A local ticket's ticket file is its own source of truth.** It is never refreshed from an adopted file's origin.
-- **Nothing is filed by surprise.** Adoption asks once before it creates a local ticket, and a branch name is never used to guess which existing ticket a session belongs to.
+- **Nothing is filed by surprise.** Adoption asks once before it creates a local ticket (under the ship flag, invoking the ship run was the approval), and a branch name is never used to guess which existing ticket a session belongs to.
 
 ## Directories, paths and the workspace
 
@@ -31,3 +31,13 @@ The rules the terms in [`GLOSSARY.md`](../GLOSSARY.md) carry. The glossary says 
 The `_Avoid_` lines of the glossary list the words to avoid. A retired word keeps its ordinary meaning where it names something else: the `git checkout` command, a network service to connect to, a user role such as an integrating service, a frontend UI component, a Python module, a C# or XML namespace, a MIME type, a ticket's _Component_ field, a directory literally named `repos`, the context a session has loaded.
 
 A source's own vocabulary, such as the repository a GitHub source reads issues from and its `--repo` flag, or an Azure DevOps organization or project, belongs to that source's provider and never means a glossary term. In a binding it is a coordinate: never a namespace, a product or a project.
+
+## Ship runs
+
+Every skill but `setup` and `import` is model-invokable, so a ship run can invoke the others ([ADR 0007](../docs/adr/0007-skills-are-model-invokable-and-gate-themselves.md)). The developer's approval moves into each skill: one that writes outside the machine asks before it does, the only exception being `checkpoint` posting journal entries ([ADR 0009](../docs/adr/0009-a-remote-tickets-journal-lives-upstream.md)). What a ship run may do without asking is [ADR 0008](../docs/adr/0008-a-ship-run-may-commit-push-and-open-pull-requests.md)'s to decide; where this section and that ADR differ, the ADR wins.
+
+- **The ship flag is the word `ship` standing alone among a skill's arguments**, never part of a reference, a quoted title or a pasted text. `/sdlc:ship` passes it to every skill it runs. A skill takes the flag off its arguments before reading the rest, and passes it on to any sdlc skill it invokes in turn.
+- **Without the flag, every confirmation stands**, whoever invoked the skill: the user typing it, the model, or another skill.
+- **Under the flag, a skill skips its confirmations.** Where it would ask for a yes, it shows what it is about to do and does it. Where it would ask the user to choose, it chooses on the evidence and says each choice in chat as a decision: what, why, and its cost if wrong. `checkpoint` carries those into the journal's Decisions, and the pull request body lists them.
+- **Hard stops ask even under the flag**: merging into a protected branch, deploying to a production environment, and changing the upstream ticket's state. At one, show exactly what would happen and wait for an explicit yes; anything else is a no.
+- **The flag waives questions, never refusals.** A guard refusal, a revision check that stops a write, a missing binding and a build that still fails stop the skill as they always do, and it reports them to the run. So does a question nothing in the run can answer, such as text the skill would have to invent: stop and report it rather than guess.

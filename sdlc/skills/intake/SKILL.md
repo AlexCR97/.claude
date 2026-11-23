@@ -1,8 +1,7 @@
 ---
 name: intake
-description: Brings a unit of work into the sdlc store, from a GitHub issue (a number, owner/repo#n or a URL), an Azure DevOps work item (an id or a URL), a spec file, pasted text or an idea, or the current branch.
-disable-model-invocation: true
-argument-hint: "[<github issue> | <azure devops work item> | <spec file path> | <text or idea>]"
+description: Brings a ticket into the sdlc store, mirroring a GitHub issue or an Azure DevOps work item, or adopting a spec file, pasted text, an idea or the current branch's work as a local ticket. Use when asked to intake a ticket or refresh its mirror, or to start sdlc work from an issue, work item, spec or idea.
+argument-hint: "[<github issue> | <azure devops work item> | <spec file path> | <text or idea>] [ship]"
 ---
 
 # Intake
@@ -16,6 +15,7 @@ Turn what `$ARGUMENTS` holds into a ticket. A GitHub issue or an Azure DevOps wo
 - A path to a spec or markdown file: its content is copied into the ticket and the path is recorded as `origin`.
 - Pasted text or an idea: it becomes the ticket's description.
 - No argument: offer a new ticket for the current branch's work, titled from the branch, and ask what the work is. The branch never identifies an existing ticket.
+- `ship`: the [ship flag](../../shared/conventions.md#ship-runs), never part of the input. Adoption then files the local ticket without asking.
 
 ## Outputs
 

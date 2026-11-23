@@ -2,7 +2,7 @@
 
 Agentic software development life cycle: intake, plan, implement and document. A Claude Code plugin that mirrors a GitHub issue or an Azure DevOps work item (or adopts a spec, text or an idea) into a local store, then plans, implements, checkpoints and documents it, keeping what a later session needs on disk.
 
-[ADR 0007](docs/adr/0007-skills-are-model-invokable-and-gate-themselves.md) sets the direction: skills the model may invoke, each gating its own writes. Until [issue #56](https://github.com/AlexCR97/.claude/issues/56) flips them, every skill but `/sdlc:export` is still explicit-only (`disable-model-invocation: true`) and runs only when you type it. `/sdlc:export` only reads the SDLC home and writes a new zip, so the model may already run it when asked to move work off the machine. `/sdlc:import` rewrites the home, so it stays explicit-only after #56 too.
+Every skill but `/sdlc:setup` and `/sdlc:import` is model-invokable ([ADR 0007](docs/adr/0007-skills-are-model-invokable-and-gate-themselves.md)): the model may run one when its description fits the request, and one sdlc skill may run another. Each description says narrowly when its skill applies, and a skill that writes outside the machine asks before it does. `setup` and `import` rewrite the SDLC home, so they stay explicit-only (`disable-model-invocation: true`) and run only when you type them. A ship run passes the `ship` flag, which waives every confirmation except the hard stops; [shared/conventions.md](shared/conventions.md#ship-runs) has the rules.
 
 ## Skills
 
@@ -97,7 +97,7 @@ Everything lives under the SDLC home, `~/.sdlc` or `$SDLC_HOME`:
 | `{namespace}/{product}/product.json` | a product   | the same keys and the product-level source coordinates                                                       |
 | `…/{id}/ticket.json`                 | a ticket    | its record, keyed as [shared/store.md](shared/store.md) lists                                                |
 
-The inner level wins. [GLOSSARY.md](GLOSSARY.md) defines the terms, [shared/conventions.md](shared/conventions.md) the filing, mirror and path rules, and `/sdlc:setup` the keys. Specific formats sit beside it in [shared/](shared/): [store.md](shared/store.md) (the layout and `ticket.json`), [archive.md](shared/archive.md) (the archive and its manifest), [plan.md](shared/plan.md), [journal.md](shared/journal.md), [artifacts.md](shared/artifacts.md), [guard.md](shared/guard.md), [tdd.md](shared/tdd.md) and [types.md](shared/types.md).
+The inner level wins. [GLOSSARY.md](GLOSSARY.md) defines the terms, [shared/conventions.md](shared/conventions.md) the filing, mirror, path and ship-run rules, and `/sdlc:setup` the keys. Specific formats sit beside it in [shared/](shared/): [store.md](shared/store.md) (the layout and `ticket.json`), [archive.md](shared/archive.md) (the archive and its manifest), [plan.md](shared/plan.md), [journal.md](shared/journal.md), [artifacts.md](shared/artifacts.md), [guard.md](shared/guard.md), [tdd.md](shared/tdd.md) and [types.md](shared/types.md).
 
 ## Scripts
 

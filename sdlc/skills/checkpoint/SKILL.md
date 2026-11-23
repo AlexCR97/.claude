@@ -1,7 +1,6 @@
 ---
 name: checkpoint
-description: Records the current session on a ticket as a new journal entry (where the code is, what was done, decided and is blocking, the next action), posts it as a comment on a remote ticket, reconciles the plan's step statuses and refreshes the ticket's pull request record.
-disable-model-invocation: true
+description: Records the session on an sdlc ticket as a journal entry (where the code is, what was done and decided, what blocks, the next action), posts it on a remote ticket, and refreshes the plan's step statuses and the pull request record. Use when asked to checkpoint an sdlc ticket or record its progress in the journal.
 argument-hint: "[<ticket reference | spec file | text or idea>] [note]"
 ---
 
