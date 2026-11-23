@@ -210,10 +210,10 @@ def test_a_work_item_at_a_newer_rev_reports_changed(
     assert result.json["live"] == {"rev": 9}
 
 
-def test_the_work_item_check_asks_only_for_the_revision_and_writes_nothing(
+def test_the_work_item_check_at_the_recorded_rev_asks_only_for_the_revision(
     run_cli, mirrored_work_item, az_stub, sdlc_home
 ):
-    probe(az_stub, mirrored_work_item, 9)
+    probe(az_stub, mirrored_work_item, 7)
     before = tree_state(sdlc_home)
     calls_before = len(az_stub.calls)
 
@@ -222,6 +222,23 @@ def test_the_work_item_check_asks_only_for_the_revision_and_writes_nothing(
     new_calls = az_stub.calls[calls_before:]
     assert len(new_calls) == 1
     assert "fields=System.Rev" in " ".join(new_calls[0])
+    assert tree_state(sdlc_home) == before
+
+
+def test_the_work_item_check_at_a_newer_rev_reads_the_item_and_its_comments_and_writes_nothing(
+    run_cli, mirrored_work_item, az_stub, sdlc_home
+):
+    probe(az_stub, mirrored_work_item, 9)
+    before = tree_state(sdlc_home)
+    calls_before = len(az_stub.calls)
+
+    run_cli("fetch", "ado:1234", "--check")
+
+    new_calls = [" ".join(call) for call in az_stub.calls[calls_before:]]
+    assert len(new_calls) == 3
+    assert "fields=System.Rev" in new_calls[0]
+    assert "$expand=all" in new_calls[1]
+    assert "/comments" in new_calls[2]
     assert tree_state(sdlc_home) == before
 
 

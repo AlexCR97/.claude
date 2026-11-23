@@ -1,13 +1,13 @@
 ---
 name: checkpoint
-description: Records the current session on a ticket as a new journal entry (where the code is, what was done, decided and is blocking, the next action), reconciles the plan's step statuses and refreshes the ticket's pull request record.
+description: Records the current session on a ticket as a new journal entry (where the code is, what was done, decided and is blocking, the next action), posts it as a comment on a remote ticket, reconciles the plan's step statuses and refreshes the ticket's pull request record.
 disable-model-invocation: true
 argument-hint: "[<ticket reference | spec file | text or idea>] [note]"
 ---
 
 # Checkpoint
 
-Record this session on the ticket `$ARGUMENTS` names, so a later `resume` can pick the work up. The plan says what the work is; what a session learned dies with it unless this writes it down. Run scripts as `python "${CLAUDE_PLUGIN_ROOT}/shared/sdlc.py" <verb>` (`python3` where that is the interpreter's name). The entry and the pull request record follow `${CLAUDE_PLUGIN_ROOT}/shared/journal.md`, the statuses `${CLAUDE_PLUGIN_ROOT}/shared/plan.md`; terms mean what `${CLAUDE_PLUGIN_ROOT}/GLOSSARY.md` says.
+Record this session on the ticket `$ARGUMENTS` names, so a later `resume` can pick the work up, on this machine or, for a remote ticket, on any other. The plan says what the work is; what a session learned dies with it unless this writes it down. Run scripts as `python "${CLAUDE_PLUGIN_ROOT}/shared/sdlc.py" <verb>` (`python3` where that is the interpreter's name). The entry and the pull request record follow `${CLAUDE_PLUGIN_ROOT}/shared/journal.md`, the statuses `${CLAUDE_PLUGIN_ROOT}/shared/plan.md`; terms mean what `${CLAUDE_PLUGIN_ROOT}/GLOSSARY.md` says.
 
 ## Inputs
 
@@ -21,15 +21,16 @@ Record this session on the ticket `$ARGUMENTS` names, so a later `resume` can pi
 3. **Reconstruct the session** from the conversation: outcomes and not attempts, every decision with its why and the alternative, every inference with its basis, and where the step in flight honestly stands. Read the latest journal entry for what is still open.
 4. **Settle Next.** Derive it from the session. When several things could come next, give the best inference and ask the user to accept or correct it: a wrong Next is worse than none.
 5. **Write the entry** as a new file in the ticket directory's `journal/`, in the format of `journal.md`.
-6. **Reconcile `plan.md`.** Correct each step `**Status:**` the session left stale (`In Progress` or `Blocked` with their one-line note, or `Done`) and derive the affected Progress rows again. Change nothing else in the plan.
-7. **Record the pull requests.** Add any named in the session as delivering this ticket. For each worktree in the plan's Workspace, read its remote with `git -C {worktree} remote get-url origin` and list the pull requests whose head is its branch with `gh pr list --repo {owner}/{repository} --head {branch} --state all --json url` (or `az repos pr list` with the organization, project and repository of that remote and `--source-branch {branch} --status all`); a worktree with no remote has none to list. Refresh every status with `gh pr view` or `az repos pr show` and rewrite `pulls.md` as `journal.md` describes. If a refresh fails, keep the old statuses, say so in the record and carry on.
-8. **Report in two lines**, without printing the entry: the ticket, the new file, the stage and the Next; then each status changed, or that the plan is unchanged, and the number of pull requests recorded.
+6. **Post upstream**, when the ticket's source declares `writes_comments` in `${CLAUDE_PLUGIN_ROOT}/shared/providers/{source}.json` (GitHub and Azure DevOps). A local ticket's journal stays on disk; skip to the next step. Post, oldest first, each entry `ticket.json` lists under `unposted_journal`, then the new one: one comment each, in the posted form and by the backlog rules of `journal.md`, with the commands of the source's provider note (`${CLAUDE_PLUGIN_ROOT}/shared/providers/{source}.md`, "Posting a journal entry"). Posting is always on; there is nothing to ask. At the first failed post, stop posting: list it and every entry after it in `unposted_journal`, oldest first, keep their files, and carry on with the checkpoint. Done when every entry has a comment or a place in `unposted_journal`.
+7. **Reconcile `plan.md`.** Correct each step `**Status:**` the session left stale (`In Progress` or `Blocked` with their one-line note, or `Done`) and derive the affected Progress rows again. Change nothing else in the plan.
+8. **Record the pull requests.** Add any named in the session as delivering this ticket. For each worktree in the plan's Workspace, read its remote with `git -C {worktree} remote get-url origin` and list the pull requests whose head is its branch with `gh pr list --repo {owner}/{repository} --head {branch} --state all --json url` (or `az repos pr list` with the organization, project and repository of that remote and `--source-branch {branch} --status all`); a worktree with no remote has none to list. Refresh every status with `gh pr view` or `az repos pr show` and rewrite `pulls.md` as `journal.md` describes. If a refresh fails, keep the old statuses, say so in the record and carry on.
+9. **Report in two lines**, without printing the entry: the ticket, the new file, the stage and the Next; then each status changed, or that the plan is unchanged, the number of pull requests recorded, and the number of entries posted. When a post failed, add a third line: the entries left unposted and the error; the next checkpoint posts them.
 
 ## Invariants
 
-- Writes only a new journal entry, the `**Status:**` lines and Progress rows of `plan.md`, and `pulls.md`. Never code, never `raw/`, never `artifacts/`, never the rest of the plan.
-- Git, `gh` and `az` are used to read. Never commit, stash, push, fetch, check out, or open or change a pull request.
-- Never edit or delete an existing entry; a correction is a new entry.
-- Does not re-fetch the ticket: `resume` checks whether it changed.
+- Writes only a new journal entry, the `**Status:**` lines and Progress rows of `plan.md`, `pulls.md`, and `unposted_journal` in `ticket.json`. Never code, never `raw/`, never `artifacts/`, never the rest of the plan.
+- Git is used to read. `gh` and `az` are used to read and to post journal entries as comments on the ticket, and for nothing else upstream: the plan, the pull request record and artifacts stay local. Never commit, stash, push, fetch, check out, or open or change a pull request, an issue or a work item.
+- Never edit or delete an existing entry or its comment; a correction is a new entry.
+- Does not re-fetch the ticket, not even after posting: `resume` checks whether it changed.
 - A pull request is found from the branches the plan's Workspace lists or from what the session says, never from a branch name that resembles the ticket. Where it is unclear which ticket one belongs to, ask.
 - Never record where the ticket is filed.

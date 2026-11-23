@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import unquote, urlparse
 
-from sdlclib import process
+from sdlclib import journal, process
 from sdlclib.errors import EXIT_NOT_FOUND, SdlcError
 
 GH_HINT = "Install the GitHub CLI and run `gh auth login`, then try again."
@@ -146,31 +146,37 @@ def parent_of(base: str) -> dict | None:
         raise
 
 
-def fingerprint(raw: dict) -> dict:
-    """
-    GitHub has no revision, so the revision is a hash of what a reader would notice change.
-
-    `updated_at` is left out on purpose: it moves for activity that changes
-    nothing the mirror holds, which would make every refresh look stale.
-    """
+def content(raw: dict, comments: list[dict]) -> dict:
+    """What a reader would notice change. `updated_at` is left out on purpose: it moves for activity that changes nothing the mirror holds."""
 
     def state_of(issues: list[dict]) -> list[tuple]:
         return [(issue["number"], issue["state"]) for issue in issues]
 
     issue = raw["issue"]
-    content = {
+    return {
         "title": issue["title"],
         "body": issue["body"],
         "state": issue["state"],
         "labels": sorted(label["name"] for label in issue["labels"]),
-        "comments": [(comment["id"], comment["body"]) for comment in raw["comments"]],
+        "comments": [(comment["id"], comment["body"]) for comment in comments],
         "parent": raw["parent"]["number"] if raw["parent"] else None,
         "sub_issues": state_of(raw["sub_issues"]),
         "blocked_by": state_of(raw["blocked_by"]),
         "blocking": state_of(raw["blocking"]),
     }
-    canonical = json.dumps(content, sort_keys=True, ensure_ascii=False)
+
+
+def fingerprint(raw: dict) -> dict:
+    """GitHub has no revision, so the revision is a hash of the issue's content."""
+    canonical = json.dumps(
+        content(raw, raw["comments"]), sort_keys=True, ensure_ascii=False
+    )
     return {"sha256": hashlib.sha256(canonical.encode("utf-8")).hexdigest()}
+
+
+def signature(raw: dict) -> dict:
+    """The issue's content without its journal entries, so a post alone does not read as a change."""
+    return content(raw, journal.without_entries(raw["comments"], comments_of(raw)))
 
 
 def read_issue(ticket_id: str, coordinates: dict) -> dict:
@@ -201,9 +207,19 @@ def read_issue(ticket_id: str, coordinates: dict) -> dict:
     }
 
 
-def check(ticket_id: str, coordinates: dict) -> dict:
-    """The live fingerprint, for comparing with the recorded one; nothing is downloaded or written."""
-    return fingerprint(read_issue(ticket_id, coordinates))
+def comments_of(raw: dict) -> list[journal.Comment]:
+    return [
+        journal.Comment(
+            text=comment["body"], author=(comment.get("user") or {}).get("login")
+        )
+        for comment in raw["comments"]
+    ]
+
+
+def check(ticket_id: str, coordinates: dict, mirror: dict) -> dict:
+    """The live fingerprint and what was read to compute it; nothing is downloaded or written."""
+    upstream = read_issue(ticket_id, coordinates)
+    return {"fingerprint": fingerprint(upstream), "upstream": upstream}
 
 
 def fetch(ticket_id: str, coordinates: dict, raw_dir: Path) -> dict:
@@ -229,6 +245,7 @@ def fetch(ticket_id: str, coordinates: dict, raw_dir: Path) -> dict:
         "state": issue["state"],
         "url": issue["html_url"],
         "fingerprint": fingerprint(raw),
+        "comments": comments_of(raw),
         "report": {
             "raw_json": str(raw_dir / "raw.json"),
             "comments": len(comments),

@@ -7,5 +7,10 @@
     "pattern": "[a-z0-9][a-z0-9-]*",
     "shape": "a lowercase slug derived from the title"
   },
-  "capabilities": { "fetch": false, "related": true, "attachments": true }
+  "capabilities": {
+    "fetch": false,
+    "related": true,
+    "attachments": true,
+    "writes_comments": false
+  }
 }

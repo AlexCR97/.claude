@@ -1,6 +1,6 @@
 # Journal
 
-The format of a ticket's journal (`journal/`) and of its pull request record (`pulls.md`). Written only by `checkpoint`; `resume` reads the latest entry. Terms are in [`GLOSSARY.md`](../GLOSSARY.md).
+The format of a ticket's journal (`journal/`), of a journal entry posted upstream, and of the pull request record (`pulls.md`). Written and posted only by `checkpoint`, mirrored from upstream by `fetch`; `resume` reads the latest entry. Terms are in [`GLOSSARY.md`](../GLOSSARY.md).
 
 ## Entry file
 
@@ -50,6 +50,38 @@ The format of a ticket's journal (`journal/`) and of its pull request record (`p
 - **Next is specific enough to start on without re-reading anything**: never a bare "Continue Phase 2". When nothing is pending: `Nothing pending; all phases complete. Awaiting review.`
 - **Omit an empty Done, Decisions, Inferences, Open questions or Blockers section.**
 - **Decisions and Inferences stated earlier in the session**, such as an `implement` run's report, are carried over verbatim: that report is their only record.
+
+## Posted entry
+
+A remote ticket's journal lives upstream: `checkpoint` posts every new entry as one comment on the GitHub issue or Azure DevOps work item, after writing its file. A local ticket's entries stay on disk. Only entries go upstream; the plan, the pull request record and artifacts stay local.
+
+````markdown
+sdlc-journal-entry `2026-11-23T14-05-09Z.md`
+
+# Journal entry - [...](...)
+...
+````
+
+- **Marker.** The comment's first line is exactly `` sdlc-journal-entry `{entry file name}` ``, the name the entry has in `journal/`. It matches ``^sdlc-journal-entry `(\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}Z\.md)`$``, and the capture is the file name. A comment whose first line does not match is not a journal entry, whatever else it says. The backticks keep a renderer from linking the name as a `.md` domain.
+- **Posted form.** The marker line, one blank line, then the entry file's content verbatim: the full entry, never a summary. Both sources take Markdown; how each is posted is in its provider note (`providers/github.md`, `providers/ado.md`).
+- **Posted once, never edited or deleted**, like the file. A correction is a new entry, posted as its own comment.
+- **Unposted entries.** An entry whose post fails keeps its file and is listed in `ticket.json` `unposted_journal`: file names, oldest first. The next checkpoint posts that backlog, oldest first, before its own entry, removing each name as its comment lands, and the key when none is left. Before re-posting a listed entry, read the ticket's comments and drop the name if its marker is already there: a post can land even when its answer is lost.
+- **Not backfilled.** Entries written before a ticket's journal was posted stay local; the next entry carries forward what is open.
+
+## Mirrored entry
+
+A remote ticket's `journal/` is part of its mirror. `fetch`, run by `intake`, writes each marked comment upstream as the file its marker names, holding the entry as posted: the comment after the marker line and the blank line. A file already in `journal/` is never overwritten, so a mirror only gains entries. Its report's `fetched.journal` lists the names `written` and those `kept`.
+
+- **Read tolerantly.** Whitespace, a BOM and CRLF around the marker line do not hide it. A name posted twice counts once, as first posted.
+- **The latest entry** is the greatest name among `journal/` and the entries upstream: names sort in time order on every machine. An unposted entry is in `journal/` only; an entry another machine posted is upstream only until the next intake.
+- **`fetch --check`** adds, for a remote ticket it reached upstream:
+  - `journal`: `upstream`, every entry's name, oldest first; `unmirrored`, those `journal/` lacks; and while any is unmirrored, `newest_unmirrored`, `{name, entry, author}`, the newest of them in full. With `changed` it reads the live comments, otherwise the mirror's.
+  - `status`, the one value a skill acts on. Every post moves the revision, so after a checkpoint `changed` is true and `status` says whether that is all it was:
+    - `unchanged`: the revision has not moved, and `journal/` holds every entry upstream.
+    - `journal_only`: nothing but journal entries differs from the mirror, all of them already in `journal/` (this machine's own posts).
+    - `journal_unmirrored`: nothing but journal entries differs from the mirror, and `journal.unmirrored` lists some `journal/` lacks.
+    - `changed`: something besides journal entries differs.
+    - `never_mirrored`, `stale_mirror` and `local` are answered before upstream is asked, as the provider notes say.
 
 ## Pull request record
 

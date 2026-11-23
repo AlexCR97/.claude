@@ -12,6 +12,7 @@
     "related": true,
     "attachments": true,
     "comments": true,
+    "writes_comments": true,
     "discovers_coordinates": ["project"]
   }
 }

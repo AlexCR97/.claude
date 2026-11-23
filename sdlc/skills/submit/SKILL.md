@@ -18,11 +18,11 @@ Write one ticket to its source, from `$ARGUMENTS` and the conversation. Run scri
 ## Edit
 
 1. `resolve <reference>` (with `--context {namespace}[/{product}]` when the session has one). A ticket not in the store: offer `/sdlc:intake <reference>` and stop. A local ticket has no upstream: say so and stop.
-2. **Revision check.** `fetch <reference> --check` (with `--context`). `unchanged` continues. `changed`, `never_mirrored` or `stale_mirror` stops the write (a stale mirror needs only the refresh): read the live ticket (`gh api`, `az rest`; reads only), say what changed against the mirror, and offer `/sdlc:intake <reference>` to refresh. An error stops it too.
+2. **Revision check.** `fetch <reference> --check` (with `--context`). `unchanged`, `journal_only` or `journal_unmirrored` continues: nothing but journal entries moved since the mirror, so a checkpoint never blocks an edit. `changed`, `never_mirrored` or `stale_mirror` stops the write (a stale mirror needs only the refresh): read the live ticket (`gh api`, `az rest`; reads only), say what changed against the mirror, and offer `/sdlc:intake <reference>` to refresh. An error stops it too.
 3. Build the change from the mirror (`raw/raw.json`). Where a field is one combined value (labels, tags, a body holding several sections), build its new value from the whole of its current one, so nothing unnamed is lost. Never invent text; ask for it.
 4. Show a before and after of every field that changes, exactly as it will be written. Nothing would change: say so and stop.
 5. Ask for a yes. Anything else (silence, "maybe", a question) is not one; on a no, send nothing.
-6. After the yes run the revision check again, since time has passed; any result but `unchanged` stops the write as in step 2. Otherwise write as the provider notes say. On Azure DevOps the patch opens with the `test /rev` guard.
+6. After the yes run the revision check again, since time has passed; any status but the three step 2 continues on stops the write as there. Otherwise write as the provider notes say. On Azure DevOps the patch opens with the `test /rev` guard, on this check's `live` revision.
 7. **Fetch it back**: `fetch <reference>` so the mirror is what is now upstream. Say what each field now holds against what was confirmed. The plan, if there is one, was built from the old content: say so.
 
 ## Create
@@ -37,7 +37,7 @@ Write one ticket to its source, from `$ARGUMENTS` and the conversation. Run scri
 ## Invariants
 
 - Nothing is sent upstream before an explicit yes to the exact content shown. A change to the content needs a new preview and a new yes.
-- No edit goes out over a ticket that moved since it was mirrored: the revision check stops it; no way around it is offered.
+- No edit goes out over a ticket whose content moved since it was mirrored: the revision check stops it; no way around it is offered. A journal entry is not content.
 - Write only what was asked: no state change, close, label, tag, assignee, milestone or comment nobody named, and no triage label added by habit.
 - The target repository or project is the product's binding or the user's own word, checked against the bindings. Unbound: `/sdlc:setup`.
 - A ticket written upstream is always fetched back; the local files are never edited to imitate the write.

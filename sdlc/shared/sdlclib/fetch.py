@@ -1,5 +1,6 @@
 """
-`fetch`: mirror a ticket from its source into the ticket's `raw/` directory.
+`fetch`: mirror a ticket from its source into the ticket's `raw/` directory,
+and its journal entries upstream into `journal/`.
 
 The ticket is found, or filed, by the same logic `resolve` uses, so a ticket's
 own coordinates win over any binding and a first fetch lands under the bound
@@ -12,14 +13,13 @@ would read as a complete one.
 """
 
 import json
-import os
 from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import NotRequired, TypedDict
+from typing import Literal, NotRequired, TypedDict
 
 from . import config as configuration
-from . import filing, layout, providers, resolve
+from . import filing, journal, layout, providers, resolve
 from .config import Config, describe
 from .errors import EXIT_AMBIGUOUS, SdlcError
 from .layout import Scope
@@ -31,37 +31,38 @@ class FetchReport(resolve.ResolveReport):
     fetched: dict
 
 
+CheckStatus = Literal[
+    "unchanged",
+    "journal_only",
+    "journal_unmirrored",
+    "changed",
+    "never_mirrored",
+    "stale_mirror",
+    "local",
+]
+
+
 class CheckReport(TypedDict):
     ref: str
     ticket_dir: str
     changed: bool
-    status: str
+    status: CheckStatus
     recorded: dict | None
     live: dict | None
     reason: NotRequired[str]
     coordinates: NotRequired[dict[str, str]]
     last_fetched_at: NotRequired[str | None]
+    journal: NotRequired[journal.Comparison]
 
 
-def read_record(path: Path) -> dict:
-    if not path.is_file():
-        return {}
+def read_mirror(path: Path) -> dict:
     try:
-        record = json.loads(path.read_text(encoding="utf-8"))
+        return json.loads(path.read_text(encoding="utf-8"))
     except (json.JSONDecodeError, OSError) as error:
-        raise SdlcError(f"{path}: is not a valid ticket record ({error})") from error
-    if not isinstance(record, dict):
-        raise SdlcError(f"{path}: must hold a JSON object")
-    return record
-
-
-def write_record(path: Path, record: dict) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    scratch = path.with_suffix(".json.tmp")
-    scratch.write_text(
-        json.dumps(record, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
-    )
-    os.replace(scratch, path)
+        raise SdlcError(
+            f"{path}: is not a readable mirror ({error})",
+            hint="Refresh it with `/sdlc:intake`.",
+        ) from error
 
 
 def bound_namespace_value(
@@ -176,12 +177,14 @@ def fetch(
         ticket.id, coordinates, ticket.dir / "raw"
     )
 
+    mirrored_journal = journal.mirror(mirrored["comments"], ticket.dir / "journal")
+
     record_path = ticket.dir / "ticket.json"
-    record = read_record(record_path)
+    record = layout.read_json_object(record_path)
     record.update(source=ticket.source, id=ticket.id, coordinates=coordinates)
     record.update({field: mirrored[field] for field in FETCHED_FIELDS})
     record["last_fetched_at"] = datetime.now(UTC).isoformat(timespec="seconds")
-    write_record(record_path, record)
+    layout.replace_file(record_path, layout.json_bytes(record))
 
     return FetchReport(
         **resolve.report(
@@ -191,7 +194,7 @@ def fetch(
             context=context,
             chosen=found.chosen,
         ),
-        fetched=mirrored["report"],
+        fetched={**mirrored["report"], "journal": mirrored_journal},
     )
 
 
@@ -204,12 +207,13 @@ def check(
     """
     Whether the ticket changed upstream since it was mirrored, writing nothing.
 
-    `changed` is true for a ticket never mirrored too: with no recorded
-    revision there is nothing to vouch that the mirror matches upstream, which
-    is the safe answer for a caller about to write upstream. `status` tells the
-    cases apart. `stale_mirror` is a recorded revision with no `raw/raw.json`
-    (what a mirror from before that shape lacks); it is answered without
-    asking upstream.
+    `status` is the one answer a skill acts on; the values are defined in
+    `journal.md`. `changed` is true for a ticket never mirrored too: with no
+    recorded revision there is nothing to vouch that the mirror matches
+    upstream, which is the safe answer for a caller about to write upstream.
+    `stale_mirror` is a recorded revision with no `raw/raw.json` (what a
+    mirror from before that shape lacks); it is answered without asking
+    upstream.
     """
     config = configuration.load()
     context = layout.parse_context(context_text)
@@ -236,7 +240,7 @@ def check(
         )
         return report
 
-    record = read_record(ticket.dir / "ticket.json") if found.exists else {}
+    record = layout.read_json_object(ticket.dir / "ticket.json") if found.exists else {}
     recorded = record.get("fingerprint")
     if not recorded:
         report.update(changed=True, status="never_mirrored")
@@ -255,15 +259,31 @@ def check(
         )
         return report
 
+    mirror = read_mirror(ticket.dir / "raw" / "raw.json")
     coordinates = upstream_coordinates(config, found)
-    live = providers.load_fetcher(ticket.source).check(ticket.id, coordinates)
+    fetcher = providers.load_fetcher(ticket.source)
+    answer = fetcher.check(ticket.id, coordinates, mirror)
+    live = answer["fingerprint"]
+    upstream = answer.get("upstream")
     changed = live != recorded
-    report.update(
-        changed=changed,
-        status="changed" if changed else "unchanged",
-        recorded=recorded,
-        live=live,
+    entries = journal.compare(
+        fetcher.comments_of(upstream or mirror), ticket.dir / "journal"
     )
+    # Every checkpoint posts a comment, which moves the revision; telling that
+    # apart keeps `resume` and `submit` from calling for a refresh after each one.
+    only_journal = not changed or (
+        upstream is not None
+        and fetcher.signature(upstream) == fetcher.signature(mirror)
+    )
+    status: CheckStatus
+    if not only_journal:
+        status = "changed"
+    elif entries["unmirrored"]:
+        status = "journal_unmirrored"
+    else:
+        status = "journal_only" if changed else "unchanged"
+    report.update(changed=changed, status=status, recorded=recorded, live=live)
     report["coordinates"] = coordinates
     report["last_fetched_at"] = record.get("last_fetched_at")
+    report["journal"] = entries
     return report

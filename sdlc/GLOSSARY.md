@@ -249,7 +249,7 @@ The ticket directory's `pulls.md`: one link to each pull request that delivers t
 _Avoid_: PR list
 
 **Checkpoint**:
-The act of recording a session on a ticket: writing a new journal entry, correcting the plan's stale step statuses and refreshing the pull request record. Run by `/sdlc:checkpoint`.
+The act of recording a session on a ticket: writing a new journal entry and, on a remote ticket, posting it as a comment upstream, correcting the plan's stale step statuses and refreshing the pull request record. Run by `/sdlc:checkpoint`.
 _Avoid_: Save, snapshot
 
 ### Delivering the work

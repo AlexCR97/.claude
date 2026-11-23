@@ -8,6 +8,10 @@ HOME_ENV_VAR = "SDLC_HOME"
 # The fallback namespace and product that receive a ticket nothing else claims.
 DEFAULT_NAME = "default"
 
+ROOT_CONFIG_NAME = "sdlc.json"
+NAMESPACE_CONFIG_NAME = "namespace.json"
+PRODUCT_CONFIG_NAME = "product.json"
+
 
 def sdlc_home() -> Path:
     override = os.environ.get(HOME_ENV_VAR)
@@ -17,7 +21,7 @@ def sdlc_home() -> Path:
 
 
 def root_config_path() -> Path:
-    return sdlc_home() / "sdlc.json"
+    return sdlc_home() / ROOT_CONFIG_NAME
 
 
 def namespace_dir(namespace: str) -> Path:
@@ -25,7 +29,7 @@ def namespace_dir(namespace: str) -> Path:
 
 
 def namespace_config_path(namespace: str) -> Path:
-    return namespace_dir(namespace) / "namespace.json"
+    return namespace_dir(namespace) / NAMESPACE_CONFIG_NAME
 
 
 def product_dir(namespace: str, product: str) -> Path:
@@ -33,7 +37,7 @@ def product_dir(namespace: str, product: str) -> Path:
 
 
 def product_config_path(namespace: str, product: str) -> Path:
-    return product_dir(namespace, product) / "product.json"
+    return product_dir(namespace, product) / PRODUCT_CONFIG_NAME
 
 
 def ticket_dir(namespace: str, product: str, source: str, ticket_id: str) -> Path:
