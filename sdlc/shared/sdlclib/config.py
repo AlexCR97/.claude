@@ -35,7 +35,7 @@ SHARED_KEYS = {"default_source", *LIST_KEYS, *MACHINE_KEYS}
 ALLOWED_KEYS = {
     "sdlc": {"default_namespace", *SHARED_KEYS},
     "namespace": {"default_product", "sources", *SHARED_KEYS},
-    "product": {"sources", *SHARED_KEYS},
+    "product": {"sources", "environments", *SHARED_KEYS},
 }
 LEVEL_ONLY_KEYS = frozenset({"default_namespace", "default_product"})
 
@@ -78,6 +78,38 @@ def check_value(path: Path, level: str, key: str, value: object) -> None:
             raise invalid(path, f"'{key}' must be a list of non-empty strings")
     elif key == "sources":
         check_sources(path, level, value)
+    elif key == "environments":
+        check_environments(path, value)
+
+
+ENVIRONMENT_KEYS = ("name", "production")
+
+
+def check_environments(path: Path, value: object) -> None:
+    if not isinstance(value, list) or not all(isinstance(item, dict) for item in value):
+        raise invalid(
+            path,
+            "'environments' must be a list of objects, each a 'name' and a boolean 'production'",
+        )
+    seen: set[str] = set()
+    for environment in value:
+        name = environment.get("name")
+        if not isinstance(name, str) or not name.strip():
+            raise invalid(path, "every environment needs a 'name', a non-empty string")
+        for key in environment:
+            if key not in ENVIRONMENT_KEYS:
+                raise invalid(
+                    path,
+                    f"'{key}' is not an environment key ({', '.join(ENVIRONMENT_KEYS)})",
+                )
+        if not isinstance(environment.get("production"), bool):
+            raise invalid(path, f"environment '{name}' needs a boolean 'production'")
+        # Environment names are matched case-insensitively when a skill is asked
+        # to deploy, so `QA` and `qa` would name the same place twice.
+        folded = name.casefold()
+        if folded in seen:
+            raise invalid(path, f"environment '{folded}' is listed twice")
+        seen.add(folded)
 
 
 def check_sources(path: Path, level: str, value: object) -> None:

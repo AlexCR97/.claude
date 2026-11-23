@@ -70,3 +70,15 @@ def test_a_worktree_root_cascades_like_any_shared_setting(run_cli, write_config)
     effective = run_cli("resolve", "acme/billing-app/local:fix-it").json["config"]
 
     assert effective["worktree_root"] == "/code/worktrees"
+
+
+def test_a_product_records_its_environments(run_cli, write_config):
+    environments = [
+        {"name": "dev", "production": False},
+        {"name": "prod", "production": True},
+    ]
+    write_config("acme/billing-app/product.json", {"environments": environments})
+
+    effective = run_cli("resolve", "acme/billing-app/local:fix-it").json["config"]
+
+    assert effective["environments"] == environments
