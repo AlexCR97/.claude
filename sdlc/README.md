@@ -19,6 +19,7 @@ Every skill but `/sdlc:setup` and `/sdlc:import` is model-invokable ([ADR 0007](
 | `/sdlc:commit`     | A ticket, optionally its phase, and `push`                                                                                               | The phase's or session's changes committed per repository, linking the ticket, by a better-suited installed skill or its own; asks first unless shipping          |
 | `/sdlc:pr`         | A ticket, and `ready` to mark its pull request ready for review                                                                          | A draft pull request per repository the work changed, by an installed skill that suits or the built-in; ready on `ready`; and the pull request record             |
 | `/sdlc:deploy`     | An environment, and optionally a ticket                                                                                                  | The work deployed by a delegate skill, a project command or manual steps; the environments saved on first use after a yes; production always asks                 |
+| `/sdlc:ship`       | A ticket reference, or a spec file, text or an idea, and an end point (`pr`, the default, or an environment)                             | The whole cycle in one unattended run: a ticket branch with one commit per phase, a ready pull request, a deployment to the end point; asks only at hard stops    |
 | `/sdlc:export`     | Nothing (the whole SDLC home), a namespace, `{namespace}/{product}` or a ticket reference, and optionally where to write it              | An archive: a zip of that scope's directories, the config files above it and a manifest, for `/sdlc:import` on another machine                                    |
 | `/sdlc:import`     | An archive `/sdlc:export` wrote                                                                                                          | The archive merged into the SDLC home after a report and a yes: missing files added, conflicts asked per ticket, nothing deleted                                  |
 
@@ -34,11 +35,15 @@ flowchart TD
     S -->|"or one ticket at a time"| SUB["/sdlc:submit (Azure DevOps)"]
     SUB --> I
     SETUP["/sdlc:setup (once per binding)"] -.-> I
+    SHIP["/sdlc:ship (every step below in one run; waits only at hard stops)"] -.-> I
     I["/sdlc:intake"] --> P["/sdlc:plan"]
     P --> M["/sdlc:implement"]
     M --> D["/sdlc:document (offered after each phase)"]
-    D --> M
-    M --> C["/sdlc:checkpoint"]
+    D --> CM["/sdlc:commit"]
+    CM --> C["/sdlc:checkpoint"]
+    C -->|"next phase"| M
+    C --> PR["/sdlc:pr (draft, then ready)"]
+    PR -.->|"to an environment"| DEP["/sdlc:deploy"]
     C -.->|"new session"| R["/sdlc:resume"]
     R --> M
     C -.-> H["handoff"]
@@ -47,8 +52,10 @@ flowchart TD
 1. **Think.** Sharpen the idea with `mattpocock-skills:grill-me`, `mattpocock-skills:grill-with-docs` and/or `superpowers:brainstorming`. Turn the result into a spec with `mattpocock-skills:to-spec`, then into tickets with `mattpocock-skills:to-tickets`.
 2. **File.** `to-tickets` publishes to GitHub itself. For Azure DevOps, or to create or change a single ticket, use `/sdlc:submit`, one ticket at a time.
 3. **Intake, plan, implement.** `/sdlc:intake`, then `/sdlc:plan`, then `/sdlc:implement`. `implement` offers `/sdlc:document` after each phase.
-4. **Stop and come back.** `/sdlc:checkpoint` before attention leaves the ticket; `/sdlc:resume` first thing in a fresh session. On a remote ticket, checkpoint also posts the journal entry as a comment on the issue or work item, always, and nothing else goes upstream ([ADR 0009](docs/adr/0009-a-remote-tickets-journal-lives-upstream.md)). `/sdlc:intake` on another machine mirrors those entries back, so `/sdlc:resume` there starts from the latest. `mattpocock-skills:handoff` compacts a conversation for another agent when a journal entry is not what you need.
-5. **Once per binding.** `/sdlc:setup` binds a repository or project to a namespace and product, so `intake` can file what it mirrors.
+4. **Deliver.** `/sdlc:commit` commits a phase, `/sdlc:pr` opens its pull request as a draft and `/sdlc:pr ready` marks it ready, and `/sdlc:deploy <environment>` deploys it. Each asks before it writes outside the machine.
+5. **Or ship it.** `/sdlc:ship <ticket> [pr | <environment>]` runs steps 3 and 4 unattended: intake, a plan whose open choices it decides itself, one ticket branch, and per phase implement, document, commit and checkpoint, then a ready pull request and the deployment to the end point. It asks nothing except at a hard stop, where it checkpoints, sends a push notification and waits for a yes. Every decision it made is in the journal and the pull request body. A phase still failing after one fix ends the run: that phase stays uncommitted and `Blocked`, the earlier ones are pushed, and the pull request stays a draft naming the failure ([ADR 0008](docs/adr/0008-a-ship-run-may-commit-push-and-open-pull-requests.md)).
+6. **Stop and come back.** `/sdlc:checkpoint` before attention leaves the ticket; `/sdlc:resume` first thing in a fresh session. On a remote ticket, checkpoint also posts the journal entry as a comment on the issue or work item, always, and nothing else goes upstream ([ADR 0009](docs/adr/0009-a-remote-tickets-journal-lives-upstream.md)). `/sdlc:intake` on another machine mirrors those entries back, so `/sdlc:resume` there starts from the latest. `mattpocock-skills:handoff` compacts a conversation for another agent when a journal entry is not what you need.
+7. **Once per binding.** `/sdlc:setup` binds a repository or project to a namespace and product, so `intake` can file what it mirrors.
 
 ## How work enters the cycle
 

@@ -30,7 +30,7 @@ The format of a ticket's journal (`journal/`), of a journal entry posted upstrea
 
 ### Decisions
 
-- **{decision}** - {why, and what it was chosen over}. Affects {step}.
+- **{decision}** - {why, and what it was chosen over}; cost if wrong: {what breaks or must be redone}. Affects {step}.
 
 ### Inferences
 
@@ -48,6 +48,7 @@ The format of a ticket's journal (`journal/`), of a journal entry posted upstrea
 - **Stage** is `Phase N, Step N.M`, or `Planning`, `Refinement` or `Review`.
 - **Where, Worktree state, Stopped at and Next are always present.** Where a fact is unavailable, say so; outside a repository, `**Where:** not in a repository`. When the work spans several worktrees, write one Where and one Worktree state per worktree, each naming its repository.
 - **Next is specific enough to start on without re-reading anything**: never a bare "Continue Phase 2". When nothing is pending: `Nothing pending; all phases complete. Awaiting review.`
+- **A decision carries its why and its cost if wrong**, in the form of the plan's Decisions (`plan.md`), so a ship run's decisions are carried over unchanged and `pr` lists them as they stand.
 - **Omit an empty Done, Decisions, Inferences, Open questions or Blockers section.**
 - **Decisions and Inferences stated earlier in the session**, such as an `implement` run's report, are carried over verbatim: that report is their only record.
 
