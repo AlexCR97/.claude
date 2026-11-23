@@ -2,7 +2,7 @@
 
 Agentic software development life cycle: intake, plan, implement and document. A Claude Code plugin that mirrors a GitHub issue or an Azure DevOps work item (or adopts a spec, text or an idea) into a local store, then plans, implements, checkpoints and documents it, keeping what a later session needs on disk.
 
-Every skill is explicit-only (`disable-model-invocation: true`): nothing runs unless you type it.
+Every skill but `/sdlc:export` is explicit-only (`disable-model-invocation: true`): nothing runs unless you type it. `/sdlc:export` only reads the SDLC home and writes a new zip, so the model may run it when asked to move work off the machine ([ADR 0007](docs/adr/0007-skills-are-model-invokable-and-gate-themselves.md)).
 
 ## Skills
 
@@ -16,6 +16,7 @@ Every skill is explicit-only (`disable-model-invocation: true`): nothing runs un
 | `/sdlc:resume`     | A ticket                                                                                                                                 | One read-only briefing ending in the single next action, including what changed upstream                                                                          |
 | `/sdlc:submit`     | One ticket to create or edit upstream, with a to-spec or to-tickets body if you have one                                                 | A GitHub issue or Azure DevOps work item, written only after a preview and an explicit yes                                                                        |
 | `/sdlc:document`   | A ticket and phase, paths, or `all`                                                                                                      | Edits to the README of each project the change touched; never commits                                                                                             |
+| `/sdlc:export`     | Nothing (the whole SDLC home), a namespace, `{namespace}/{product}` or a ticket reference, and optionally where to write it              | An archive: a zip of that scope's directories, the config files above it and a manifest, for `/sdlc:import` on another machine                                    |
 
 ## The cycle
 
@@ -95,15 +96,16 @@ Everything lives under the SDLC home, `~/.sdlc` or `$SDLC_HOME`:
 | `{namespace}/{product}/product.json` | a product   | the same keys and the product-level source coordinates                                                       |
 | `…/{id}/ticket.json`                 | a ticket    | its record, keyed as [shared/store.md](shared/store.md) lists                                                |
 
-The inner level wins. [GLOSSARY.md](GLOSSARY.md) defines the terms, [shared/conventions.md](shared/conventions.md) the filing, mirror and path rules, and `/sdlc:setup` the keys. Specific formats sit beside it in [shared/](shared/): [store.md](shared/store.md) (the layout and `ticket.json`), [plan.md](shared/plan.md), [journal.md](shared/journal.md), [artifacts.md](shared/artifacts.md), [guard.md](shared/guard.md), [tdd.md](shared/tdd.md) and [types.md](shared/types.md).
+The inner level wins. [GLOSSARY.md](GLOSSARY.md) defines the terms, [shared/conventions.md](shared/conventions.md) the filing, mirror and path rules, and `/sdlc:setup` the keys. Specific formats sit beside it in [shared/](shared/): [store.md](shared/store.md) (the layout and `ticket.json`), [archive.md](shared/archive.md) (the archive and its manifest), [plan.md](shared/plan.md), [journal.md](shared/journal.md), [artifacts.md](shared/artifacts.md), [guard.md](shared/guard.md), [tdd.md](shared/tdd.md) and [types.md](shared/types.md).
 
 ## Scripts
 
-Skills call `python "${CLAUDE_PLUGIN_ROOT}/shared/sdlc.py" <verb>`. There are four verbs, each for work that must come out identical every time:
+Skills call `python "${CLAUDE_PLUGIN_ROOT}/shared/sdlc.py" <verb>`. There are five verbs, each for work that must come out identical every time:
 
 - `resolve`: report the ticket directory for a reference, or where a new ticket would be filed; read-only.
 - `fetch`: mirror an issue or work item into `raw/`; `--check` compares revisions without writing.
 - `guard`: answer whether an operation on a repository or branch is allowed under the protected-branch policy.
 - `effect`: vet a script's side effects (including a `sensitive` target) before it runs.
+- `archive export`: write the SDLC home, or one namespace, product or ticket of it, to a zip with a manifest; never writes inside the home.
 
 [ADR 0006](docs/adr/0006-scripts-and-instructions-are-for-mechanical-work-only.md) explains why there are so few.

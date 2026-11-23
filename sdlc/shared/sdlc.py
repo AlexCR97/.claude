@@ -11,6 +11,8 @@ Usage:
     python sdlc.py guard check --op <operation> [--repo <dir>] [--branch <name>]
                                [--context namespace[/product]]
     python sdlc.py guard protected [--repo <dir>] [--branch <name>] [--context namespace[/product]]
+    python sdlc.py archive export [<namespace> | <namespace>/<product> | <ref>] [--out <path>]
+                                  [--context namespace[/product]]
 
 Exit codes:
     0  ok
@@ -35,7 +37,7 @@ for stream in (sys.stdout, sys.stderr):
     if callable(reconfigure):
         reconfigure(encoding="utf-8", errors="replace")
 
-from sdlclib import effect, fetch, guard, resolve
+from sdlclib import archive, effect, fetch, guard, resolve
 from sdlclib.errors import EXIT_OK, EXIT_REFUSED, SdlcError
 
 
@@ -72,6 +74,11 @@ def verb_guard(args: argparse.Namespace) -> int:
     verdict = guard.check(args.op, args.repo, args.branch, args.context)
     emit(verdict)
     return EXIT_OK if verdict["allowed"] else EXIT_REFUSED
+
+
+def verb_archive(args: argparse.Namespace) -> int:
+    emit(archive.export(args.scope, args.out, args.context, Path.cwd()))
+    return EXIT_OK
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -153,6 +160,26 @@ def build_parser() -> argparse.ArgumentParser:
         help="the session's namespace[/product], whose protected_branches apply",
     )
     guarding.set_defaults(handler=verb_guard)
+
+    archiving = verbs.add_parser(
+        "archive", help="write the SDLC home, or part of it, to a zip"
+    )
+    archiving.add_argument("action", choices=["export"])
+    archiving.add_argument(
+        "scope",
+        nargs="?",
+        help="a namespace, namespace/product or ticket reference (default: the whole home)",
+    )
+    archiving.add_argument(
+        "--out",
+        help="the zip to write, or an existing directory to write it in "
+        "(default: the current directory)",
+    )
+    archiving.add_argument(
+        "--context",
+        help="the session's namespace[/product]; it decides which ticket a reference means first",
+    )
+    archiving.set_defaults(handler=verb_archive)
     return parser
 
 

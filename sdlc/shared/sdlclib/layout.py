@@ -159,6 +159,17 @@ def products(namespace: str | None = None) -> list[Product]:
     return found
 
 
+def tickets(product: Product) -> list[TicketDirectory]:
+    """Every ticket directory filed under a product, by source then id."""
+    return [
+        TicketDirectory(product, source.name, entry.name)
+        for source in sorted(product.dir.iterdir())
+        if source.is_dir()
+        for entry in sorted(source.iterdir())
+        if entry.is_dir()
+    ]
+
+
 def ticket_directories(
     sources: list[str], ticket_id: str, product: Product | None = None
 ) -> list[TicketDirectory]:

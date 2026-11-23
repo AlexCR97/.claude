@@ -1,6 +1,6 @@
 # Store
 
-The layout of the SDLC home and the keys of a ticket's `ticket.json`. Terms are in [`GLOSSARY.md`](../GLOSSARY.md).
+The layout of the SDLC home and the keys of a ticket's `ticket.json`. Terms are in [`GLOSSARY.md`](../GLOSSARY.md). An archive carries this layout as is: [archive.md](archive.md).
 
 ## Layout
 

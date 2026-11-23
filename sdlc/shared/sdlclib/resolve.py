@@ -217,22 +217,13 @@ class Found:
     coordinates: dict[str, str]
 
 
-def locate_existing(
+def find_on_disk(
     config: Config,
     reference: Reference,
-    coordinate_arguments: list[str],
+    coordinates: dict[str, str],
     context: Scope | None,
-    cwd: Path,
-    discover: Callable[[str, str, dict[str, str]], dict[str, str]] | None = None,
-) -> Found:
-    """
-    `discover(source, id, given)` returns coordinates the ticket itself reveals.
-
-    It runs only for a ticket not on disk and not named into a product, so a
-    source whose id names no project can be filed by where the ticket lives
-    rather than by a guess. `resolve` passes none: it never reads upstream.
-    """
-    coordinates = parse_coordinates(coordinate_arguments, reference.source)
+) -> TicketDirectory | None:
+    """The one ticket directory the reference means, nearest first; None when it is on disk nowhere."""
     sources = (
         [reference.source]
         if reference.source
@@ -252,8 +243,28 @@ def locate_existing(
     matches = layout.nearest(matches, context)
     if len(matches) > 1:
         raise ambiguous(matches)
-    if matches:
-        return Found(matches[0], True, None, coordinates)
+    return matches[0] if matches else None
+
+
+def locate_existing(
+    config: Config,
+    reference: Reference,
+    coordinate_arguments: list[str],
+    context: Scope | None,
+    cwd: Path,
+    discover: Callable[[str, str, dict[str, str]], dict[str, str]] | None = None,
+) -> Found:
+    """
+    `discover(source, id, given)` returns coordinates the ticket itself reveals.
+
+    It runs only for a ticket not on disk and not named into a product, so a
+    source whose id names no project can be filed by where the ticket lives
+    rather than by a guess. `resolve` passes none: it never reads upstream.
+    """
+    coordinates = parse_coordinates(coordinate_arguments, reference.source)
+    on_disk = find_on_disk(config, reference, coordinates, context)
+    if on_disk:
+        return Found(on_disk, True, None, coordinates)
 
     source = reference.source or default_source_for(config, reference.named, context)
     validate_id(source, reference.id)
