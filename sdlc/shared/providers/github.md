@@ -9,6 +9,14 @@
 - **A pull request is not an issue.** The issues endpoint answers a pull request number too; `fetch` refuses it.
 - **Attachments.** Every URL in the body and comments that is a GitHub upload (`github.com/user-attachments/...`, `github.com/{owner}/{repository}/files/...`, `user-images.githubusercontent.com`) is recorded with its URL and the name its author gave it, whether or not it downloads. The URL must be `https` on exactly `github.com` or `user-images.githubusercontent.com`, with no userinfo or port; any other host is not an attachment and is never passed to `gh`. A download is `gh api <url>`, with `gh` supplying its own authentication; a failure is listed in the report and never aborts the fetch. Verified downloading images from a public repository; uploads in a private repository were not verified. An `assets` upload has no file name, so it is saved as `{uuid}` plus an extension read from the file's first bytes (png, jpg, gif, pdf, zip; none otherwise); other uploads as `{id}-{file name}`. A file already in `raw/` is the same attachment and is kept on refresh.
 
+## Posting a journal entry (for `checkpoint`)
+
+One comment per entry, in the posted form of [`journal.md`](../journal.md), written to a scratch file outside the ticket directory.
+
+- **Post.** `gh issue comment {n} --repo {owner}/{repository} --body-file {scratch file}`, with the coordinates from `ticket.json`. It prints the new comment's URL; exit 0 and a URL mean it landed. GitHub refuses a comment over 65,536 characters: a failure like any other.
+- **Already posted?** `gh api repos/{owner}/{repository}/issues/{n}/comments --paginate --jq '.[].body | split("\n")[0]'` lists every comment's first line; a marker among them is an entry already upstream.
+- A post changes the issue's revision, since the fingerprint hashes every comment.
+
 ## Writing (for `submit`)
 
 Always `--repo {owner}/{repository}`, never the repository the invocation directory happens to belong to. Bodies go through `--body-file` from a scratch file outside the ticket directory, never inline: quoting and non-ASCII text break in a shell.

@@ -36,15 +36,16 @@ The layout of the SDLC home and the keys of a ticket's `ticket.json`. Terms are 
 
 A JSON object. A writer changes its own keys and keeps every other key.
 
-| Key               | Holds                                                                                             | Written by                                     |
-| ----------------- | ------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
-| `source`          | `github`, `ado` or `local`                                                                        | `fetch`; adoption for a local ticket           |
-| `id`              | the source's id, as a string                                                                      | `fetch`; adoption                              |
-| `title`           | the ticket's title                                                                                | `fetch` on every refresh; adoption             |
-| `state`           | the source's own state (`open`, `Active`); absent on a local ticket                               | `fetch` on every refresh                       |
-| `type`            | `user-story`, `task`, `bug`, `spike` or `tech-debt`                                               | the model, once, at intake, adoption or `plan` |
-| `url`             | the ticket's URL in its source; `null` on a local ticket                                          | `fetch` on every refresh; adoption             |
-| `fingerprint`     | the [revision](../GLOSSARY.md): `{"rev": N}` for Azure DevOps, `{"sha256": "..."}` for GitHub     | `fetch` on every refresh                       |
-| `last_fetched_at` | UTC time of the last refresh, ISO 8601 with seconds                                               | `fetch`                                        |
-| `coordinates`     | the ticket's own coordinates, by name: `{"organization", "project"}` or `{"owner", "repository"}` | `fetch`                                        |
-| `origin`          | the absolute path an adopted file was copied from; absent for text and a branch                   | adoption                                       |
+| Key                | Holds                                                                                                      | Written by                                     |
+| ------------------ | ---------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
+| `source`           | `github`, `ado` or `local`                                                                                 | `fetch`; adoption for a local ticket           |
+| `id`               | the source's id, as a string                                                                               | `fetch`; adoption                              |
+| `title`            | the ticket's title                                                                                         | `fetch` on every refresh; adoption             |
+| `state`            | the source's own state (`open`, `Active`); absent on a local ticket                                        | `fetch` on every refresh                       |
+| `type`             | `user-story`, `task`, `bug`, `spike` or `tech-debt`                                                        | the model, once, at intake, adoption or `plan` |
+| `url`              | the ticket's URL in its source; `null` on a local ticket                                                   | `fetch` on every refresh; adoption             |
+| `fingerprint`      | the [revision](../GLOSSARY.md): `{"rev": N}` for Azure DevOps, `{"sha256": "..."}` for GitHub              | `fetch` on every refresh                       |
+| `last_fetched_at`  | UTC time of the last refresh, ISO 8601 with seconds                                                        | `fetch`                                        |
+| `coordinates`      | the ticket's own coordinates, by name: `{"organization", "project"}` or `{"owner", "repository"}`          | `fetch`                                        |
+| `origin`           | the absolute path an adopted file was copied from; absent for text and a branch                            | adoption                                       |
+| `unposted_journal` | a remote ticket's journal entries not yet posted upstream: file names, oldest first; absent when none wait | `checkpoint` ([journal.md](journal.md))        |

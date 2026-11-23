@@ -1,6 +1,6 @@
 # Journal
 
-The format of a ticket's journal (`journal/`) and of its pull request record (`pulls.md`). Written only by `checkpoint`; `resume` reads the latest entry. Terms are in [`GLOSSARY.md`](../GLOSSARY.md).
+The format of a ticket's journal (`journal/`), of a journal entry posted upstream, and of the pull request record (`pulls.md`). Written and posted only by `checkpoint`; `resume` reads the latest entry. Terms are in [`GLOSSARY.md`](../GLOSSARY.md).
 
 ## Entry file
 
@@ -50,6 +50,23 @@ The format of a ticket's journal (`journal/`) and of its pull request record (`p
 - **Next is specific enough to start on without re-reading anything**: never a bare "Continue Phase 2". When nothing is pending: `Nothing pending; all phases complete. Awaiting review.`
 - **Omit an empty Done, Decisions, Inferences, Open questions or Blockers section.**
 - **Decisions and Inferences stated earlier in the session**, such as an `implement` run's report, are carried over verbatim: that report is their only record.
+
+## Posted entry
+
+A remote ticket's journal lives upstream: `checkpoint` posts every new entry as one comment on the GitHub issue or Azure DevOps work item, after writing its file. A local ticket's entries stay on disk. Only entries go upstream; the plan, the pull request record and artifacts stay local.
+
+````markdown
+sdlc-journal-entry `2026-11-23T14-05-09Z.md`
+
+# Journal entry - [...](...)
+...
+````
+
+- **Marker.** The comment's first line is exactly `` sdlc-journal-entry `{entry file name}` ``, the name the entry has in `journal/`. It matches ``^sdlc-journal-entry `(\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}Z\.md)`$``, and the capture is the file name. A comment whose first line does not match is not a journal entry, whatever else it says. The backticks keep a renderer from linking the name as a `.md` domain.
+- **Posted form.** The marker line, one blank line, then the entry file's content verbatim: the full entry, never a summary. Both sources take Markdown; how each is posted is in its provider note (`providers/github.md`, `providers/ado.md`).
+- **Posted once, never edited or deleted**, like the file. A correction is a new entry, posted as its own comment.
+- **Unposted entries.** An entry whose post fails keeps its file and is listed in `ticket.json` `unposted_journal`: file names, oldest first. The next checkpoint posts that backlog, oldest first, before its own entry, removing each name as its comment lands, and the key when none is left. Before re-posting a listed entry, read the ticket's comments and drop the name if its marker is already there: a post can land even when its answer is lost.
+- **Not backfilled.** Entries written before a ticket's journal was posted stay local; the next entry carries forward what is open.
 
 ## Pull request record
 
