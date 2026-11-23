@@ -33,7 +33,7 @@ def sdlc_home(tmp_path: Path) -> Path:
 
 @pytest.fixture
 def run_cli(sdlc_home: Path):
-    def run(*argv: str, cwd: Path | None = None) -> Result:
+    def run(*argv: str, cwd: Path | None = None, home: Path | None = None) -> Result:
         completed = subprocess.run(
             [sys.executable, str(SDLC), *argv],
             check=False,
@@ -41,7 +41,7 @@ def run_cli(sdlc_home: Path):
             capture_output=True,
             text=True,
             encoding="utf-8",
-            env={**os.environ, "SDLC_HOME": str(sdlc_home)},
+            env={**os.environ, "SDLC_HOME": str(home or sdlc_home)},
         )
         return Result(completed.returncode, completed.stdout, completed.stderr)
 

@@ -2,7 +2,7 @@
 
 Agentic software development life cycle: intake, plan, implement and document. A Claude Code plugin that mirrors a GitHub issue or an Azure DevOps work item (or adopts a spec, text or an idea) into a local store, then plans, implements, checkpoints and documents it, keeping what a later session needs on disk.
 
-Every skill but `/sdlc:export` is explicit-only (`disable-model-invocation: true`): nothing runs unless you type it. `/sdlc:export` only reads the SDLC home and writes a new zip, so the model may run it when asked to move work off the machine ([ADR 0007](docs/adr/0007-skills-are-model-invokable-and-gate-themselves.md)).
+Every skill but `/sdlc:export` is explicit-only (`disable-model-invocation: true`): nothing runs unless you type it. `/sdlc:export` only reads the SDLC home and writes a new zip, so the model may run it when asked to move work off the machine. `/sdlc:import` merges an archive into the home, so it runs only when you type it ([ADR 0007](docs/adr/0007-skills-are-model-invokable-and-gate-themselves.md)).
 
 ## Skills
 
@@ -17,6 +17,7 @@ Every skill but `/sdlc:export` is explicit-only (`disable-model-invocation: true
 | `/sdlc:submit`     | One ticket to create or edit upstream, with a to-spec or to-tickets body if you have one                                                 | A GitHub issue or Azure DevOps work item, written only after a preview and an explicit yes                                                                        |
 | `/sdlc:document`   | A ticket and phase, paths, or `all`                                                                                                      | Edits to the README of each project the change touched; never commits                                                                                             |
 | `/sdlc:export`     | Nothing (the whole SDLC home), a namespace, `{namespace}/{product}` or a ticket reference, and optionally where to write it              | An archive: a zip of that scope's directories, the config files above it and a manifest, for `/sdlc:import` on another machine                                    |
+| `/sdlc:import`     | An archive `/sdlc:export` wrote                                                                                                          | The archive merged into the SDLC home after a report and a yes: missing files added, conflicts asked per ticket, nothing deleted                                  |
 
 ## The cycle
 
@@ -107,5 +108,6 @@ Skills call `python "${CLAUDE_PLUGIN_ROOT}/shared/sdlc.py" <verb>`. There are fi
 - `guard`: answer whether an operation on a repository or branch is allowed under the protected-branch policy.
 - `effect`: vet a script's side effects (including a `sensitive` target) before it runs.
 - `archive export`: write the SDLC home, or one namespace, product or ticket of it, to a zip with a manifest; never writes inside the home.
+- `archive import`: report, as JSON, what merging an archive into the home would add, merge and ask about; with `--apply`, the digest and a choice per conflicting ticket, write that merge.
 
 [ADR 0006](docs/adr/0006-scripts-and-instructions-are-for-mechanical-work-only.md) explains why there are so few.

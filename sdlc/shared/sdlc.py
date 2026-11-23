@@ -13,6 +13,8 @@ Usage:
     python sdlc.py guard protected [--repo <dir>] [--branch <name>] [--context namespace[/product]]
     python sdlc.py archive export [<namespace> | <namespace>/<product> | <ref>] [--out <path>]
                                   [--context namespace[/product]]
+    python sdlc.py archive import <zip> [--apply --digest <digest>
+                                  [--take-theirs <ticket>]... [--keep-mine <ticket>]...]
 
 Exit codes:
     0  ok
@@ -37,7 +39,7 @@ for stream in (sys.stdout, sys.stderr):
     if callable(reconfigure):
         reconfigure(encoding="utf-8", errors="replace")
 
-from sdlclib import archive, effect, fetch, guard, resolve
+from sdlclib import archive, effect, fetch, guard, importing, resolve
 from sdlclib.errors import EXIT_OK, EXIT_REFUSED, SdlcError
 
 
@@ -77,6 +79,24 @@ def verb_guard(args: argparse.Namespace) -> int:
 
 
 def verb_archive(args: argparse.Namespace) -> int:
+    if args.action == "import":
+        if not args.scope:
+            raise SdlcError("archive import takes the zip to import")
+        if args.apply:
+            if not args.digest:
+                raise SdlcError("archive import --apply takes --digest from the report")
+            emit(
+                importing.apply(
+                    args.scope,
+                    args.digest,
+                    args.take_theirs,
+                    args.keep_mine,
+                    Path.cwd(),
+                )
+            )
+        else:
+            emit(importing.report(args.scope, Path.cwd()))
+        return EXIT_OK
     emit(archive.export(args.scope, args.out, args.context, Path.cwd()))
     return EXIT_OK
 
@@ -162,13 +182,15 @@ def build_parser() -> argparse.ArgumentParser:
     guarding.set_defaults(handler=verb_guard)
 
     archiving = verbs.add_parser(
-        "archive", help="write the SDLC home, or part of it, to a zip"
+        "archive",
+        help="write the SDLC home, or part of it, to a zip, or merge one into it",
     )
-    archiving.add_argument("action", choices=["export"])
+    archiving.add_argument("action", choices=["export", "import"])
     archiving.add_argument(
         "scope",
         nargs="?",
-        help="a namespace, namespace/product or ticket reference (default: the whole home)",
+        help="export: a namespace, namespace/product or ticket reference "
+        "(default: the whole home); import: the zip",
     )
     archiving.add_argument(
         "--out",
@@ -178,6 +200,29 @@ def build_parser() -> argparse.ArgumentParser:
     archiving.add_argument(
         "--context",
         help="the session's namespace[/product]; it decides which ticket a reference means first",
+    )
+    archiving.add_argument(
+        "--apply",
+        action="store_true",
+        help="import: write the merge the report described (default: report only)",
+    )
+    archiving.add_argument(
+        "--digest", help="import --apply: the digest the report printed"
+    )
+    archiving.add_argument(
+        "--take-theirs",
+        action="append",
+        default=[],
+        metavar="TICKET",
+        help="import --apply: take the archive's side of a conflicting ticket, "
+        "once per ticket, by its qualified reference",
+    )
+    archiving.add_argument(
+        "--keep-mine",
+        action="append",
+        default=[],
+        metavar="TICKET",
+        help="import --apply: keep this home's side of a conflicting ticket",
     )
     archiving.set_defaults(handler=verb_archive)
     return parser
