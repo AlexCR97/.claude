@@ -26,3 +26,15 @@ Always `--repo {owner}/{repository}`, never the repository the invocation direct
 - **Acceptance criteria** have no field: they are the `## Acceptance Criteria` section of the body, ending at the next heading of the same or a higher level. To change the description or the criteria, send the whole new body, built from the mirror's `issue.body` with only that part replaced; what follows the section is carried through.
 - **Labels.** Compare case-insensitively. `create` and `edit` fail for a label the repository lacks (`gh label list --repo ... --json name` shows what exists); creating one is a second write, so ask first.
 - **No revision guard.** GitHub cannot make an edit conditional on the issue not having moved, so `fetch --check` runs immediately before the write; a very small window remains.
+
+## Pull requests (for `pr`)
+
+For a repository whose remote is on GitHub (`https://github.com/{owner}/{repository}[.git]` or `git@github.com:{owner}/{repository}.git`), whatever the ticket's source. Always `--repo {owner}/{repository}`, read from the remote; bodies through `--body-file` from a scratch file.
+
+- **Find.** `gh pr list --repo ... --head {branch} --state open --json number,url,isDraft,baseRefName`. A draft is open.
+- **Create.** `gh pr create --repo ... --draft --base {target} --head {branch} --title ... --body-file ...`; it prints the URL, whose last segment is the number.
+- **Update.** `gh pr edit {n} --repo ... --title ... --body-file ...`.
+- **Ready.** `gh pr ready {n} --repo ...`; a no-op on one already ready.
+- **Status.** `gh pr view {n} --repo ... --json url,state,isDraft,reviewDecision,statusCheckRollup`: `isDraft` is `draft`, else `state` `OPEN`, `MERGED`, `CLOSED`; `reviewDecision` `APPROVED` or `CHANGES_REQUESTED`; the checks from `statusCheckRollup`'s conclusions.
+- A body over 65,536 characters is refused.
+- `Closes #{n}` closes the issue when the pull request merges into the default branch; the merge itself is a hard stop.

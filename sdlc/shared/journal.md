@@ -1,6 +1,6 @@
 # Journal
 
-The format of a ticket's journal (`journal/`), of a journal entry posted upstream, and of the pull request record (`pulls.md`). Written and posted only by `checkpoint`, mirrored from upstream by `fetch`; `resume` reads the latest entry. Terms are in [`GLOSSARY.md`](../GLOSSARY.md).
+The format of a ticket's journal (`journal/`), of a journal entry posted upstream, and of the pull request record (`pulls.md`). Entries are written and posted only by `checkpoint`, mirrored from upstream by `fetch`; `resume` reads the latest entry. `checkpoint` refreshes the pull request record, and `pr` rewrites it after opening or updating a pull request. Terms are in [`GLOSSARY.md`](../GLOSSARY.md).
 
 ## Entry file
 
