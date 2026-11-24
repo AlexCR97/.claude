@@ -61,11 +61,11 @@ A delegate or the built-in below, chosen as [Delegates](../../shared/conventions
 - **Decisions, under ship only**: every decision a ship run made on this ticket, so a resumed run keeps the first run's: the `### Decisions` of each journal entry marked as a ship run's (`journal.md`), oldest first, each decision once and verbatim, then any the run has stated since its latest entry. With none, write `None.` Without ship, omit the section.
 - **The ticket link** in the host's own form, so the host links it:
 
-  | Ticket source | GitHub host                                                                 | Azure Repos host                            |
-  | ------------- | --------------------------------------------------------------------------- | ------------------------------------------- |
-  | GitHub        | `Closes #{n}`, or `Closes {owner}/{repository}#{n}` from another repository | the issue's URL                             |
-  | Azure DevOps  | `AB#{id}`, bare                                                             | `#{id}`                                     |
-  | Local         | none: the body stands alone                                                 | none                                        |
+  | Ticket source | GitHub host                                                                 | Azure Repos host |
+  | ------------- | --------------------------------------------------------------------------- | ---------------- |
+  | GitHub        | `Closes #{n}`, or `Closes {owner}/{repository}#{n}` from another repository | the issue's URL  |
+  | Azure DevOps  | `AB#{id}`, bare                                                             | `#{id}`          |
+  | Local         | none: the body stands alone                                                 | none             |
 
 - **The body is the only link.** Nothing is written onto the ticket itself, such as an Azure DevOps work item link, since this skill never changes the ticket.
 - **Never restate the ticket**: its description and acceptance criteria live upstream, and the link is their source of truth.
