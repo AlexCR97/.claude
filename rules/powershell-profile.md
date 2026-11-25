@@ -1,6 +1,6 @@
 # PowerShell profile context switchers
 
-The user's PowerShell 7 profile ([github.com/AlexCR97/PowerShell](https://github.com/AlexCR97/PowerShell)) defines functions that point a CLI at an environment: `Connect-Mongo` and `Invoke-MongoScript` for `mongosh`, `Use-Temporal` for the `temporal` CLI, and `Use-KubeContext` for `kubectl`. Use them whenever a task needs one of these tools against a real environment. The profile's `README.md` documents their parameters and profile files.
+The user's PowerShell 7 profile defines functions that point a CLI at an environment: `Connect-Mongo` and `Invoke-MongoScript` for `mongosh`, `Save-MongoDump`, `Restore-MongoDump` and `Import-MongoExport` for the database tools (`mongodump`, `mongorestore`, `mongoimport`), `Use-Temporal` for the `temporal` CLI, and `Use-KubeContext` for `kubectl`. Use them whenever a task needs one of these tools against a real environment. The profile's `README.md` documents their parameters and profile files.
 
 ## When this applies
 
@@ -17,24 +17,37 @@ The PowerShell tool starts without the profile and keeps nothing between calls: 
 - names the profile explicitly, since `Connect-Mongo` without one opens a menu that the non-interactive shell cannot answer.
 
 ```powershell
-. $PROFILE; Use-Temporal edgraph-dev; temporal workflow list --limit 5
-. $PROFILE; Connect-Mongo edx-int -Database edx --quiet --eval "db.getCollectionNames()"
-. $PROFILE; Invoke-MongoScript .\query.js edx-int
+. $PROFILE; Use-Temporal <profile>; temporal workflow list --limit 5
+. $PROFILE; Connect-Mongo <profile> -Database <database> --quiet --eval "db.getCollectionNames()"
+. $PROFILE; Invoke-MongoScript .\query.js <profile>
+. $PROFILE; Save-MongoDump <profile> -Label preMigration
+. $PROFILE; Restore-MongoDump <dump folder> <profile> -Drop -WhatIf
 ```
 
-- **Profile names** are the top-level keys of `Mongo.local.json` and `Use-Temporal.local.json`: `(Get-Content -Raw $file | ConvertFrom-Json).PSObject.Properties.Name`.
+- **Profile names** are the top-level keys of `Mongo.local.json` and `Use-Temporal.local.json`: `(Get-Content -Raw $file | ConvertFrom-Json).PSObject.Properties.Name`. List them before the first call that needs one.
 - **`mongosh` arguments** take their `--long` form. PowerShell binds a short flag such as `-e` to its own parameters.
-- **Temporal `edx-*` profiles** open an EKS port-forward that takes up to 20 seconds and closes with the call, so batch related `temporal` commands into one call.
+- **Dumps** go to `.mongo/dumps/<profile>/<yyyy-MM-dd_HHmmss>[_label]/<database>` under the current directory. `Restore-MongoDump` and `Import-MongoExport` take such a folder as a mandatory path. The database is `-Database`, then the profile's `database`, then the default in `Mongo.ps1`. `-Drop` is off by default.
+- **Restore and import confirm**, and the non-interactive shell cannot answer the prompt. Preview with `-WhatIf`, show the user the exact command, and add `-Confirm:$false` only to the call the user said yes to.
+- **A missing `localhost` profile** is the usual reason a local restore or import stops. The user adds it to `Mongo.local.json` on each machine; tell them and stop.
+- **Temporal profiles that target an EKS cluster** open a port-forward that takes up to 20 seconds and closes with the call, so batch related `temporal` commands into one call.
 - **A failed port-forward** usually means expired AWS credentials. Its error names the AWS profile; suggest the user run `! aws sso login --profile <that profile>`.
 - **`kubectl`** gets `--context` and `-n` on every command. `Use-KubeContext` prompts with `Read-Host` and switches the kubeconfig of every shell the user has open, so leave it, `kubectl config use-context` and `kubectl config set-context` to the user.
+
+## Production or not
+
+Classify every Mongo profile, Temporal profile and `kubectl` context by its real name, case-insensitively, split into segments on `-`, `_` and `.`:
+
+- **Production:** any segment is `prod` or `production`, even beside a non-prod term (`dev-prod-mirror`). `preprod` and `pre-prod` are one non-prod term, so they do not count.
+- **Non-production:** no production segment, and at least one segment is `dev`, `development`, `int`, `integration`, `qa`, `test`, `uat`, `stage`, `staging`, `sandbox`, `local`, `localhost`, `preprod`, `pre-prod` or `pre` as a whole segment, or an obvious synonym of one.
+- **Anything else is production.** An unrecognised name gets the production rules.
 
 ## What may run without asking
 
 These connections carry full-admin credentials, so the gate is the environment and whether the command writes.
 
-- **Read-only, non-production:** run it unprompted when the task needs live data, and name the profile in the reply.
-- **Writes, non-production:** show the exact command and wait for a yes, every time. A yes covers that one command. Writes include Mongo inserts, updates, deletes and index or collection changes; Temporal signal, cancel, terminate, reset and schedule changes; and `kubectl` apply, delete, edit, scale, patch and rollout.
-- **Production:** `edx-prod`, `edgraph-prod-usc` and the `edx-eks-production-eus1` context. `edx-preprod` is not production. Treat any new profile or context named `prod` or `production`, other than `preprod`, as production. Reach production only when the user's current message names it, and stay read-only unless that message also asks for the write.
+- **Read-only, non-production:** run it unprompted when the task needs live data, and name the profile in the reply. `Save-MongoDump` counts as read-only, since it changes nothing on the server and writes only under `.mongo/`.
+- **Writes, non-production:** show the exact command and wait for a yes, every time. A yes covers that one command. Writes include Mongo inserts, updates, deletes and index or collection changes, and every `Restore-MongoDump` and `Import-MongoExport`; Temporal signal, cancel, terminate, reset and schedule changes; and `kubectl` apply, delete, edit, scale, patch and rollout.
+- **Production:** reach it only when the user's current message names it, and stay read-only unless that message also asks for the write. `Restore-MongoDump` and `Import-MongoExport` refuse a profile named `prod` or `production` whatever the message says; never work around the refusal. `Save-MongoDump` may dump production when the message names it.
 
 ## Secrets
 
