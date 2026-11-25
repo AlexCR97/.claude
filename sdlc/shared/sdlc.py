@@ -8,6 +8,8 @@ Usage:
     python sdlc.py effect <script> [--context namespace[/product]]
     python sdlc.py fetch <ref> [--check] [--context namespace[/product]]
                            [--coordinate name=value ...]
+    python sdlc.py sync <ref> [--pull <url> ...] [--context namespace[/product]]
+                          [--coordinate name=value ...]
     python sdlc.py guard check --op <operation> [--repo <dir>] [--branch <name>]
                                [--context namespace[/product]]
     python sdlc.py guard protected [--repo <dir>] [--branch <name>] [--context namespace[/product]]
@@ -39,7 +41,7 @@ for stream in (sys.stdout, sys.stderr):
     if callable(reconfigure):
         reconfigure(encoding="utf-8", errors="replace")
 
-from sdlclib import archive, effect, fetch, guard, importing, resolve
+from sdlclib import archive, effect, fetch, guard, importing, resolve, sync
 from sdlclib.errors import EXIT_OK, EXIT_REFUSED, SdlcError
 
 
@@ -64,6 +66,19 @@ def verb_effect(args: argparse.Namespace) -> int:
 def verb_fetch(args: argparse.Namespace) -> int:
     run = fetch.check if args.check else fetch.fetch
     emit(run(args.ref, args.coordinate, args.context, Path.cwd()))
+    return EXIT_OK
+
+
+def verb_sync(args: argparse.Namespace) -> int:
+    emit(
+        sync.sync(
+            args.ref,
+            pull_urls=args.pull,
+            coordinate_arguments=args.coordinate,
+            context_text=args.context,
+            cwd=Path.cwd(),
+        )
+    )
     return EXIT_OK
 
 
@@ -159,6 +174,31 @@ def build_parser() -> argparse.ArgumentParser:
         help="compare the recorded revision with the live one and write nothing",
     )
     fetching.set_defaults(handler=verb_fetch)
+
+    syncing = verbs.add_parser(
+        "sync",
+        help="refresh a ticket's mirror when it changed upstream, and its pull request record",
+    )
+    syncing.add_argument("ref", help="the ticket's reference, as github:1234")
+    syncing.add_argument(
+        "--pull",
+        action="append",
+        default=[],
+        metavar="URL",
+        help="a pull request that delivers the ticket, to add to its record, once per URL",
+    )
+    syncing.add_argument(
+        "--context",
+        help="the session's namespace[/product]; it prefers, and never moves a filed ticket",
+    )
+    syncing.add_argument(
+        "--coordinate",
+        action="append",
+        default=[],
+        metavar="NAME=VALUE",
+        help="where the ticket lives upstream, once per coordinate",
+    )
+    syncing.set_defaults(handler=verb_sync)
 
     guarding = verbs.add_parser(
         "guard", help="ask whether an operation may run on a branch"

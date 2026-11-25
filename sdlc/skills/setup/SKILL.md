@@ -17,9 +17,11 @@ Under the SDLC home (`~/.sdlc`, or `$SDLC_HOME`), one file per level; the inner 
 | ------------------------------------ | ---------------------------------------------------------------------------------------------------------------- |
 | `sdlc.json`                          | `default_namespace`, `default_source`, `scan_roots`, `protected_branches`, `sensitive`, `worktree_root`          |
 | `{namespace}/namespace.json`         | `default_product`, `default_source`, `scan_roots`, `protected_branches`, `sensitive`, `worktree_root`, `sources` |
-| `{namespace}/{product}/product.json` | `default_source`, `scan_roots`, `protected_branches`, `sensitive`, `worktree_root`, `sources`                    |
+| `{namespace}/{product}/product.json` | `default_source`, `scan_roots`, `protected_branches`, `sensitive`, `worktree_root`, `sources`, `environments`    |
 
 `worktree_root` is one absolute directory under which `implement` creates ticket worktrees instead of `{repository}/.worktrees/` (see `${CLAUDE_PLUGIN_ROOT}/shared/guard.md`).
+
+`environments` is a product's list of environments, each `{"name": "qa", "production": false}`: names unique regardless of case, and `production` a boolean. `/sdlc:deploy` proposes it the first time it deploys the product and saves it on a yes; it is never set in `sdlc.json` or `namespace.json`.
 
 `sensitive` is a list of hosts, databases or other targets a script must never touch unasked: the `effect` verb makes a script that names one ask first, even when it is read-only.
 

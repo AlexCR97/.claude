@@ -1,8 +1,7 @@
 ---
 name: document
-description: Updates a project's own README for what a phase or a set of paths changed, touching only the sections the change affects, with the code as the source of truth. Writes only after the offer from implement or an explicit invocation; never commits.
-disable-model-invocation: true
-argument-hint: "[<ticket reference> <phase> | <paths or projects> | all]"
+description: Brings the README of each project a change touched (a ticket's phase, or a set of paths) back in line with the code, touching only the sections the change affects. Use when asked to document the changes of a ticket or one of its phases.
+argument-hint: "[<ticket reference> <phase> | <paths or projects> | all] [ship]"
 ---
 
 # Document
@@ -15,6 +14,7 @@ Bring the README of each project the change touched back in line with the code. 
 - Paths or projects: exactly those.
 - `all`, or a project that has no README yet: a whole-project pass.
 - No argument: the projects with uncommitted or branch changes in the invocation directory; ask if that is unclear.
+- `ship`: the [ship flag](../../shared/conventions.md#ship-runs), never part of the scope. `implement` passes it under a ship run, always with a ticket and a phase. Under it, what this skill would have asked about stays out of the README and is named in the report, and a section it adds is a decision.
 
 ## Outputs
 
@@ -33,7 +33,7 @@ Per README: what changed, section by section. Then anything found undocumented o
 
 ## Invariants
 
-- Write only after the offer from `implement` was accepted or the developer invoked this skill; never as a side effect of another skill.
+- Write only after the offer from `implement` was accepted, the developer invoked this skill, or a ship run's `implement` ran it with `ship`; never as a side effect of another skill.
 - Never commit, push or open a pull request.
 - Change no source code, plan or ticket file; the READMEs are the only files written.
 - Make no claim the code does not support.

@@ -2,22 +2,26 @@
 
 Agentic software development life cycle: intake, plan, implement and document. A Claude Code plugin that mirrors a GitHub issue or an Azure DevOps work item (or adopts a spec, text or an idea) into a local store, then plans, implements, checkpoints and documents it, keeping what a later session needs on disk.
 
-[ADR 0007](docs/adr/0007-skills-are-model-invokable-and-gate-themselves.md) sets the direction: skills the model may invoke, each gating its own writes. Until [issue #56](https://github.com/AlexCR97/.claude/issues/56) flips them, every skill but `/sdlc:export` is still explicit-only (`disable-model-invocation: true`) and runs only when you type it. `/sdlc:export` only reads the SDLC home and writes a new zip, so the model may already run it when asked to move work off the machine. `/sdlc:import` rewrites the home, so it stays explicit-only after #56 too.
+Every skill but `/sdlc:setup` and `/sdlc:import` is model-invokable ([ADR 0007](docs/adr/0007-skills-are-model-invokable-and-gate-themselves.md)): the model may run one when its description fits the request, and one sdlc skill may run another. Each description says narrowly when its skill applies, and a skill that writes outside the machine asks before it does. `setup` and `import` rewrite the SDLC home, so they stay explicit-only (`disable-model-invocation: true`) and run only when you type them. A ship run passes the `ship` flag, which waives every confirmation but the hard stops and the steps only you can take; [shared/conventions.md](shared/conventions.md#ship-runs) has the rules.
 
 ## Skills
 
-| Skill              | Takes                                                                                                                                    | Produces                                                                                                                                                          |
-| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/sdlc:setup`      | A source to bind (an Azure DevOps organization and project, a GitHub owner and repository), defaults, scan roots, or the session context | The config files under the SDLC home; once per binding                                                                                                            |
-| `/sdlc:intake`     | A GitHub issue, an Azure DevOps work item, a spec file, pasted text or an idea, or nothing (the current branch's work)                   | A ticket: the upstream mirror under `raw/` and its journal in `journal/`, or a local ticket, plus `ticket.json`                                                   |
-| `/sdlc:plan`       | A ticket reference, or a non-ticket input, and optionally directories                                                                    | `plan.md`: phased, file-level, with test-first phases where a seam allows; re-run to update step status                                                           |
-| `/sdlc:implement`  | A ticket and the phases to run (`all`, or a list)                                                                                        | Code changes, built and tested; step status kept in `plan.md`. Never touches a protected branch, never commits unasked                                            |
-| `/sdlc:checkpoint` | A ticket and an optional note                                                                                                            | A journal entry (where the code is, what was done and decided, what blocks, the next action), posted as a comment on a remote ticket, and the pull request record |
-| `/sdlc:resume`     | A ticket                                                                                                                                 | One read-only briefing ending in the single next action, including what changed upstream                                                                          |
-| `/sdlc:submit`     | One ticket to create or edit upstream, with a to-spec or to-tickets body if you have one                                                 | A GitHub issue or Azure DevOps work item, written only after a preview and an explicit yes                                                                        |
-| `/sdlc:document`   | A ticket and phase, paths, or `all`                                                                                                      | Edits to the README of each project the change touched; never commits                                                                                             |
-| `/sdlc:export`     | Nothing (the whole SDLC home), a namespace, `{namespace}/{product}` or a ticket reference, and optionally where to write it              | An archive: a zip of that scope's directories, the config files above it and a manifest, for `/sdlc:import` on another machine                                    |
-| `/sdlc:import`     | An archive `/sdlc:export` wrote                                                                                                          | The archive merged into the SDLC home after a report and a yes: missing files added, conflicts asked per ticket, nothing deleted                                  |
+| Skill              | Takes                                                                                                                                    | Produces                                                                                                                                                             |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/sdlc:setup`      | A source to bind (an Azure DevOps organization and project, a GitHub owner and repository), defaults, scan roots, or the session context | The config files under the SDLC home; once per binding                                                                                                               |
+| `/sdlc:intake`     | A GitHub issue, an Azure DevOps work item, a spec file, pasted text or an idea, or nothing (the current branch's work)                   | A ticket: the upstream mirror under `raw/` and its journal in `journal/`, or a local ticket, plus `ticket.json`                                                      |
+| `/sdlc:plan`       | A ticket reference, or a non-ticket input, and optionally directories                                                                    | `plan.md`: phased, file-level, with test-first phases where a seam allows; re-run to update step status                                                              |
+| `/sdlc:implement`  | A ticket and the phases to run (`all`, or a list)                                                                                        | Code changes, built and tested; step status kept in `plan.md`. Never touches a protected branch, never commits unasked                                               |
+| `/sdlc:checkpoint` | A ticket and an optional note                                                                                                            | A journal entry (where the code is, what was done and decided, what blocks, the next action), posted as a comment on a remote ticket, and the pull request record    |
+| `/sdlc:resume`     | A ticket                                                                                                                                 | One briefing ending in the single next action, including what changed upstream; writes only the sync of its mirror and pull request record                           |
+| `/sdlc:submit`     | One ticket to create or edit upstream, with a to-spec or to-tickets body if you have one                                                 | A GitHub issue or Azure DevOps work item, written only after a preview and an explicit yes                                                                           |
+| `/sdlc:document`   | A ticket and phase, paths, or `all`                                                                                                      | Edits to the README of each project the change touched; never commits                                                                                                |
+| `/sdlc:commit`     | Optionally a ticket and its phase, and `push`                                                                                            | The phase's or session's changes committed per repository, linking the ticket when there is one; asks first unless shipping                                          |
+| `/sdlc:pr`         | Optionally a ticket, and `ready` to mark its pull request ready for review                                                               | A draft pull request per repository the work changed, linking the ticket when there is one; ready on `ready`; and the pull request record                            |
+| `/sdlc:deploy`     | An environment, and optionally a ticket                                                                                                  | The work deployed by a delegate skill, a project command or manual steps; the environments saved on first use after a yes; production always asks                    |
+| `/sdlc:ship`       | A ticket reference, or a spec file, text or an idea, and an end point (`pr`, the default, or an environment)                             | The whole cycle in one unattended run: a ticket branch with one commit per phase, a ready pull request, a deployment to the end point; waits only where you must act |
+| `/sdlc:export`     | Nothing (the whole SDLC home), a namespace, `{namespace}/{product}` or a ticket reference, and optionally where to write it              | An archive: a zip of that scope's directories, the config files above it and a manifest, for `/sdlc:import` on another machine                                       |
+| `/sdlc:import`     | An archive `/sdlc:export` wrote                                                                                                          | The archive merged into the SDLC home after a report and a yes: missing files added, conflicts asked per ticket, nothing deleted                                     |
 
 ## The cycle
 
@@ -31,11 +35,15 @@ flowchart TD
     S -->|"or one ticket at a time"| SUB["/sdlc:submit (Azure DevOps)"]
     SUB --> I
     SETUP["/sdlc:setup (once per binding)"] -.-> I
+    SHIP["/sdlc:ship (every step below in one run; waits only where you must act)"] -.-> I
     I["/sdlc:intake"] --> P["/sdlc:plan"]
     P --> M["/sdlc:implement"]
     M --> D["/sdlc:document (offered after each phase)"]
-    D --> M
-    M --> C["/sdlc:checkpoint"]
+    D --> CM["/sdlc:commit"]
+    CM --> C["/sdlc:checkpoint"]
+    C -->|"next phase"| M
+    C --> PR["/sdlc:pr (draft, then ready)"]
+    PR -.->|"to an environment"| DEP["/sdlc:deploy"]
     C -.->|"new session"| R["/sdlc:resume"]
     R --> M
     C -.-> H["handoff"]
@@ -44,8 +52,10 @@ flowchart TD
 1. **Think.** Sharpen the idea with `mattpocock-skills:grill-me`, `mattpocock-skills:grill-with-docs` and/or `superpowers:brainstorming`. Turn the result into a spec with `mattpocock-skills:to-spec`, then into tickets with `mattpocock-skills:to-tickets`.
 2. **File.** `to-tickets` publishes to GitHub itself. For Azure DevOps, or to create or change a single ticket, use `/sdlc:submit`, one ticket at a time.
 3. **Intake, plan, implement.** `/sdlc:intake`, then `/sdlc:plan`, then `/sdlc:implement`. `implement` offers `/sdlc:document` after each phase.
-4. **Stop and come back.** `/sdlc:checkpoint` before attention leaves the ticket; `/sdlc:resume` first thing in a fresh session. On a remote ticket, checkpoint also posts the journal entry as a comment on the issue or work item, always, and nothing else goes upstream ([ADR 0009](docs/adr/0009-a-remote-tickets-journal-lives-upstream.md)). `/sdlc:intake` on another machine mirrors those entries back, so `/sdlc:resume` there starts from the latest. `mattpocock-skills:handoff` compacts a conversation for another agent when a journal entry is not what you need.
-5. **Once per binding.** `/sdlc:setup` binds a repository or project to a namespace and product, so `intake` can file what it mirrors.
+4. **Deliver.** `/sdlc:commit` commits a phase, `/sdlc:pr` opens its pull request as a draft and `/sdlc:pr ready` marks it ready, and `/sdlc:deploy <environment>` deploys it. Each asks before it writes outside the machine.
+5. **Or ship it.** `/sdlc:ship <ticket> [pr | <environment>]` runs steps 3 and 4 unattended: intake, a plan whose open choices it decides itself, one ticket branch, and per phase implement, document, commit and checkpoint, then a ready pull request and the deployment to the end point. It waits only at a hard stop or a step only you can take (saving a product's environments, a manual deployment step, a skill only you may type), and at each it checkpoints, sends a push notification and waits for you. Every decision it made is in the journal, and the ones about the code are in the pull request body. A phase still failing after one fix ends the run: that phase stays uncommitted and `Blocked`, the earlier ones are pushed, and the pull request stays a draft naming the failure ([ADR 0008](docs/adr/0008-a-ship-run-may-commit-push-and-open-pull-requests.md)).
+6. **Stop and come back.** `/sdlc:checkpoint` before attention leaves the ticket; `/sdlc:resume` first thing in a fresh session. On a remote ticket, checkpoint also posts the journal entry as a comment on the issue or work item, always, and nothing else goes upstream ([ADR 0009](docs/adr/0009-a-remote-tickets-journal-lives-upstream.md)). `/sdlc:resume` on another machine mirrors those entries back as it syncs, so it starts from the latest. `mattpocock-skills:handoff` compacts a conversation for another agent when a journal entry is not what you need.
+7. **Once per binding.** `/sdlc:setup` binds a repository or project to a namespace and product, so `intake` can file what it mirrors.
 
 ## How work enters the cycle
 
@@ -94,17 +104,18 @@ Everything lives under the SDLC home, `~/.sdlc` or `$SDLC_HOME`:
 | ------------------------------------ | ----------- | ------------------------------------------------------------------------------------------------------------ |
 | `sdlc.json`                          | the home    | `default_namespace`, `default_source`, `scan_roots`, `protected_branches`, `sensitive`, `worktree_root`      |
 | `{namespace}/namespace.json`         | a namespace | the same keys (`default_product` instead of `default_namespace`), and the namespace-level source coordinates |
-| `{namespace}/{product}/product.json` | a product   | the same keys and the product-level source coordinates                                                       |
+| `{namespace}/{product}/product.json` | a product   | the same keys, the product-level source coordinates, and `environments` (each a name and a production mark)  |
 | `…/{id}/ticket.json`                 | a ticket    | its record, keyed as [shared/store.md](shared/store.md) lists                                                |
 
-The inner level wins. [GLOSSARY.md](GLOSSARY.md) defines the terms, [shared/conventions.md](shared/conventions.md) the filing, mirror and path rules, and `/sdlc:setup` the keys. Specific formats sit beside it in [shared/](shared/): [store.md](shared/store.md) (the layout and `ticket.json`), [archive.md](shared/archive.md) (the archive and its manifest), [plan.md](shared/plan.md), [journal.md](shared/journal.md), [artifacts.md](shared/artifacts.md), [guard.md](shared/guard.md), [tdd.md](shared/tdd.md) and [types.md](shared/types.md).
+The inner level wins. [GLOSSARY.md](GLOSSARY.md) defines the terms, [shared/conventions.md](shared/conventions.md) the filing, mirror, path and ship-run rules, and `/sdlc:setup` the keys. Specific formats sit beside it in [shared/](shared/): [store.md](shared/store.md) (the layout and `ticket.json`), [archive.md](shared/archive.md) (the archive and its manifest), [plan.md](shared/plan.md), [journal.md](shared/journal.md), [sync.md](shared/sync.md), [artifacts.md](shared/artifacts.md), [guard.md](shared/guard.md), [tdd.md](shared/tdd.md) and [types.md](shared/types.md).
 
 ## Scripts
 
-Skills call `python "${CLAUDE_PLUGIN_ROOT}/shared/sdlc.py" <verb>`. There are five verbs, each for work that must come out identical every time:
+Skills call `python "${CLAUDE_PLUGIN_ROOT}/shared/sdlc.py" <verb>`. There are six verbs, each for work that must come out identical every time:
 
 - `resolve`: report the ticket directory for a reference, or where a new ticket would be filed; read-only.
 - `fetch`: mirror an issue or work item into `raw/`, and its journal entries into `journal/`; `--check` compares revisions without writing, and says when only journal entries moved.
+- `sync`: refresh a ticket's mirror when it changed upstream beyond this machine's journal posts, and rewrite its pull request record from the plan's Workspace branches; which skills run it, and when, is in [shared/sync.md](shared/sync.md).
 - `guard`: answer whether an operation on a repository or branch is allowed under the protected-branch policy.
 - `effect`: vet a script's side effects (including a `sensitive` target) before it runs.
 - `archive export`: write the SDLC home, or one namespace, product or ticket of it, to a zip with a manifest; never writes inside the home.

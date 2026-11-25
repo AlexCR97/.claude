@@ -163,3 +163,51 @@ def test_valid_config_is_accepted(run_cli, write_config):
     )
 
     assert resolve_anything(run_cli).code == 0
+
+
+@pytest.mark.parametrize(
+    ("relative", "level"),
+    [("sdlc.json", "sdlc"), ("acme/namespace.json", "namespace")],
+)
+def test_environments_belong_to_a_product_alone(run_cli, write_config, relative, level):
+    write_config("acme/billing-app/product.json", {})
+    path = write_config(
+        relative, {"environments": [{"name": "dev", "production": False}]}
+    )
+
+    result = resolve_anything(run_cli)
+
+    assert result.code == 1
+    assert str(path) in result.err
+    assert f"'environments' is not a {level} setting" in result.err
+
+
+@pytest.mark.parametrize(
+    ("environments", "problem"),
+    [
+        ({"dev": False}, "'environments' must be a list"),
+        (["dev"], "'environments' must be a list of objects"),
+        ([{"production": False}], "environment needs a 'name'"),
+        ([{"name": " ", "production": False}], "environment needs a 'name'"),
+        ([{"name": "dev"}], "'dev' needs a boolean 'production'"),
+        ([{"name": "dev", "production": "no"}], "'dev' needs a boolean 'production'"),
+        (
+            [{"name": "dev", "production": False, "url": "https://dev"}],
+            "'url' is not an environment key",
+        ),
+        (
+            [{"name": "QA", "production": False}, {"name": "qa", "production": True}],
+            "'qa' is listed twice",
+        ),
+    ],
+)
+def test_an_invalid_environment_is_an_error_naming_the_file(
+    run_cli, write_config, environments, problem
+):
+    path = write_config("acme/billing-app/product.json", {"environments": environments})
+
+    result = resolve_anything(run_cli)
+
+    assert result.code == 1
+    assert str(path) in result.err
+    assert problem in result.err

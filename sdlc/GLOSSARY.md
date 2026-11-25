@@ -100,6 +100,10 @@ _Avoid_: Digest, snapshot, copy, ticket-fetch
 The marker a source gives for a ticket's current state, such as an Azure DevOps revision number or, where a source has none, a hash of its content. It is recorded when the ticket is mirrored and compared with the live one to learn that the ticket changed.
 _Avoid_: Version, drift
 
+**Sync**:
+Bringing a ticket's mirror and its pull request record up to date: refreshing the mirror when the ticket changed upstream beyond this machine's own journal posts, and reading every pull request's status anew. The skills run it themselves, through the `sync` script verb.
+_Avoid_: Import (that merges an archive)
+
 **Intake**:
 Bringing a ticket into the SDLC home: resolving its reference, filing it, mirroring a remote ticket or adopting a local one, and recording its type.
 _Avoid_: Import, ticket-fetch, ticket-digest, ticket-create
@@ -255,11 +259,11 @@ _Avoid_: Save, snapshot
 ### Delivering the work
 
 **Delegate**:
-A skill from another plugin that an sdlc skill hands its work to, because it suits the situation better than sdlc's own procedure. Chosen by judgement each time, never from config.
+A skill outside sdlc, from another plugin or the repository's own, that `/sdlc:deploy` hands a deployment to, because it suits the situation better than deploy's own procedure. Chosen by judgement each time, never from config.
 _Avoid_: Provider (that names the files describing a source), backend
 
 **Ship**:
-One autonomous run of a ticket through the whole cycle, from intake to its end point, on one ticket branch with one commit per phase. It asks nothing except at a hard stop, and decides everything else itself, recording each decision in the journal. Run by `/sdlc:ship`.
+One autonomous run of a ticket through the whole cycle, from intake to its end point, on one ticket branch with one commit per phase. It asks nothing except at a hard stop, waits for the steps only the developer can take, and decides everything else itself, recording each decision in the journal. Run by `/sdlc:ship`.
 _Avoid_: Autopilot, end-to-end run
 
 **Environment**:

@@ -26,3 +26,15 @@ Always `--repo {owner}/{repository}`, never the repository the invocation direct
 - **Acceptance criteria** have no field: they are the `## Acceptance Criteria` section of the body, ending at the next heading of the same or a higher level. To change the description or the criteria, send the whole new body, built from the mirror's `issue.body` with only that part replaced; what follows the section is carried through.
 - **Labels.** Compare case-insensitively. `create` and `edit` fail for a label the repository lacks (`gh label list --repo ... --json name` shows what exists); creating one is a second write, so ask first.
 - **No revision guard.** GitHub cannot make an edit conditional on the issue not having moved, so `fetch --check` runs immediately before the write; a very small window remains.
+
+## Pull requests (for `pr`)
+
+For a repository whose remote is on GitHub (`https://github.com/{owner}/{repository}[.git]` or `git@github.com:{owner}/{repository}.git`), whatever the ticket's source. Always `--repo {owner}/{repository}`, read from the remote; bodies through `--body-file` from a scratch file.
+
+- **Find.** `gh pr list --repo ... --head {branch} --state open --json number,url,isDraft,baseRefName`. A draft is open.
+- **Create.** `gh pr create --repo ... --draft --base {target} --head {branch} --title ... --body-file ...`; it prints the URL, whose last segment is the number.
+- **Update.** `gh pr edit {n} --repo ... --title ... --body-file ...`.
+- **Ready.** `gh pr ready {n} --repo ...`; a no-op on one already ready.
+- **Status** is `sync`'s to read: it records each pull request's state, checks and review ([`sync.md`](../sync.md)); `pr` reads none.
+- A body over 65,536 characters is refused.
+- **The ticket link.** `Closes #{n}`, or `Closes {owner}/{repository}#{n}`, lists the issue in the pull request's Development section and closes it on merge, but only when the target is the default branch: against another branch GitHub ignores the keyword, and `pr` reports it. The merge itself is a hard stop. `AB#{id}` links an Azure DevOps work item when the Azure Boards app connects the repository to its project.

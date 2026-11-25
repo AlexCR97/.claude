@@ -12,8 +12,9 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import unquote, urlparse
 
-from sdlclib import journal, process
+from sdlclib import journal, layout, process
 from sdlclib.errors import EXIT_NOT_FOUND, SdlcError
+from sdlclib.pulls import Line
 
 GH_HINT = "Install the GitHub CLI and run `gh auth login`, then try again."
 
@@ -25,27 +26,49 @@ def gh(args: list[str]) -> subprocess.CompletedProcess:
     return process.run([executable, *args])
 
 
+NOT_FOUND = "404"
+SIGNED_OUT_MARKERS = ("HTTP 401", "gh auth login")
+
+
+def failure_of(result: subprocess.CompletedProcess) -> str:
+    return (result.stderr or result.stdout).decode("utf-8", "replace").strip()
+
+
 def require_auth() -> None:
     result = gh(["auth", "status"])
     if result.returncode != 0:
-        detail = (result.stderr or result.stdout).decode("utf-8", "replace").strip()
-        raise SdlcError(f"not signed in to GitHub: {detail}", hint=GH_HINT)
+        raise SdlcError(f"not signed in to GitHub: {failure_of(result)}", hint=GH_HINT)
+
+
+def gh_json(args: list[str]) -> Any:
+    """
+    The decoded JSON a `gh` call prints, named in an error by its first two arguments.
+
+    A 404 raises with `EXIT_NOT_FOUND`, and a rejected sign-in with the hint to sign in.
+    """
+    result = gh(args)
+    # A 404 or a rejected sign-in is an answer, and asking again gets the same one.
+    answered = (NOT_FOUND, *SIGNED_OUT_MARKERS)
+    if result.returncode != 0 and not any(m in failure_of(result) for m in answered):
+        # GitHub drops connections now and then; one more try is cheaper than a failed call.
+        result = gh(args)
+    if result.returncode != 0:
+        detail = failure_of(result)
+        signed_out = any(marker in detail for marker in SIGNED_OUT_MARKERS)
+        raise SdlcError(
+            f"`gh {' '.join(args[:2])}` failed: {detail}",
+            EXIT_NOT_FOUND if NOT_FOUND in detail else 1,
+            hint=GH_HINT if signed_out else "",
+        )
+    return json.loads(result.stdout)
 
 
 def api(path: str, paginate: bool = False) -> Any:
     """The decoded JSON of a `gh api` call: an object, or with `paginate` the list of every page's items."""
-    args = ["api", "-H", "Accept: application/vnd.github+json", path]
+    args = ["api", path, "-H", "Accept: application/vnd.github+json"]
     if paginate:
         args += ["--paginate", "--slurp"]
-    result = gh(args)
-    if result.returncode != 0 and b"404" not in result.stderr:
-        # GitHub drops connections now and then; one more try is cheaper than a failed intake.
-        result = gh(args)
-    if result.returncode != 0:
-        detail = result.stderr.decode("utf-8", "replace").strip()
-        code = EXIT_NOT_FOUND if "404" in detail else 1
-        raise SdlcError(f"`gh api {path}` failed: {detail}", code)
-    payload = json.loads(result.stdout)
+    payload = gh_json(args)
     if paginate:
         return [item for page in payload for item in page]
     return payload
@@ -179,6 +202,49 @@ def signature(raw: dict) -> dict:
     return content(raw, journal.without_entries(raw["comments"], comments_of(raw)))
 
 
+HEADING = re.compile(r"^(#{1,6})\s+(.*?)\s*#*\s*$")
+
+
+def split_criteria(body: str) -> tuple[str, str]:
+    """
+    The body as (description, acceptance criteria).
+
+    GitHub has no criteria field: they are the `Acceptance Criteria` section,
+    ending at the next heading of the same or a higher level.
+    """
+    lines = body.replace("\r\n", "\n").split("\n")
+    start: int | None = None
+    level = 0
+    for index, line in enumerate(lines):
+        heading = HEADING.match(line)
+        if not heading:
+            continue
+        depth = len(heading.group(1))
+        if start is None and heading.group(2).casefold() == "acceptance criteria":
+            start, level = index, depth
+        elif start is not None and depth <= level:
+            return (
+                "\n".join(lines[:start] + lines[index:]),
+                "\n".join(lines[start:index]),
+            )
+    if start is None:
+        return body, ""
+    return "\n".join(lines[:start]), "\n".join(lines[start:])
+
+
+def fields(raw: dict) -> dict:
+    """The issue's content by the field `sync` names when it changes; journal entries are left out."""
+    rest = signature(raw)
+    description, criteria = split_criteria(rest.pop("body") or "")
+    return {
+        "title": rest.pop("title"),
+        "state": rest.pop("state"),
+        "description": description,
+        "acceptance_criteria": criteria,
+        **rest,
+    }
+
+
 def read_issue(ticket_id: str, coordinates: dict) -> dict:
     """
     Everything the mirror holds that comes from the issue's own endpoints, written nowhere.
@@ -236,9 +302,7 @@ def fetch(ticket_id: str, coordinates: dict, raw_dir: Path) -> dict:
     outcomes = [download(attachment, raw_dir) for attachment in attachments]
 
     raw["attachments"] = attachments
-    (raw_dir / "raw.json").write_text(
-        json.dumps(raw, indent=2, ensure_ascii=False), encoding="utf-8"
-    )
+    layout.replace_file(raw_dir / "raw.json", layout.json_bytes(raw))
 
     return {
         "title": issue["title"],
@@ -267,3 +331,88 @@ def fetch(ticket_id: str, coordinates: dict, raw_dir: Path) -> dict:
             },
         },
     }
+
+
+# Pull requests, for `sync`: a repository on GitHub, whatever the ticket's source.
+
+REMOTE = re.compile(
+    r"(?:https://github\.com/|git@github\.com:|ssh://git@github\.com/)"
+    r"(?P<owner>[^/\s]+)/(?P<repository>[^/\s]+?)(?:\.git)?/?"
+)
+PULL_URL = re.compile(
+    r"https://github\.com/(?P<owner>[^/\s]+)/(?P<repository>[^/\s]+)/pull/(?P<number>\d+)"
+)
+PULL_FIELDS = "number,url,state,isDraft,reviewDecision,statusCheckRollup"
+FAILING = frozenset(
+    {"FAILURE", "ERROR", "TIMED_OUT", "CANCELLED", "ACTION_REQUIRED", "STARTUP_FAILURE"}
+)
+REVIEWS = {"APPROVED": "approved", "CHANGES_REQUESTED": "changes requested"}
+
+
+def pull_host(remote_url: str) -> str | None:
+    """`{owner}/{repository}` of a GitHub remote; None for any other host."""
+    match = REMOTE.fullmatch(remote_url.strip())
+    return f"{match['owner']}/{match['repository']}" if match else None
+
+
+def checks_of(rollup: list[dict]) -> str | None:
+    """What a pull request's checks add up to: any failing, any pending, or all passing; None without checks."""
+    if not rollup:
+        return None
+    # A check run reports `status` and `conclusion`; a commit status only `state`.
+    outcomes = [item.get("conclusion") or item.get("state") or "" for item in rollup]
+    if any(outcome in FAILING for outcome in outcomes):
+        return "checks failing"
+    pending = any(
+        item.get("status", "COMPLETED") != "COMPLETED"
+        or outcome in ("", "PENDING", "EXPECTED")
+        for item, outcome in zip(rollup, outcomes, strict=True)
+    )
+    return "checks pending" if pending else "checks passing"
+
+
+def pull_line(repository: str, pull: dict) -> Line:
+    """The record line of a pull request as `gh pr` returns it with `PULL_FIELDS`."""
+    status = ["draft"] if pull["isDraft"] else [pull["state"].lower()]
+    if status[0] in ("draft", "open"):
+        status += [
+            part
+            for part in (
+                checks_of(pull.get("statusCheckRollup") or []),
+                REVIEWS.get(pull.get("reviewDecision") or ""),
+            )
+            if part
+        ]
+    return Line(
+        label=f"{repository}#{pull['number']}",
+        url=pull["url"],
+        status=", ".join(status),
+    )
+
+
+def pulls_headed_by(repository: str, branch: str) -> list[Line]:
+    """The record lines of every pull request, in any state, whose head is `branch`."""
+    listed = gh_json(
+        [
+            "pr",
+            "list",
+            "--repo",
+            repository,
+            "--head",
+            branch,
+            "--state",
+            "all",
+            "--json",
+            PULL_FIELDS,
+        ]
+    )
+    return [pull_line(repository, pull) for pull in listed]
+
+
+def pull_at(url: str) -> Line | None:
+    """The record line of the pull request at `url`; None when it is not a GitHub pull request."""
+    match = PULL_URL.fullmatch(url.strip())
+    if not match:
+        return None
+    pull = gh_json(["pr", "view", url, "--json", PULL_FIELDS])
+    return pull_line(f"{match['owner']}/{match['repository']}", pull)

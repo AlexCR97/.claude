@@ -1,7 +1,6 @@
 ---
 name: submit
-description: Creates one ticket upstream, a GitHub issue or an Azure DevOps work item, or edits one (title, description, acceptance criteria, state, labels or tags), after showing exactly what will be written and getting an explicit yes. Accepts the to-spec and to-tickets Markdown as a body.
-disable-model-invocation: true
+description: Creates one GitHub issue or Azure DevOps work item upstream, or edits one (title, description, acceptance criteria, state, labels or tags), showing exactly what it writes first. Use when asked to submit, file or edit one issue or work item with sdlc, or to file a to-spec or to-tickets body on Azure DevOps.
 argument-hint: "[<ticket reference>] [what to create or change]"
 ---
 
@@ -18,7 +17,7 @@ Write one ticket to its source, from `$ARGUMENTS` and the conversation. Run scri
 ## Edit
 
 1. `resolve <reference>` (with `--context {namespace}[/{product}]` when the session has one). A ticket not in the store: offer `/sdlc:intake <reference>` and stop. A local ticket has no upstream: say so and stop.
-2. **Revision check.** `fetch <reference> --check` (with `--context`). `unchanged`, `journal_only` or `journal_unmirrored` continues: nothing but journal entries moved since the mirror, so a checkpoint never blocks an edit. `changed`, `never_mirrored` or `stale_mirror` stops the write (a stale mirror needs only the refresh): read the live ticket (`gh api`, `az rest`; reads only), say what changed against the mirror, and offer `/sdlc:intake <reference>` to refresh. An error stops it too.
+2. **Revision check.** `fetch <reference> --check` (with `--context`). `unchanged`, `journal_only` or `journal_unmirrored` continues: nothing but journal entries moved since the mirror, so a checkpoint never blocks an edit. `changed`, `never_mirrored` or `stale_mirror` stops the write (a stale mirror needs only the refresh): refresh the mirror with `sync <reference>` (with `--context`), say what changed as its `upstream.fields` and the refreshed mirror show, and offer the edit again against it. An error stops it too.
 3. Build the change from the mirror (`raw/raw.json`). Where a field is one combined value (labels, tags, a body holding several sections), build its new value from the whole of its current one, so nothing unnamed is lost. Never invent text; ask for it.
 4. Show a before and after of every field that changes, exactly as it will be written. Nothing would change: say so and stop.
 5. Ask for a yes. Anything else (silence, "maybe", a question) is not one; on a no, send nothing.

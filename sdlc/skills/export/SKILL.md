@@ -1,6 +1,6 @@
 ---
 name: export
-description: Writes an archive (a zip) of the SDLC home, or of one namespace, product or ticket in it, to carry that work to another machine. Use when asked to export, archive or move sdlc tickets, plans or journals off this machine.
+description: Writes an archive (a zip) of the SDLC home, or of one namespace, product or ticket in it, to carry that work to another machine. Use when asked to export, archive or move tickets, plans or journals off this machine.
 argument-hint: "[<namespace> | <namespace>/<product> | <ticket reference>] [where to write it]"
 ---
 
