@@ -255,7 +255,7 @@ _Avoid_: Save, snapshot
 ### Delivering the work
 
 **Delegate**:
-A skill outside sdlc, from another plugin or the repository's own, that an sdlc skill hands its work to, because it suits the situation better than sdlc's own procedure. Chosen by judgement each time, never from config.
+A skill outside sdlc, from another plugin or the repository's own, that `/sdlc:deploy` hands a deployment to, because it suits the situation better than deploy's own procedure. Chosen by judgement each time, never from config.
 _Avoid_: Provider (that names the files describing a source), backend
 
 **Ship**:

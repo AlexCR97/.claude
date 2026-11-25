@@ -46,11 +46,11 @@ Every skill but `setup` and `import` is model-invokable, so a ship run can invok
 
 ## Delegates
 
-A [delegate](../GLOSSARY.md) does a step in place of an sdlc skill's own procedure. `commit`, `pr` and `deploy` can hand their work to one; each says what makes a delegate fit its step.
+A [delegate](../GLOSSARY.md) deploys in place of `/sdlc:deploy`'s own procedure, which says what makes one fit. `deploy` is the only skill that delegates: deployment differs per product, while `commit` and `pr` always run their own procedure, so they behave the same on every repository and always link the ticket.
 
 - **Chosen by judgement on each run**, from the skills installed at the time. No config names a delegate, and no choice is remembered for the next run.
 - **Read before judged**: open each candidate's `SKILL.md` and judge it on what it says, its arguments and what it stages, writes and asks. A rejection quotes the line of it that rules it out; a name or a description is not enough to reject it.
-- **Said in one line before acting**: the delegate and why it fits, or that the built-in procedure runs, with the quoted reason each candidate was ruled out.
-- **Its own confirmations stand**, and the sdlc skill does not ask the same question again. Under the ship flag, pass the delegate's own approval flag (such as `approve`) only when nothing that flag waives is a hard stop; a flag that would waive a hard stop is never passed, so the delegate asks there.
+- **Said in one line before acting**: the delegate and why it fits, or that `deploy`'s own method runs, with the quoted reason each candidate was ruled out.
+- **Its own confirmations stand**, and `deploy` does not ask the same question again. Under the ship flag, pass the delegate's own approval flag (such as `approve`) only when nothing that flag waives is a hard stop; a flag that would waive a hard stop is never passed, so the delegate asks there.
 - **A user-only delegate** (`disable-model-invocation`) cannot be invoked: hand the user the exact line to type, with its arguments, and wait for them to report back. Under the ship flag this is one of the waits above.
-- **The sdlc skill's invariants hold whichever runs**: the guard and its refusals, what the skill may write, and no co-author trailer. A delegate that would break one does not fit.
+- **`deploy`'s invariants hold whichever runs**: the guard and its refusals, the hard stops, and what the skill may write. A delegate that would break one does not fit.

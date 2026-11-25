@@ -25,7 +25,7 @@ One pull request per repository the work changed: each worktree in the plan's Wo
 
 ## Choose who opens it
 
-A delegate or the built-in below, chosen as [Delegates](../../shared/conventions.md#delegates) says. A delegate fits when it opens pull requests on this host and suits the situation better than the built-in: one that carries the namespace's conventions (an employer's plugin on that employer's repositories), or a project skill of the repository. Its job is the pull request alone: creating or updating it and marking it ready. A skill that also merges, or asks how to integrate, does not fit; one that only writes a body is a template the built-in may follow for its summary.
+A delegate or the built-in below. A delegate fits when it opens pull requests on this host and suits the situation better than the built-in: one that carries the namespace's conventions (an employer's plugin on that employer's repositories), or a project skill of the repository. Its job is the pull request alone: creating or updating it and marking it ready. A skill that also merges, or asks how to integrate, does not fit; one that only writes a body is a template the built-in may follow for its summary.
 
 - **A delegate**: invoke it with the Skill tool, passing `ready` when given. Under ship, also pass every argument it would otherwise infer and confirm. Then read the body the delegate left: when it lacks the ticket link or, under ship, the decisions (both as in Body), add them with the host's body update; without ship, show the addition and ask first. Then Record.
 - **No suitable delegate**: the built-in below, then Record.
