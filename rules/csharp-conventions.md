@@ -2,6 +2,8 @@
 
 > All runnable code examples can be executed in [C# Online Compiler | .NET Fiddle](https://dotnetfiddle.net/)
 
+**Precedence:** these conventions govern new files, and existing files that already follow them. In an existing file with its own consistent style (`var` everywhere, unsealed classes), match that file, so a change reads as one with its surroundings; a repository's `.editorconfig` or analyzers outrank both.
+
 ---
 
 ## Table of Contents
