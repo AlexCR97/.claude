@@ -38,9 +38,9 @@ Invoke each sdlc skill with the Skill tool (`sdlc:intake`, `sdlc:plan` and so on
    4. After the first phase that committed anything: `/sdlc:pr <ref> ship`, which opens the pull request as a draft.
 
    A `Human Review` phase is the developer's: the run ends before it as Failure says, with the review it waits for as the failure, and the step left as it is.
-6. **Mark it ready.** `/sdlc:pr <ref> ready ship`: the body rewritten from the net change, with every decision the run made, and the pull request marked ready. A run that committed nothing (a spike writes only under `artifacts/`) has no pull request: say where its finding is.
+6. **Mark it ready.** `/sdlc:pr <ref> ready ship`: the body rewritten from the net change, with the run's decisions about the code, and the pull request marked ready. A run that committed nothing (a spike writes only under `artifacts/`) has no pull request: say where its finding is.
 7. **Deploy**, when the end point is an environment: `/sdlc:deploy <environment> <ref> ship`. A production environment, or a merge into a protected branch that the deployment needs, is a hard stop, and a manual step or a user-only delegate is a wait: each waits as Waiting says.
-8. **Checkpoint the end.** `/sdlc:checkpoint <ref> ship`, so the journal holds how the run ended. When `deploy` made decisions and the pull request is still open, run `/sdlc:pr <ref> ship` once more, so its body lists them too.
+8. **Checkpoint the end.** `/sdlc:checkpoint <ref> ship`, so the journal holds how the run ended. When `deploy` made decisions and the pull request is still open, run `/sdlc:pr <ref> ship` once more, so its body lists any about the code.
 
 ## Failure
 
@@ -58,7 +58,7 @@ A phase still failing after one fix attempt, or a skill that stopped, ends the r
 - Per phase: its status, and each commit's short SHA and repository.
 - The pull request: URL, and draft or ready.
 - The deployment: the environment, whether it is production, and the evidence it landed; or that it was not reached.
-- Every decision the run made, and that the journal and the pull request body hold them.
+- Every decision the run made, and that the journal holds them all and the pull request body the ones about the code.
 - What is left for the developer: the review, the merge (a hard stop), a block to clear.
 
 ## Invariants

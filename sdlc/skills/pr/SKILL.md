@@ -58,7 +58,7 @@ A delegate or the built-in below, chosen as [Delegates](../../shared/conventions
 ```
 
 - **Changes describe the net change**, `git diff origin/{target}...origin/{branch}`: one bullet per change a reviewer reviews as one, the change the others build on first. Commit messages say why; the diff says what landed. Rewrite the body from the current net change on every run.
-- **Decisions, under ship only**: every decision a ship run made on this ticket, so a resumed run keeps the first run's: the `### Decisions` of each journal entry marked as a ship run's (`journal.md`), oldest first, each decision once and verbatim, then any the run has stated since its latest entry. With none, write `None.` Without ship, omit the section.
+- **Decisions, under ship only**: the decisions about the code a ship run made on this ticket, so a resumed run keeps the first run's. Read the `### Decisions` of each journal entry marked as a ship run's (`journal.md`), oldest first, then any the run has stated since its latest entry, and list once and verbatim each decision about what the change does or how it behaves: its design, an assumption about the data, a test seam, a case left out. A process decision (the workspace, the worktree, the branch, tooling, the order of work, a probe skipped) stays in the journal only. End the section with `{n} process decisions are in the ticket's journal.` when there are any. With no decision about the code, write `None.` before that line. Without ship, omit the section.
 - **The ticket link** in the host's own form, so the host links it:
 
   | Ticket source | GitHub host                                                                 | Azure Repos host |
