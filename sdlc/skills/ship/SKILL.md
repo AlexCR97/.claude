@@ -20,7 +20,7 @@ Run scripts as `python "${CLAUDE_PLUGIN_ROOT}/shared/sdlc.py" <verb>` (`python3`
 
 Invoke each sdlc skill with the Skill tool (`sdlc:intake`, `sdlc:plan` and so on), with the ticket's `ref` and `ship` among its arguments, and follow it to its end before the next step. Read its report: what it produced, every decision, and whether it stopped. A skill that stopped, on a refusal or a question the run cannot settle, ends the run through Failure.
 
-- **Decisions.** Ship's own choices, such as the end point it read, are decisions as Ship runs says, like every skill's.
+- **Decisions.** Ship's own choices, such as the end point it read, are decisions as Ship runs says, like every skill's. `checkpoint` records them one line each, in entries of about 250 words (`journal.md`).
 - **Waiting.** The run waits only where Ship runs says a skill still waits under the flag: a hard stop, or a step only the user can take. At every wait, each one and not only the first, and inside whichever skill reaches it, before asking: run `/sdlc:checkpoint <ref> ship`, so a run left waiting is on record, then send a push notification with the `PushNotification` tool (load it with ToolSearch, `select:PushNotification`, when it is deferred) naming the ticket and what waits. Where the tool is unavailable, say so in chat and wait all the same. A no at a hard stop ends the run there, with what it reached so far.
 
 ## Steps

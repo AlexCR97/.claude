@@ -11,49 +11,84 @@ The format of a ticket's journal (`journal/`), of a journal entry posted upstrea
 
 ## Entry
 
+An entry is about 250 words: what a later session needs to pick the work up, and nothing it can read for itself from git, the plan or the ticket. Each line is one fact, written once.
+
 ````markdown
 # Journal entry - [{reference}: {title}]({url or raw/ticket.md})
 
 ## {YYYY-MM-DD HH:MM} UTC - {stage}
 
-**Where:** `{repository}` @ `{branch}` in `{worktree path}` - HEAD `{sha}` ({subject}), base `{base branch}` @ `{sha}`
+**Where:** `{repository}` @ `{branch}`, HEAD `{sha}` ({subject}){, base `{base branch}`}
 
-**Worktree state:** {clean | N modified, N untracked - uncommitted}{, N stashes}
+**Worktree state:** {N modified, N untracked, uncommitted}
 
-**Stopped at:** {the step and its honest state: what works, what does not, what is half-done}
+**Stopped at:** {the step and its honest state, in at most two sentences}
 
-**Next:** {the single next action: a file and an action}
+**Next:** {the single next action, in one sentence}
 
-**Ship run:** {end point} (only in an entry a ship run wrote)
+**Ship run:** {end point}
 
 ### Done
 
-- {what changed, as outcomes and not attempts; say where a change is uncommitted}
+- {one outcome, in one line}
 
 ### Decisions
 
-- **{decision}** - {why, and what it was chosen over}{; cost if wrong: what breaks or must be redone}. Affects {step}.
-
-### Inferences
-
-- **{what the plan left unspecified}** - {what was assumed, and on what basis}. Affects {step}.
+- **{what was decided}** - {why, over what}{; cost if wrong: {what breaks or must be redone}}
+- **{what was assumed}** (assumed) - {its basis}{; cost if wrong: ...}
 
 ### Open questions
 
-- {a question still open, and who or what can answer it}
+- {the question, and who or what can answer it}
 
 ### Blockers
 
-- {a blocker still open, and what would clear it}
+- {the blocker, and what would clear it}
 ````
 
 - **Stage** is `Phase N, Step N.M`, or `Planning`, `Refinement` or `Review`.
-- **Where, Worktree state, Stopped at and Next are always present.** Where a fact is unavailable, say so; outside a repository, `**Where:** not in a repository`. When the work spans several worktrees, write one Where and one Worktree state per worktree, each naming its repository.
-- **Next is specific enough to start on without re-reading anything**: never a bare "Continue Phase 2". When nothing is pending: `Nothing pending; all phases complete. Awaiting review.`
-- **A decision carries its cost if wrong when the ship flag was on**, as [Ship runs](conventions.md#ship-runs) says; elsewhere the cost is optional. A decision copied from the plan's Decisions (`plan.md`) keeps its wording.
-- **A ship run's entry has the Ship run line**, naming the run's end point: `checkpoint` writes it under the ship flag, and no other entry has it. `pr` lists the decisions of every entry so marked, whichever run wrote it, so a resumed run keeps the first run's.
-- **Omit an empty Done, Decisions, Inferences, Open questions or Blockers section.**
-- **Decisions and Inferences stated earlier in the session**, such as an `implement` run's report, are carried over verbatim: that report is their only record.
+- **Where, Stopped at and Next are always present.** Where names the repository by name and the base only when it is not the default branch. Outside a repository, `**Where:** not in a repository`. When the work spans several worktrees, write one Where, and one Worktree state when it applies, per worktree.
+- **Worktree state is present only when the worktree is not clean**: uncommitted or untracked files.
+- **Next is specific enough to start on without re-reading anything**: a file and an action, never a bare "Continue Phase 2". When nothing is pending: `Nothing pending; all phases complete. Awaiting review.`
+- **The Ship run line is in an entry a ship run wrote, and only there**, naming the run's end point: `checkpoint` writes it under the ship flag. `pr` lists the decisions of every entry so marked, whichever run wrote it, so a resumed run keeps the first run's.
+- **Done holds at most five outcomes**, each one line: what changed, never an attempt or what the session merely observed.
+- **A decision is one line**: what was decided in bold, then why. Under the ship flag it ends with its cost if wrong, as [Ship runs](conventions.md#ship-runs) says; elsewhere the cost is optional. What the plan left unspecified and the session assumed is a decision marked `(assumed)`, its basis as the why. A decision copied from the plan's Decisions (`plan.md`) keeps its wording, less its `Affects` clause.
+- **Decisions stated earlier in the session**, such as an `implement` run's report, are carried over: that report is their only record. Every decision reaches the entry, so an entry with many runs past the budget there and nowhere else.
+- **Open questions and Blockers are one line each.**
+- **Omit an empty Done, Decisions, Open questions or Blockers section.**
+- **This shape is for new entries.** An earlier entry, and the comment that posted it, keep the shape they were written in; a reader takes its Inferences section as assumed decisions.
+
+An entry in this shape:
+
+````markdown
+# Journal entry - [#1234: Cache the ledger lookup](https://github.com/acme/ledger/issues/1234)
+
+## 2026-11-25 17:15 UTC - Phase 2, Step 2.1
+
+**Where:** `ledger` @ `feat/1234-cache-ledger`, HEAD `8b6f2655` (feat(ledger): cache account lookups)
+
+**Worktree state:** 2 modified, 1 untracked, uncommitted
+
+**Stopped at:** Step 2.1's eviction test is written and fails as expected; the eviction itself is half-done in `LedgerCache.cs`.
+
+**Next:** Make `LedgerCacheTests.Evicts_after_ttl` pass by evicting expired entries in `LedgerCache.Get`.
+
+**Ship run:** pr
+
+### Done
+
+- Phase 1 committed: the cache interface and its in-memory implementation.
+- Wrote the failing eviction test for Step 2.1.
+
+### Decisions
+
+- **Cache per account, not per query** - every query reads one account, and per-query keys would duplicate entries; cost if wrong: the cache keys and their tests are redone.
+- **A five-minute TTL** (assumed) - the ticket names no lifetime, and balances settle within minutes; cost if wrong: one constant changes.
+
+### Open questions
+
+- Should a balance change evict at once? The product owner can answer.
+````
 
 ## Posted entry
 
