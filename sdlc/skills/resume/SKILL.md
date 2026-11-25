@@ -1,6 +1,6 @@
 ---
 name: resume
-description: Briefs a fresh session on an sdlc ticket (what the work is, where it stopped, the live state of the code and what changed upstream), ending in the single next action. Writes nothing but the sync of its mirror and pull request record. Use when asked to resume or pick back up an sdlc ticket.
+description: Briefs a fresh session on a ticket (what the work is, where it stopped, the live state of the code and what changed upstream), ending in the single next action. Writes nothing but the sync of its mirror and pull request record. Use when asked to resume or pick back up a ticket.
 argument-hint: "[<ticket reference>]"
 ---
 

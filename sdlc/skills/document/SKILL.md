@@ -1,6 +1,6 @@
 ---
 name: document
-description: Brings the README of each project a change touched (an sdlc ticket's phase, or a set of paths) back in line with the code, touching only the sections the change affects. Use when asked to document the changes of an sdlc ticket or one of its phases.
+description: Brings the README of each project a change touched (a ticket's phase, or a set of paths) back in line with the code, touching only the sections the change affects. Use when asked to document the changes of a ticket or one of its phases.
 argument-hint: "[<ticket reference> <phase> | <paths or projects> | all] [ship]"
 ---
 

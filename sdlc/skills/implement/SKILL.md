@@ -1,6 +1,6 @@
 ---
 name: implement
-description: Implements phases of an sdlc ticket's plan.md, making the code changes each step names, building and testing the affected projects, and keeping step status honest. Use when asked to implement, continue or run phases of a ticket that has an sdlc plan.
+description: Implements phases of a ticket's plan.md, making the code changes each step names, building and testing the affected projects, and keeping step status honest. Use when asked to implement, continue or run phases of a ticket that has an sdlc plan.
 argument-hint: "<ticket reference | spec file | text or idea> [phases | all] [ship]"
 ---
 

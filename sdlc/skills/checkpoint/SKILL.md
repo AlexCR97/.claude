@@ -1,6 +1,6 @@
 ---
 name: checkpoint
-description: Records the session on an sdlc ticket as a journal entry (where the code is, what was done and decided, what blocks, the next action), posts it on a remote ticket, and refreshes the plan's step statuses and the pull request record. Use when asked to checkpoint an sdlc ticket or record its progress in the journal.
+description: Records the session on a ticket as a journal entry (where the code is, what was done and decided, what blocks, the next action), posts it on a remote ticket, and refreshes the plan's step statuses and the pull request record. Use when asked to checkpoint a ticket or record its progress in the journal.
 argument-hint: "[<ticket reference | spec file | text or idea>] [ship] [note]"
 ---
 

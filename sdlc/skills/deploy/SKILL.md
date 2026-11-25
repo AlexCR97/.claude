@@ -1,6 +1,6 @@
 ---
 name: deploy
-description: Deploys an sdlc ticket's work to one of its product's environments (dev, QA, production) through a delegate skill, a project command or guided manual steps, and records the product's environments the first time. Use when asked to deploy, release or promote an sdlc ticket's work to a named environment.
+description: Deploys a ticket's work to one of its product's environments (dev, QA, production) through a delegate skill, a project command or guided manual steps, and records the product's environments the first time. Use when asked to deploy, release or promote a ticket's work to a named environment.
 argument-hint: "<environment> [<ticket reference>] [check] [ship]"
 ---
 

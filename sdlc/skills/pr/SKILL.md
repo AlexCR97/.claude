@@ -1,12 +1,12 @@
 ---
 name: pr
-description: Opens a draft pull request for a branch's work, or marks it ready for review, with a body that links the sdlc ticket when there is one, and records it in the ticket's pull request record. Use when asked to open, update or ready a pull request for sdlc ticket work, or to open one with sdlc.
+description: Opens a draft pull request for a branch's work, or marks it ready for review, with a body that links the ticket when there is one, and records it in the ticket's pull request record. Use when asked to open, update or ready a pull request for ticket work, or to open one with sdlc.
 argument-hint: "[<ticket reference>] [ready] [ship] [note]"
 ---
 
 # Pull request
 
-Open the pull request that delivers the work `$ARGUMENTS` points to, with or without an sdlc ticket, or mark it ready, then record it. Run scripts as `python "${CLAUDE_PLUGIN_ROOT}/shared/sdlc.py" <verb>` (`python3` where that is the interpreter's name). Sync follows `${CLAUDE_PLUGIN_ROOT}/shared/sync.md`, the journal and the pull request record `${CLAUDE_PLUGIN_ROOT}/shared/journal.md`, the guard `${CLAUDE_PLUGIN_ROOT}/shared/guard.md`, and each host's commands are under "Pull requests (for `pr`)" in `${CLAUDE_PLUGIN_ROOT}/shared/providers/github.md` and `${CLAUDE_PLUGIN_ROOT}/shared/providers/ado.md`. Terms mean what `${CLAUDE_PLUGIN_ROOT}/GLOSSARY.md` says.
+Open the pull request that delivers the work `$ARGUMENTS` points to, with or without a ticket, or mark it ready, then record it. Run scripts as `python "${CLAUDE_PLUGIN_ROOT}/shared/sdlc.py" <verb>` (`python3` where that is the interpreter's name). Sync follows `${CLAUDE_PLUGIN_ROOT}/shared/sync.md`, the journal and the pull request record `${CLAUDE_PLUGIN_ROOT}/shared/journal.md`, the guard `${CLAUDE_PLUGIN_ROOT}/shared/guard.md`, and each host's commands are under "Pull requests (for `pr`)" in `${CLAUDE_PLUGIN_ROOT}/shared/providers/github.md` and `${CLAUDE_PLUGIN_ROOT}/shared/providers/ado.md`. Terms mean what `${CLAUDE_PLUGIN_ROOT}/GLOSSARY.md` says.
 
 ## Inputs
 

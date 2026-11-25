@@ -1,12 +1,12 @@
 ---
 name: commit
-description: Commits a phase's or session's changes, staging only those files, with a conventional message that links the sdlc ticket when there is one. Use when asked to commit work on an sdlc ticket, or to commit with sdlc.
+description: Commits a phase's or session's changes, staging only those files, with a conventional message that links the ticket when there is one. Use when asked to commit work on a ticket, or to commit with sdlc.
 argument-hint: "[<ticket reference>] [<phase>] [push] [ship]"
 ---
 
 # Commit
 
-Commit the changes of the phase or session `$ARGUMENTS` points to, with or without an sdlc ticket: one commit per repository the changes span. Run scripts as `python "${CLAUDE_PLUGIN_ROOT}/shared/sdlc.py" <verb>` (`python3` where that is the interpreter's name). The protected-branch policy is `${CLAUDE_PLUGIN_ROOT}/shared/guard.md`; terms mean what `${CLAUDE_PLUGIN_ROOT}/GLOSSARY.md` says.
+Commit the changes of the phase or session `$ARGUMENTS` points to, with or without a ticket: one commit per repository the changes span. Run scripts as `python "${CLAUDE_PLUGIN_ROOT}/shared/sdlc.py" <verb>` (`python3` where that is the interpreter's name). The protected-branch policy is `${CLAUDE_PLUGIN_ROOT}/shared/guard.md`; terms mean what `${CLAUDE_PLUGIN_ROOT}/GLOSSARY.md` says.
 
 ## Inputs
 

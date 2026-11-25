@@ -1,6 +1,6 @@
 ---
 name: plan
-description: Writes the plan.md of a ticket in the sdlc store, with a confirmed workspace and phased, file-level steps. On a ticket that has one, shows progress and updates step status. Use when asked to plan an sdlc ticket or update its plan.
+description: Writes the plan.md of a ticket in the sdlc store, with a confirmed workspace and phased, file-level steps. On a ticket that has one, shows progress and updates step status. Use when asked to plan a ticket or update its plan.
 argument-hint: "<ticket reference | spec file | text or idea> [directory ...] [ship]"
 ---
 

@@ -1,6 +1,6 @@
 ---
 name: ship
-description: Ships an sdlc ticket through the whole cycle unattended (intake, plan, one commit per phase on a ticket branch, a ready pull request, and optionally a deployment), asking only at hard stops and steps only the user can take. Use only when asked to ship a ticket, spec or idea end to end.
+description: Ships a ticket through the whole cycle unattended (intake, plan, one commit per phase on a ticket branch, a ready pull request, and optionally a deployment), asking only at hard stops and steps only the user can take. Use only when asked to ship a ticket, spec or idea end to end.
 argument-hint: "<ticket reference | spec file | \"text or idea\"> [pr | <environment>]"
 ---
 
