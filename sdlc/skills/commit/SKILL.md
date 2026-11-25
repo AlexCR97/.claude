@@ -49,6 +49,8 @@ A conventional commit, `{type}({scope}): {subject}`, with an optional body, endi
 
 Only under `push` or `ship`, and only once `guard check --op push` allowed it: `git push`, or `git push -u origin <branch>` when the branch has no upstream. A branch with no remote has nowhere to go: say so.
 
+After pushing, run `sync <reference>` once (with `--context`) and report it as `${CLAUDE_PLUGIN_ROOT}/shared/sync.md` says, so the pull request record sees the new commits' checks.
+
 ## Report
 
 Per repository: the commit's short SHA and subject, whether it was pushed and where, and every file left out (outside the change set, or refused as a secret).

@@ -60,7 +60,9 @@ def load_fetcher(source: str) -> ModuleType:
 
     It exposes `fetch(ticket_id, coordinates, raw_dir)`, `check(ticket_id,
     coordinates, mirror)`, and, over the shape of `raw/raw.json`,
-    `comments_of(raw)` and `signature(raw)`.
+    `comments_of(raw)`, `signature(raw)` and `fields(raw)`. The source's host
+    of pull requests, for `sync`, is `pull_host(remote_url)`,
+    `pulls_headed_by(place, branch)`, `pull_at(url)` and `PULL_URL`.
     """
     path = PROVIDERS_DIR / f"{source}.py"
     if not path.is_file():

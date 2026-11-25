@@ -9,7 +9,7 @@ import re
 import shutil
 import tempfile
 from pathlib import Path
-from urllib.parse import parse_qs, quote, urlparse
+from urllib.parse import parse_qs, quote, unquote, urlparse
 
 from sdlclib import journal, process
 from sdlclib.errors import EXIT_NOT_FOUND, SdlcError
@@ -323,6 +323,38 @@ def signature(raw: dict) -> dict:
     }
 
 
+NAMED_FIELDS = {
+    "System.Title": "title",
+    "System.State": "state",
+    "System.Description": "description",
+    # A bug's reproduction steps are its description: many leave System.Description empty.
+    "Microsoft.VSTS.TCM.ReproSteps": "description",
+    "Microsoft.VSTS.Common.AcceptanceCriteria": "acceptance_criteria",
+    "System.Tags": "tags",
+}
+
+
+def fields(raw: dict) -> dict:
+    """
+    The work item's content by the name `sync` gives a change: the ticket's
+    own terms where one fits, else the field's reference name.
+    """
+    named = signature(raw)
+    found: dict = {name: {} for name in NAMED_FIELDS.values()}
+    others: dict = {}
+    for field, value in named["fields"].items():
+        if field in NAMED_FIELDS:
+            found[NAMED_FIELDS[field]][field] = value
+        else:
+            others[field] = value
+    return {
+        **found,
+        "comments": named["comments"],
+        "relations": named["relations"],
+        **others,
+    }
+
+
 def check(ticket_id: str, coordinates: dict, mirror: dict) -> dict:
     """
     The live revision, in the shape `fetch` records; nothing is downloaded or written.
@@ -400,3 +432,91 @@ def fetch(ticket_id: str, coordinates: dict, raw_dir: Path) -> dict:
             },
         },
     }
+
+
+# Pull requests, for `sync`: a repository on Azure Repos, whatever the ticket's source.
+
+REMOTE = re.compile(
+    r"https://(?:[^@/\s]+@)?dev\.azure\.com/(?P<organization>[^/\s]+)/(?P<project>[^/\s]+)/_git/(?P<repository>[^/\s]+?)/?"
+    r"|https://(?P<organization_host>[^./\s]+)\.visualstudio\.com/(?P<project_host>[^/\s]+)/_git/(?P<repository_host>[^/\s]+?)/?"
+    r"|git@ssh\.dev\.azure\.com:v3/(?P<organization_ssh>[^/\s]+)/(?P<project_ssh>[^/\s]+)/(?P<repository_ssh>[^/\s]+?)"
+)
+PULL_URL = re.compile(
+    r"https://dev\.azure\.com/(?P<organization>[^/\s]+)/(?P<project>[^/\s]+)"
+    r"/_git/(?P<repository>[^/\s]+)/pullrequest/(?P<number>\d+)"
+)
+PULL_STATES = {"active": "open", "completed": "merged", "abandoned": "closed"}
+
+
+def pull_host(remote_url: str) -> dict | None:
+    """The organization, project and repository of an Azure Repos remote; None for any other host."""
+    match = REMOTE.fullmatch(remote_url.strip())
+    if not match:
+        return None
+    found = {name: value for name, value in match.groupdict().items() if value}
+    return {
+        coordinate: unquote(value)
+        for name, value in found.items()
+        for coordinate in ("organization", "project", "repository")
+        if name.startswith(coordinate)
+    }
+
+
+def pulls_url(place: dict) -> str:
+    return (
+        f"https://dev.azure.com/{quote(place['organization'], safe='')}"
+        f"/{quote(place['project'], safe='')}/_apis/git/repositories"
+        f"/{quote(place['repository'], safe='')}/pullrequests"
+    )
+
+
+def review_of(reviewers: list[dict]) -> str | None:
+    votes = {reviewer.get("vote") for reviewer in reviewers}
+    if -10 in votes:
+        return "rejected"
+    if -5 in votes:
+        return "waiting for author"
+    if votes & {10, 5}:
+        return "approved"
+    return None
+
+
+def pull_line(place: dict, pull: dict) -> dict:
+    status = (
+        ["draft"]
+        if pull.get("isDraft")
+        else [PULL_STATES.get(pull["status"], pull["status"])]
+    )
+    if status[0] in ("draft", "open"):
+        review = review_of(pull.get("reviewers") or [])
+        status += [review] if review else []
+    number = pull["pullRequestId"]
+    return {
+        "label": f"{place['project']}/{place['repository']}!{number}",
+        "url": f"https://dev.azure.com/{quote(place['organization'], safe='')}"
+        f"/{quote(place['project'], safe='')}/_git/{quote(place['repository'], safe='')}"
+        f"/pullrequest/{number}",
+        "status": ", ".join(status),
+    }
+
+
+def pulls_headed_by(place: dict, branch: str) -> list[dict]:
+    found = get_json(
+        pulls_url(place),
+        [
+            f"searchCriteria.sourceRefName=refs/heads/{branch}",
+            "searchCriteria.status=all",
+        ],
+    )
+    return [pull_line(place, pull) for pull in found["value"]]
+
+
+def pull_at(url: str) -> dict | None:
+    """The record line of the pull request at `url`; None when it is not an Azure Repos pull request."""
+    match = PULL_URL.fullmatch(url.strip())
+    if not match:
+        return None
+    place = {
+        name: unquote(match[name]) for name in ("organization", "project", "repository")
+    }
+    return pull_line(place, get_json(f"{pulls_url(place)}/{match['number']}"))

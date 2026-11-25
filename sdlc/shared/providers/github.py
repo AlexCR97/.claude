@@ -179,6 +179,48 @@ def signature(raw: dict) -> dict:
     return content(raw, journal.without_entries(raw["comments"], comments_of(raw)))
 
 
+HEADING = re.compile(r"^(#{1,6})\s+(.*?)\s*#*\s*$")
+
+
+def split_criteria(body: str) -> tuple[str, str]:
+    """
+    The body as (description, acceptance criteria).
+
+    GitHub has no criteria field: they are the `Acceptance Criteria` section,
+    ending at the next heading of the same or a higher level.
+    """
+    lines = body.replace("\r\n", "\n").split("\n")
+    start = level = None
+    for index, line in enumerate(lines):
+        heading = HEADING.match(line)
+        if not heading:
+            continue
+        depth = len(heading.group(1))
+        if start is None and heading.group(2).casefold() == "acceptance criteria":
+            start, level = index, depth
+        elif start is not None and level is not None and depth <= level:
+            return (
+                "\n".join(lines[:start] + lines[index:]),
+                "\n".join(lines[start:index]),
+            )
+    if start is None:
+        return body, ""
+    return "\n".join(lines[:start]), "\n".join(lines[start:])
+
+
+def fields(raw: dict) -> dict:
+    """The issue's content by the field `sync` names when it changes; journal entries are left out."""
+    named = signature(raw)
+    description, criteria = split_criteria(named.pop("body") or "")
+    return {
+        "title": named.pop("title"),
+        "state": named.pop("state"),
+        "description": description,
+        "acceptance_criteria": criteria,
+        **named,
+    }
+
+
 def read_issue(ticket_id: str, coordinates: dict) -> dict:
     """
     Everything the mirror holds that comes from the issue's own endpoints, written nowhere.
@@ -267,3 +309,95 @@ def fetch(ticket_id: str, coordinates: dict, raw_dir: Path) -> dict:
             },
         },
     }
+
+
+# Pull requests, for `sync`: a repository on GitHub, whatever the ticket's source.
+
+REMOTE = re.compile(
+    r"(?:https://github\.com/|git@github\.com:|ssh://git@github\.com/)"
+    r"(?P<owner>[^/\s]+)/(?P<repository>[^/\s]+?)(?:\.git)?/?"
+)
+PULL_URL = re.compile(
+    r"https://github\.com/(?P<owner>[^/\s]+)/(?P<repository>[^/\s]+)/pull/(?P<number>\d+)"
+)
+PULL_FIELDS = "number,url,state,isDraft,reviewDecision,statusCheckRollup"
+FAILING = frozenset(
+    {"FAILURE", "ERROR", "TIMED_OUT", "CANCELLED", "ACTION_REQUIRED", "STARTUP_FAILURE"}
+)
+REVIEWS = {"APPROVED": "approved", "CHANGES_REQUESTED": "changes requested"}
+
+
+def pull_host(remote_url: str) -> str | None:
+    """`{owner}/{repository}` of a GitHub remote; None for any other host."""
+    match = REMOTE.fullmatch(remote_url.strip())
+    return f"{match['owner']}/{match['repository']}" if match else None
+
+
+def gh_json(args: list[str]) -> Any:
+    result = gh(args)
+    if result.returncode != 0:
+        result = gh(args)
+    if result.returncode != 0:
+        detail = (result.stderr or result.stdout).decode("utf-8", "replace").strip()
+        raise SdlcError(f"`gh {' '.join(args[:2])}` failed: {detail}", hint=GH_HINT)
+    return json.loads(result.stdout)
+
+
+def checks_of(rollup: list[dict]) -> str | None:
+    if not rollup:
+        return None
+    # A check run reports `status` and `conclusion`; a commit status only `state`.
+    outcomes = [item.get("conclusion") or item.get("state") or "" for item in rollup]
+    if any(outcome in FAILING for outcome in outcomes):
+        return "checks failing"
+    pending = any(
+        item.get("status", "COMPLETED") != "COMPLETED"
+        or outcome in ("", "PENDING", "EXPECTED")
+        for item, outcome in zip(rollup, outcomes, strict=True)
+    )
+    return "checks pending" if pending else "checks passing"
+
+
+def pull_line(repository: str, pull: dict) -> dict:
+    status = ["draft"] if pull["isDraft"] else [pull["state"].lower()]
+    if status[0] in ("draft", "open"):
+        status += [
+            found
+            for found in (
+                checks_of(pull.get("statusCheckRollup") or []),
+                REVIEWS.get(pull.get("reviewDecision") or ""),
+            )
+            if found
+        ]
+    return {
+        "label": f"{repository}#{pull['number']}",
+        "url": pull["url"],
+        "status": ", ".join(status),
+    }
+
+
+def pulls_headed_by(repository: str, branch: str) -> list[dict]:
+    found = gh_json(
+        [
+            "pr",
+            "list",
+            "--repo",
+            repository,
+            "--head",
+            branch,
+            "--state",
+            "all",
+            "--json",
+            PULL_FIELDS,
+        ]
+    )
+    return [pull_line(repository, pull) for pull in found]
+
+
+def pull_at(url: str) -> dict | None:
+    """The record line of the pull request at `url`; None when it is not a GitHub pull request."""
+    match = PULL_URL.fullmatch(url.strip())
+    if not match:
+        return None
+    pull = gh_json(["pr", "view", url, "--json", PULL_FIELDS])
+    return pull_line(f"{match['owner']}/{match['repository']}", pull)

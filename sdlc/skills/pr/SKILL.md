@@ -72,7 +72,7 @@ A delegate or the built-in below. A delegate fits when it opens pull requests on
 
 ## Record
 
-Rewrite `pulls.md` in the ticket directory as `journal.md` "Pull request record" says, with every pull request this run opened or updated among its lines: refresh the status of each line with the host's view command, together, under one time. A failed refresh keeps the previous statuses and adds its `Refresh failed` line. This is local: nothing goes upstream.
+Run `sync <reference>` (with `--context`), adding `--pull <url>` for every pull request this run opened or updated, and report it as `${CLAUDE_PLUGIN_ROOT}/shared/sync.md` says: it adds them to `pulls.md` and refreshes every line under one time. This is local: nothing goes upstream.
 
 ## Report
 

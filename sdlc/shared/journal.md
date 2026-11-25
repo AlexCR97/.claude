@@ -1,6 +1,6 @@
 # Journal
 
-The format of a ticket's journal (`journal/`), of a journal entry posted upstream, and of the pull request record (`pulls.md`). Entries are written and posted only by `checkpoint`, mirrored from upstream by `fetch`; `resume` reads the latest entry. `checkpoint` refreshes the pull request record, and `pr` rewrites it after opening or updating a pull request. Terms are in [`GLOSSARY.md`](../GLOSSARY.md).
+The format of a ticket's journal (`journal/`), of a journal entry posted upstream, and of the pull request record (`pulls.md`). Entries are written and posted only by `checkpoint`, mirrored from upstream by `fetch`; `resume` reads the latest entry. `sync` rewrites the pull request record ([`sync.md`](sync.md)). Terms are in [`GLOSSARY.md`](../GLOSSARY.md).
 
 ## Entry file
 
@@ -109,7 +109,7 @@ sdlc-journal-entry `2026-11-23T14-05-09Z.md`
 
 ## Mirrored entry
 
-A remote ticket's `journal/` is part of its mirror. `fetch`, run by `intake`, writes each marked comment upstream as the file its marker names, holding the entry as posted: the comment after the marker line and the blank line. A file already in `journal/` is never overwritten, so a mirror only gains entries. Its report's `fetched.journal` lists the names `written` and those `kept`.
+A remote ticket's `journal/` is part of its mirror. `fetch`, run by `intake` and `sync`, writes each marked comment upstream as the file its marker names, holding the entry as posted: the comment after the marker line and the blank line. A file already in `journal/` is never overwritten, so a mirror only gains entries. Its report's `fetched.journal` lists the names `written` and those `kept`.
 
 - **Read tolerantly.** Whitespace, a BOM and CRLF around the marker line do not hide it. A name posted twice counts once, as first posted.
 - **The latest entry** is the greatest name among `journal/` and the entries upstream: names sort in time order on every machine. An unposted entry is in `journal/` only; an entry another machine posted is upstream only until the next intake.

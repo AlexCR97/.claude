@@ -35,6 +35,6 @@ For a repository whose remote is on GitHub (`https://github.com/{owner}/{reposit
 - **Create.** `gh pr create --repo ... --draft --base {target} --head {branch} --title ... --body-file ...`; it prints the URL, whose last segment is the number.
 - **Update.** `gh pr edit {n} --repo ... --title ... --body-file ...`.
 - **Ready.** `gh pr ready {n} --repo ...`; a no-op on one already ready.
-- **Status.** `gh pr view {n} --repo ... --json url,state,isDraft,reviewDecision,statusCheckRollup`: `isDraft` is `draft`, else `state` `OPEN`, `MERGED`, `CLOSED`; `reviewDecision` `APPROVED` or `CHANGES_REQUESTED`; the checks from `statusCheckRollup`'s conclusions.
+- **Status** is read by `sync` ([`sync.md`](../sync.md)) for the record: `gh pr list --repo ... --head {branch} --state all` for a Workspace branch, `gh pr view {url}` for a pull request already recorded, each with `--json number,url,state,isDraft,reviewDecision,statusCheckRollup`. `isDraft` is `draft`, else `state` `OPEN`, `MERGED`, `CLOSED`; on a draft or open one only, the checks (`statusCheckRollup`: any failure is failing, then any not completed is pending, else passing) and `reviewDecision` `APPROVED` or `CHANGES_REQUESTED`.
 - A body over 65,536 characters is refused.
 - `Closes #{n}` closes the issue when the pull request merges into the default branch; the merge itself is a hard stop.

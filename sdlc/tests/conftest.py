@@ -97,8 +97,15 @@ GH_STUB = textwrap.dedent(
                 return argument
         return ""
 
+    def flag(name):
+        return args[args.index(name) + 1] if name in args else ""
+
     if args[:2] == ["auth", "status"]:
         route = routes.get("auth status", {"stderr": "Logged in to github.com"})
+    elif args[:2] in (["pr", "list"], ["pr", "view"]):
+        target = flag("--repo") + " " + flag("--head") if args[1] == "list" else args[2]
+        path = "pr " + args[1] + " " + target
+        route = routes.get(path, {"stderr": "stub has no route for " + path, "code": 1})
     elif args[:1] == ["api"]:
         path = endpoint(args)
         route = routes.get(path, {"stderr": "stub has no route for " + path, "code": 1})
@@ -129,7 +136,11 @@ GH_STUB = textwrap.dedent(
 
 
 class GhStub:
-    """A fake `gh` on PATH: answers `api <path>` from registered routes and logs every call."""
+    """
+    A fake `gh` on PATH: answers `api <path>` from registered routes and logs every call.
+
+    `pr list` is routed as `pr list {--repo} {--head}`, and `pr view <url>` as `pr view {url}`.
+    """
 
     def __init__(self, directory: Path):
         self.directory = directory

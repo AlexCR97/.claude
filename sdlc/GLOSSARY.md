@@ -100,6 +100,10 @@ _Avoid_: Digest, snapshot, copy, ticket-fetch
 The marker a source gives for a ticket's current state, such as an Azure DevOps revision number or, where a source has none, a hash of its content. It is recorded when the ticket is mirrored and compared with the live one to learn that the ticket changed.
 _Avoid_: Version, drift
 
+**Sync**:
+Bringing a ticket's mirror and its pull request record up to date: refreshing the mirror when the ticket changed upstream beyond this machine's own journal posts, and reading every pull request's status anew. The skills run it themselves, through the `sync` script verb.
+_Avoid_: Import (that merges an archive)
+
 **Intake**:
 Bringing a ticket into the SDLC home: resolving its reference, filing it, mirroring a remote ticket or adopting a local one, and recording its type.
 _Avoid_: Import, ticket-fetch, ticket-digest, ticket-create
