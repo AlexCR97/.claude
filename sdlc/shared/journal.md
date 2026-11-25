@@ -112,7 +112,7 @@ sdlc-journal-entry `2026-11-23T14-05-09Z.md`
 A remote ticket's `journal/` is part of its mirror. `fetch`, run by `intake` and `sync`, writes each marked comment upstream as the file its marker names, holding the entry as posted: the comment after the marker line and the blank line. A file already in `journal/` is never overwritten, so a mirror only gains entries. Its report's `fetched.journal` lists the names `written` and those `kept`.
 
 - **Read tolerantly.** Whitespace, a BOM and CRLF around the marker line do not hide it. A name posted twice counts once, as first posted.
-- **The latest entry** is the greatest name among `journal/` and the entries upstream: names sort in time order on every machine. An unposted entry is in `journal/` only; an entry another machine posted is upstream only until the next intake.
+- **The latest entry** is the greatest name among `journal/` and the entries upstream: names sort in time order on every machine. An unposted entry is in `journal/` only; an entry another machine posted is upstream only until the next sync.
 - **`fetch --check`** adds, for a remote ticket it reached upstream:
   - `journal`: `upstream`, every entry's name, oldest first; `unmirrored`, those `journal/` lacks; and while any is unmirrored, `newest_unmirrored`, `{name, entry, author}`, the newest of them in full. With `changed` it reads the live comments, otherwise the mirror's.
   - `status`, the one value a skill acts on. Every post moves the revision, so after a checkpoint `changed` is true and `status` says whether that is all it was:

@@ -1,6 +1,6 @@
 # Sync
 
-How a skill keeps a ticket's mirror and its pull request record current itself, so neither waits for `/sdlc:intake` or `/sdlc:checkpoint`. `resume`, `plan`, `implement`, `checkpoint`, `pr` and `deploy` sync at their start, and `commit` after it pushes. Terms are in [`GLOSSARY.md`](../GLOSSARY.md); the record's format is [`journal.md`](journal.md) "Pull request record".
+How a skill keeps a ticket's mirror and its pull request record current itself, so neither waits for `/sdlc:intake` or `/sdlc:checkpoint`. `resume`, `plan`, `implement`, `checkpoint`, `pr` and `deploy` sync at their start, `commit` after it pushes, and `submit` when its revision check finds the mirror behind an edit. Terms are in [`GLOSSARY.md`](../GLOSSARY.md); the record's format is [`journal.md`](journal.md) "Pull request record".
 
 ## The verb
 
@@ -40,5 +40,5 @@ It prints:
 
 - **Nothing changed** (`changed` false): say nothing.
 - **Something changed**: one line naming the fields, the journal entries and the pull requests whose status moved. It stops nothing, with one exception:
-- **`description` or `acceptance_criteria` changed under an existing `plan.md`**: the plan may no longer fit the ticket. Name the fields and ask whether to revise the plan through `/sdlc:plan` or carry on. Under the ship flag, carry on: state it as an inference (the fields that changed, and that the run kept the plan), so `checkpoint` records it, and `pr` names the change in a Pre-merge line of the pull request body.
+- **`description` or `acceptance_criteria` changed under an existing `plan.md`**: the plan may no longer fit the ticket. Name the fields and ask whether to revise the plan through `/sdlc:plan` or carry on. Under the ship flag, carry on: state it as an `(assumed)` decision (the fields that changed, and that the run kept the plan), so `checkpoint` records it, and `pr` names the change in a Pre-merge line of the pull request body.
 - **A failure** (signed out, offline, refused) exits non-zero with its error. Report the error in one line and carry on: a failed sync never blocks the skill. The mirror and `pulls.md` stay as they were, and an existing `pulls.md` gains `Refresh failed: {reason}.`, which the next successful sync drops.

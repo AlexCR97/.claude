@@ -30,7 +30,7 @@ Carry out the phases of the plan of the ticket `$ARGUMENTS` names. Run scripts a
 - Mark a step `In Progress` with its note **before** its first edit, and keep the note current. Where it cannot finish, set `Blocked` with what blocks it and what would clear it; never leave a stale `In Progress`. Mark it `Done` only when its work is. Never write a bare `In Progress` or `Blocked`, and derive a phase's Progress row from its steps: never `[x] Done` while a step is not `Done`.
 - After a phase, build each affected project and run the tests that cover it, detecting tools from the project's files. A phase that changed no source file has nothing to build. If a build or test still fails after one fix attempt, stop and report with the output; do not mark the phase done or go on to the next. Under `ship` this is the run's failure: set the step `Blocked` with the failure as its note and leave the phase uncommitted. A failing test is fixed in production code, never by changing its assertion.
 - Non-code files go under `artifacts/step-{N}.{M}/` or `artifacts/shared/`, never overwriting or deleting an existing one, and each producing step's `**Artifacts:**` line is kept accurate. Never write into `artifacts/planning/`.
-- Say every decision and inference in chat as it is made, with the step it affects: `checkpoint` builds its entry from this conversation.
+- Say every decision, `(assumed)` ones marked so, in chat as it is made, with the step it affects: `checkpoint` builds its entry from this conversation.
 - After each phase offer `/sdlc:document` for the projects that phase changed, as `<reference> <phase>`; never run it unasked. Under `ship`, run it, as `<reference> <phase> ship`, so its README edits sit beside the phase's code for the phase's commit.
 
 ## Completion rule of the type
@@ -39,7 +39,7 @@ Apply `types.md` both ways, and report what it requires for the type first. Two 
 
 ## Report
 
-What the run produced (per project, or the artifacts for a run that changed no source), the build and test results, what was left in flight, and every decision and inference.
+What the run produced (per project, or the artifacts for a run that changed no source), the build and test results, what was left in flight, and every decision, `(assumed)` ones marked so.
 
 ## Invariants
 

@@ -70,7 +70,15 @@ def verb_fetch(args: argparse.Namespace) -> int:
 
 
 def verb_sync(args: argparse.Namespace) -> int:
-    emit(sync.sync(args.ref, args.pull, args.coordinate, args.context, Path.cwd()))
+    emit(
+        sync.sync(
+            args.ref,
+            pull_urls=args.pull,
+            coordinate_arguments=args.coordinate,
+            context_text=args.context,
+            cwd=Path.cwd(),
+        )
+    )
     return EXIT_OK
 
 

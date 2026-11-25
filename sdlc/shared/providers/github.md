@@ -35,6 +35,6 @@ For a repository whose remote is on GitHub (`https://github.com/{owner}/{reposit
 - **Create.** `gh pr create --repo ... --draft --base {target} --head {branch} --title ... --body-file ...`; it prints the URL, whose last segment is the number.
 - **Update.** `gh pr edit {n} --repo ... --title ... --body-file ...`.
 - **Ready.** `gh pr ready {n} --repo ...`; a no-op on one already ready.
-- **Status** is read by `sync` ([`sync.md`](../sync.md)) for the record: `gh pr list --repo ... --head {branch} --state all` for a Workspace branch, `gh pr view {url}` for a pull request already recorded, each with `--json number,url,state,isDraft,reviewDecision,statusCheckRollup`. `isDraft` is `draft`, else `state` `OPEN`, `MERGED`, `CLOSED`; on a draft or open one only, the checks (`statusCheckRollup`: any failure is failing, then any not completed is pending, else passing) and `reviewDecision` `APPROVED` or `CHANGES_REQUESTED`.
+- **Status** is `sync`'s to read: it records each pull request's state, checks and review ([`sync.md`](../sync.md)); `pr` reads none.
 - A body over 65,536 characters is refused.
 - **The ticket link.** `Closes #{n}`, or `Closes {owner}/{repository}#{n}`, lists the issue in the pull request's Development section and closes it on merge, but only when the target is the default branch: against another branch GitHub ignores the keyword, and `pr` reports it. The merge itself is a hard stop. `AB#{id}` links an Azure DevOps work item when the Azure Boards app connects the repository to its project.

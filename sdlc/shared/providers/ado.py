@@ -9,10 +9,12 @@ import re
 import shutil
 import tempfile
 from pathlib import Path
+from typing import TypedDict
 from urllib.parse import parse_qs, quote, unquote, urlparse
 
-from sdlclib import journal, process
+from sdlclib import journal, layout, process
 from sdlclib.errors import EXIT_NOT_FOUND, SdlcError
+from sdlclib.pulls import Line
 
 AZ_HINT = "Install the Azure CLI and run `az login`, then try again."
 # What `az` prints when the sign-in, not the request, is what failed.
@@ -339,18 +341,18 @@ def fields(raw: dict) -> dict:
     The work item's content by the name `sync` gives a change: the ticket's
     own terms where one fits, else the field's reference name.
     """
-    named = signature(raw)
-    found: dict = {name: {} for name in NAMED_FIELDS.values()}
+    content = signature(raw)
+    in_ticket_terms: dict = {name: {} for name in NAMED_FIELDS.values()}
     others: dict = {}
-    for field, value in named["fields"].items():
+    for field, value in content["fields"].items():
         if field in NAMED_FIELDS:
-            found[NAMED_FIELDS[field]][field] = value
+            in_ticket_terms[NAMED_FIELDS[field]][field] = value
         else:
             others[field] = value
     return {
-        **found,
-        "comments": named["comments"],
-        "relations": named["relations"],
+        **in_ticket_terms,
+        "comments": content["comments"],
+        "relations": content["relations"],
         **others,
     }
 
@@ -401,9 +403,7 @@ def fetch(ticket_id: str, coordinates: dict, raw_dir: Path) -> dict:
         "relations": relations,
         "attachments": attachments,
     }
-    (raw_dir / "raw.json").write_text(
-        json.dumps(raw, indent=2, ensure_ascii=False), encoding="utf-8"
-    )
+    layout.replace_file(raw_dir / "raw.json", layout.json_bytes(raw))
 
     fields = work_item["fields"]
     return {
@@ -448,29 +448,51 @@ PULL_URL = re.compile(
 PULL_STATES = {"active": "open", "completed": "merged", "abandoned": "closed"}
 
 
-def pull_host(remote_url: str) -> dict | None:
+class Place(TypedDict):
+    """Where a repository's pull requests live on Azure Repos."""
+
+    organization: str
+    project: str
+    repository: str
+
+
+def pull_host(remote_url: str) -> Place | None:
     """The organization, project and repository of an Azure Repos remote; None for any other host."""
     match = REMOTE.fullmatch(remote_url.strip())
     if not match:
         return None
-    found = {name: value for name, value in match.groupdict().items() if value}
-    return {
-        coordinate: unquote(value)
-        for name, value in found.items()
-        for coordinate in ("organization", "project", "repository")
-        if name.startswith(coordinate)
-    }
+    # Each remote form names its parts in groups of its own, as `project_ssh`.
+    matched = {name: value for name, value in match.groupdict().items() if value}
 
+    def part(coordinate: str) -> str:
+        return unquote(
+            next(
+                value for name, value in matched.items() if name.startswith(coordinate)
+            )
+        )
 
-def pulls_url(place: dict) -> str:
-    return (
-        f"https://dev.azure.com/{quote(place['organization'], safe='')}"
-        f"/{quote(place['project'], safe='')}/_apis/git/repositories"
-        f"/{quote(place['repository'], safe='')}/pullrequests"
+    return Place(
+        organization=part("organization"),
+        project=part("project"),
+        repository=part("repository"),
     )
 
 
+def project_url(place: Place) -> str:
+    return (
+        f"https://dev.azure.com/{quote(place['organization'], safe='')}"
+        f"/{quote(place['project'], safe='')}"
+    )
+
+
+def pulls_url(place: Place) -> str:
+    """The REST endpoint that lists the repository's pull requests, and reads one under `/{id}`."""
+    repository = quote(place["repository"], safe="")
+    return f"{project_url(place)}/_apis/git/repositories/{repository}/pullrequests"
+
+
 def review_of(reviewers: list[dict]) -> str | None:
+    """The review a pull request's reviewers' votes add up to; None before anyone votes."""
     votes = {reviewer.get("vote") for reviewer in reviewers}
     if -10 in votes:
         return "rejected"
@@ -481,7 +503,8 @@ def review_of(reviewers: list[dict]) -> str | None:
     return None
 
 
-def pull_line(place: dict, pull: dict) -> dict:
+def pull_line(place: Place, pull: dict) -> Line:
+    """The record line of a pull request as the REST API returns it."""
     status = (
         ["draft"]
         if pull.get("isDraft")
@@ -491,32 +514,34 @@ def pull_line(place: dict, pull: dict) -> dict:
         review = review_of(pull.get("reviewers") or [])
         status += [review] if review else []
     number = pull["pullRequestId"]
-    return {
-        "label": f"{place['project']}/{place['repository']}!{number}",
-        "url": f"https://dev.azure.com/{quote(place['organization'], safe='')}"
-        f"/{quote(place['project'], safe='')}/_git/{quote(place['repository'], safe='')}"
-        f"/pullrequest/{number}",
-        "status": ", ".join(status),
-    }
+    repository = quote(place["repository"], safe="")
+    return Line(
+        label=f"{place['project']}/{place['repository']}!{number}",
+        url=f"{project_url(place)}/_git/{repository}/pullrequest/{number}",
+        status=", ".join(status),
+    )
 
 
-def pulls_headed_by(place: dict, branch: str) -> list[dict]:
-    found = get_json(
+def pulls_headed_by(place: Place, branch: str) -> list[Line]:
+    """The record lines of every pull request, in any state, whose source is `branch`."""
+    listed = get_json(
         pulls_url(place),
         [
             f"searchCriteria.sourceRefName=refs/heads/{branch}",
             "searchCriteria.status=all",
         ],
     )
-    return [pull_line(place, pull) for pull in found["value"]]
+    return [pull_line(place, pull) for pull in listed["value"]]
 
 
-def pull_at(url: str) -> dict | None:
+def pull_at(url: str) -> Line | None:
     """The record line of the pull request at `url`; None when it is not an Azure Repos pull request."""
     match = PULL_URL.fullmatch(url.strip())
     if not match:
         return None
-    place = {
-        name: unquote(match[name]) for name in ("organization", "project", "repository")
-    }
+    place = Place(
+        organization=unquote(match["organization"]),
+        project=unquote(match["project"]),
+        repository=unquote(match["repository"]),
+    )
     return pull_line(place, get_json(f"{pulls_url(place)}/{match['number']}"))

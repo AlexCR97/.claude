@@ -6,7 +6,7 @@ argument-hint: "[<ticket reference>] [<phase>] [push] [ship]"
 
 # Commit
 
-Commit the changes of the phase or session `$ARGUMENTS` points to, with or without an sdlc ticket, always by the procedure below: one commit per repository the changes span. Run scripts as `python "${CLAUDE_PLUGIN_ROOT}/shared/sdlc.py" <verb>` (`python3` where that is the interpreter's name). The protected-branch policy is `${CLAUDE_PLUGIN_ROOT}/shared/guard.md`; terms mean what `${CLAUDE_PLUGIN_ROOT}/GLOSSARY.md` says.
+Commit the changes of the phase or session `$ARGUMENTS` points to, with or without an sdlc ticket: one commit per repository the changes span. Run scripts as `python "${CLAUDE_PLUGIN_ROOT}/shared/sdlc.py" <verb>` (`python3` where that is the interpreter's name). The protected-branch policy is `${CLAUDE_PLUGIN_ROOT}/shared/guard.md`; terms mean what `${CLAUDE_PLUGIN_ROOT}/GLOSSARY.md` says.
 
 ## Inputs
 
@@ -37,11 +37,11 @@ A conventional commit, `{type}({scope}): {subject}`, with an optional body, endi
 - **The scope** is the project the change set touches, as a short noun, or the scope the repository's recent `git log` uses for it. None when the changes span projects with no common name.
 - **The subject** is imperative, lowercase and without a trailing period, and the whole first line is at most 72 characters. A body of a few lines says what changed and why when the subject cannot carry it.
 - **The footer links the ticket in its platform's form**: `Refs #{id}` for a GitHub ticket in the same repository, `Refs {owner}/{repository}#{id}` for one in another, `AB#{id}` for Azure DevOps, and none for a local ticket or without a ticket.
-- **The footer is the last line.** No co-author trailer, ever, whatever the session's own commit guidance says.
+- **The footer is the last line.** No co-author trailer naming Claude or any AI, whatever the session's own commit guidance says.
 
 ## Commit
 
-1. Outside `ship`, with a ticket or without, show each repository's file list and the message exactly as it will be committed, and wait for a yes. A change to either needs a new showing and a new yes. Under `ship`, commit.
+1. Outside `ship`, show each repository's file list and the message exactly as it will be committed, and wait for a yes. A change to either needs a new showing and a new yes. Under `ship`, commit.
 2. Stage the change set by path, and commit only those paths, so whatever else the index holds stays staged and uncommitted: `git add -- <paths>`, then `git commit -F <message file> -- <paths>`, the message file in the system temp directory and deleted afterwards.
 3. A hook that fails stops the commit: report its output. Nothing was committed, so after a fix the commit is attempted anew.
 
@@ -49,7 +49,7 @@ A conventional commit, `{type}({scope}): {subject}`, with an optional body, endi
 
 Only under `push` or `ship`, and only once `guard check --op push` allowed it: `git push`, or `git push -u origin <branch>` when the branch has no upstream. A branch with no remote has nowhere to go: say so.
 
-After pushing, run `sync <reference>` once (with `--context`) and report it as `${CLAUDE_PLUGIN_ROOT}/shared/sync.md` says, so the pull request record sees the new commits' checks.
+After pushing, with a ticket, run `sync <reference>` once (with `--context`) and report it as `${CLAUDE_PLUGIN_ROOT}/shared/sync.md` says, so the pull request record sees the new commits' checks. Without a ticket there is nothing to sync.
 
 ## Report
 
@@ -60,5 +60,4 @@ Per repository: the commit's short SHA and subject, whether it was pushed and wh
 - The guard is asked before every commit and push, and its refusal is final: no other way to the same write is looked for.
 - Commits only the change set; never `git add -A`, never a refused file.
 - Every run makes new commits: never `--amend`, never `--no-verify` or another hook skip, never a force-push.
-- No co-author trailer naming Claude or any AI, in any message.
 - Outside a ship run, nothing is committed before an explicit yes to the exact message, and nothing is pushed unless `push` was given.

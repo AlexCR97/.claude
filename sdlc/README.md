@@ -115,7 +115,7 @@ Skills call `python "${CLAUDE_PLUGIN_ROOT}/shared/sdlc.py" <verb>`. There are si
 
 - `resolve`: report the ticket directory for a reference, or where a new ticket would be filed; read-only.
 - `fetch`: mirror an issue or work item into `raw/`, and its journal entries into `journal/`; `--check` compares revisions without writing, and says when only journal entries moved.
-- `sync`: refresh a ticket's mirror when it changed upstream beyond this machine's journal posts, and rewrite its pull request record from the plan's Workspace branches; `resume`, `plan`, `implement`, `checkpoint`, `pr` and `deploy` run it at their start, and `commit` after a push ([shared/sync.md](shared/sync.md)).
+- `sync`: refresh a ticket's mirror when it changed upstream beyond this machine's journal posts, and rewrite its pull request record from the plan's Workspace branches; which skills run it, and when, is in [shared/sync.md](shared/sync.md).
 - `guard`: answer whether an operation on a repository or branch is allowed under the protected-branch policy.
 - `effect`: vet a script's side effects (including a `sensitive` target) before it runs.
 - `archive export`: write the SDLC home, or one namespace, product or ticket of it, to a zip with a manifest; never writes inside the home.

@@ -184,6 +184,24 @@ def test_a_work_item_changed_upstream_names_its_fields_in_the_tickets_terms(
     assert result.json["upstream"]["fields"] == fields
 
 
+def test_a_refresh_that_fails_while_writing_the_mirror_leaves_it_whole(
+    run_cli, bound, stub_work_item, az_stub, sdlc_home
+):
+    stub_work_item()
+    assert run_cli("sync", "ado:1234").code == 0
+    mirror = raw_of(sdlc_home, ADO)
+    # A lone surrogate reads as JSON but cannot be written as UTF-8: the write fails partway.
+    stub_work_item(fields={"System.Description": "\ud800"}, rev=9)
+    probe(az_stub, 9)
+
+    result = run_cli("sync", "ado:1234")
+
+    assert result.code != 0
+    assert "Traceback" not in result.err
+    assert raw_of(sdlc_home, ADO) == mirror
+    assert "Refresh failed" in (sdlc_home / ADO / "pulls.md").read_text(encoding="utf-8")
+
+
 BRANCH = "feat/1234-cache-ledger"
 PULL = "https://github.com/acme/billing-app/pull/12"
 

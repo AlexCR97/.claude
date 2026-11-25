@@ -22,6 +22,7 @@ class Line(TypedDict):
 
 
 def read(path: Path) -> list[Line]:
+    """The record's lines, in order; a record that does not exist has none."""
     if not path.is_file():
         return []
     return [
@@ -32,6 +33,7 @@ def read(path: Path) -> list[Line]:
 
 
 def write(path: Path, lines: list[Line], at: datetime) -> None:
+    """Replaces the record with `lines` as of `at`, which clears a failed refresh."""
     listed = (
         "\n".join(
             f"- [{line['label']}]({line['url']}) - {line['status']}" for line in lines
