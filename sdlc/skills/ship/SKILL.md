@@ -68,4 +68,5 @@ A phase still failing after one fix attempt, or a skill that stopped, ends the r
 - Never writes to a protected branch: the guard's refusals hold unchanged under `ship`, and a refusal ends the run.
 - Never changes the upstream ticket's state: no closing, reopening, relabelling, reassigning or editing it. `checkpoint`'s journal comments are all the run posts on it.
 - Nothing merges into a protected branch and nothing reaches a production environment without an explicit yes given at that hard stop.
+- A connection is used only when the invocation or the ticket names it: a read-only call on a non-production connection runs unattended, any write and any touch of a production connection is a hard stop that waits as Waiting says, and nothing probes after a deployment on its own ([ADR 0010](../../docs/adr/0010-connections-keep-the-runner-thin.md)).
 - No co-author trailer naming Claude or any AI, in any commit or pull request.
