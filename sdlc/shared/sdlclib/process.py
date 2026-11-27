@@ -7,6 +7,7 @@ skill would see a raw traceback instead of an error it can report.
 
 import os
 import subprocess
+from collections.abc import Mapping
 from pathlib import Path
 
 from .errors import SdlcError
@@ -25,13 +26,18 @@ def timeout_seconds() -> float:
 
 
 def run(
-    command: list[str], *, cwd: Path | None = None, text: bool = False
+    command: list[str],
+    *,
+    cwd: Path | None = None,
+    text: bool = False,
+    env: Mapping[str, str] | None = None,
 ) -> subprocess.CompletedProcess:
     limit = timeout_seconds()
     try:
         return subprocess.run(
             command,
             cwd=cwd,
+            env=env,
             capture_output=True,
             timeout=limit,
             check=False,

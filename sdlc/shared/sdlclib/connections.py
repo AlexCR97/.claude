@@ -13,7 +13,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from . import config as configuration
-from . import layout, paths
+from . import effect, layout, paths, process
+from .errors import SdlcError
 
 KIND_KEY = "CONNECTION_KIND"
 ENV_FILE_KEY = "CONNECTION_ENV_FILE"
@@ -187,6 +188,17 @@ def registered_connections(
     return registry, effective.get("environments", [])
 
 
+def sensitive_patterns(context_text: str | None) -> list[str]:
+    """The `sensitive` targets effective for the context, as `effect` reads them."""
+    context = layout.parse_context(context_text)
+    config = configuration.load()
+    effective = config.effective(
+        context.namespace if context else config.default_namespace(),
+        context.product if context else None,
+    )
+    return effective.get("sensitive", [])
+
+
 def list_connections(context_text: str | None) -> Mapping[str, object]:
     registry, environments = registered_connections(context_text)
     files = {file.stem: file for file in profile_files()}
@@ -229,6 +241,90 @@ def check_profile(file: Path) -> dict[str, object]:
         "problems": problems,
         "warnings": warnings,
         "keys": list(parsed.values),
+    }
+
+
+def mask(text: str, secrets: list[str]) -> str:
+    """Longest first, so a value holding a shorter one is masked whole."""
+    for secret in sorted(secrets, key=len, reverse=True):
+        text = text.replace(secret, "***")
+    return text
+
+
+def run_command(
+    profile: str,
+    command: list[str],
+    context_text: str | None = None,
+    approved: bool = False,
+    dry_run: bool = False,
+) -> dict[str, object]:
+    if not layout.is_profile_name(profile):
+        raise SdlcError(f"'{profile}' is not a valid profile name")
+    file = paths.connections_home() / f"{profile}.env"
+    if not file.is_file():
+        raise SdlcError(f"no profile '{profile}' in {paths.connections_home()}")
+    if not command:
+        raise SdlcError("connection run takes a command after `--`")
+    parsed = load_profile(file)
+    if parsed.problems:
+        raise SdlcError(
+            f"profile '{profile}' has problems",
+            hint="Run `connection check` to see them.",
+        )
+    values = parsed.values
+    registry, environments = registered_connections(context_text)
+    production, source = production_mark(
+        profile, values, registry.get(profile), environments
+    )
+    reasons = []
+    if production:
+        reasons.append(
+            f"'{profile}' is a production connection (decided by its {source})"
+        )
+    hits = effect.sensitive_hits(
+        " ".join([profile, *command]), sensitive_patterns(context_text)
+    )
+    if hits:
+        reasons.append("it targets a sensitive pattern: " + ", ".join(hits))
+    refusal = (
+        "; ".join(reasons) + ". Approve only once the user has said yes to this run, "
+        "and a production connection only when their message names it"
+        if reasons and not approved
+        else None
+    )
+    injected = {
+        key: value
+        for key, value in values.items()
+        if not key.startswith(RESERVED_PREFIX)
+    }
+    secrets = [value for value in injected.values() if len(value) >= MASK_MIN_LENGTH]
+    if dry_run:
+        return {
+            "profile": profile,
+            "production": production,
+            "production_source": source,
+            "dry_run": True,
+            "would_refuse": refusal is not None,
+            "reason": refusal,
+            "variables": list(injected),
+            "command": [mask(part, secrets) for part in command],
+        }
+    if refusal:
+        return {
+            "profile": profile,
+            "production": production,
+            "production_source": source,
+            "refused": True,
+            "reason": refusal,
+        }
+    completed = process.run(command, text=True, env={**os.environ, **injected})
+    return {
+        "profile": profile,
+        "production": production,
+        "production_source": source,
+        "exit_code": completed.returncode,
+        "stdout": mask(completed.stdout, secrets),
+        "stderr": mask(completed.stderr, secrets),
     }
 
 

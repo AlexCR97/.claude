@@ -123,6 +123,6 @@ Skills call `python "${CLAUDE_PLUGIN_ROOT}/shared/sdlc.py" <verb>`. There are se
 - `archive export`: write the SDLC home, or one namespace, product or ticket of it, to a zip with a manifest; never writes inside the home.
 - `archive import`: report, as JSON, what merging an archive into the home would add, merge and ask about; with `--apply`, the digest and a choice per conflicting ticket, write that merge.
 
-- `connection list`: list the connection profiles with their kind and production mark, and with `--context` apply that context's `connections` registry (a linked environment's mark wins); `connection check` validates each profile, and exits 1 when any has a problem. Both report names only, never a value.
+- `connection list`: list the connection profiles with their kind and production mark, and with `--context` apply that context's `connections` registry (a linked environment's mark wins); `connection check` validates each profile, and exits 1 when any has a problem. Both report names only, never a value. `connection run <profile> -- <command>` runs the command with the profile's variables in its environment only and prints one JSON envelope holding its exit code and output, the profile's values masked; it refuses a production profile or a `sensitive` target with exit 4 until `--approved`, and `--dry-run` reports the variable names and any refusal without running anything. Its options go before the profile.
 
 [ADR 0006](docs/adr/0006-scripts-and-instructions-are-for-mechanical-work-only.md) explains why there are so few.
