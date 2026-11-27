@@ -33,7 +33,12 @@ def sdlc_home(tmp_path: Path) -> Path:
 
 @pytest.fixture
 def run_cli(sdlc_home: Path):
-    def run(*argv: str, cwd: Path | None = None, home: Path | None = None) -> Result:
+    def run(
+        *argv: str,
+        cwd: Path | None = None,
+        home: Path | None = None,
+        env: dict[str, str] | None = None,
+    ) -> Result:
         completed = subprocess.run(
             [sys.executable, str(SDLC), *argv],
             check=False,
@@ -41,7 +46,7 @@ def run_cli(sdlc_home: Path):
             capture_output=True,
             text=True,
             encoding="utf-8",
-            env={**os.environ, "SDLC_HOME": str(home or sdlc_home)},
+            env={**os.environ, "SDLC_HOME": str(home or sdlc_home), **(env or {})},
         )
         return Result(completed.returncode, completed.stdout, completed.stderr)
 
@@ -56,6 +61,19 @@ def write_config(sdlc_home: Path):
         path = sdlc_home / relative
         path.parent.mkdir(parents=True, exist_ok=True)
         text = content if isinstance(content, str) else json.dumps(content)
+        path.write_text(text, encoding="utf-8")
+        return path
+
+    return write
+
+
+@pytest.fixture
+def write_profile(sdlc_home: Path):
+    """Write a connection profile, a flat `.env` file, into the connections home of the scratch SDLC home."""
+
+    def write(name: str, text: str) -> Path:
+        path = sdlc_home / ".connections" / f"{name}.env"
+        path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(text, encoding="utf-8")
         return path
 

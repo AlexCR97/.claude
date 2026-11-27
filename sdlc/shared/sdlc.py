@@ -17,6 +17,8 @@ Usage:
                                   [--context namespace[/product]]
     python sdlc.py archive import <zip> [--apply --digest <digest>
                                   [--take-theirs <ticket>]... [--keep-mine <ticket>]...]
+    python sdlc.py connection list
+    python sdlc.py connection check
 
 Exit codes:
     0  ok
@@ -41,8 +43,8 @@ for stream in (sys.stdout, sys.stderr):
     if callable(reconfigure):
         reconfigure(encoding="utf-8", errors="replace")
 
-from sdlclib import archive, effect, fetch, guard, importing, resolve, sync
-from sdlclib.errors import EXIT_OK, EXIT_REFUSED, SdlcError
+from sdlclib import archive, connections, effect, fetch, guard, importing, resolve, sync
+from sdlclib.errors import EXIT_ERROR, EXIT_OK, EXIT_REFUSED, SdlcError
 
 
 def emit(data: Mapping[str, object]) -> None:
@@ -111,6 +113,15 @@ def verb_archive(args: argparse.Namespace) -> int:
             cwd=Path.cwd(),
         )
     )
+    return EXIT_OK
+
+
+def verb_connection(args: argparse.Namespace) -> int:
+    if args.action == "check":
+        report = connections.check_connections()
+        emit(report)
+        return EXIT_OK if report["ok"] else EXIT_ERROR
+    emit(connections.list_connections())
     return EXIT_OK
 
 
@@ -270,6 +281,17 @@ def build_parser() -> argparse.ArgumentParser:
         help="--apply: keep this home's side of a conflicting ticket",
     )
     archiving.set_defaults(handler=verb_archive)
+
+    connecting = verbs.add_parser(
+        "connection",
+        help="list, check or run a command with a connection profile's credentials",
+    )
+    connection_actions = connecting.add_subparsers(dest="action", required=True)
+    connection_actions.add_parser("list", help="list the profiles, never their values")
+    connection_actions.add_parser(
+        "check", help="validate every profile, reporting key names only"
+    )
+    connecting.set_defaults(handler=verb_connection)
     return parser
 
 

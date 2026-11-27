@@ -107,11 +107,13 @@ Everything lives under the SDLC home, `~/.sdlc` or `$SDLC_HOME`:
 | `{namespace}/{product}/product.json` | a product   | the same keys, the product-level source coordinates, and `environments` (each a name and a production mark)  |
 | `…/{id}/ticket.json`                 | a ticket    | its record, keyed as [shared/store.md](shared/store.md) lists                                                |
 
+Credential profiles for connections sit beside the tickets in `.connections/` (or the directory `$SDLC_CONNECTIONS_HOME` names), one flat `.env` file per profile. The folder starts with a dot, so it is never a namespace and a whole-home export never includes it.
+
 The inner level wins. [GLOSSARY.md](GLOSSARY.md) defines the terms, [shared/conventions.md](shared/conventions.md) the filing, mirror, path and ship-run rules, and `/sdlc:setup` the keys. Specific formats sit beside it in [shared/](shared/): [store.md](shared/store.md) (the layout and `ticket.json`), [archive.md](shared/archive.md) (the archive and its manifest), [plan.md](shared/plan.md), [journal.md](shared/journal.md), [sync.md](shared/sync.md), [artifacts.md](shared/artifacts.md), [guard.md](shared/guard.md), [tdd.md](shared/tdd.md) and [types.md](shared/types.md).
 
 ## Scripts
 
-Skills call `python "${CLAUDE_PLUGIN_ROOT}/shared/sdlc.py" <verb>`. There are six verbs, each for work that must come out identical every time:
+Skills call `python "${CLAUDE_PLUGIN_ROOT}/shared/sdlc.py" <verb>`. There are seven verbs, each for work that must come out identical every time:
 
 - `resolve`: report the ticket directory for a reference, or where a new ticket would be filed; read-only.
 - `fetch`: mirror an issue or work item into `raw/`, and its journal entries into `journal/`; `--check` compares revisions without writing, and says when only journal entries moved.
@@ -120,5 +122,7 @@ Skills call `python "${CLAUDE_PLUGIN_ROOT}/shared/sdlc.py" <verb>`. There are si
 - `effect`: vet a script's side effects (including a `sensitive` target) before it runs.
 - `archive export`: write the SDLC home, or one namespace, product or ticket of it, to a zip with a manifest; never writes inside the home.
 - `archive import`: report, as JSON, what merging an archive into the home would add, merge and ask about; with `--apply`, the digest and a choice per conflicting ticket, write that merge.
+
+- `connection list`: list the connection profiles with their kind and production mark; `connection check` validates each profile, and exits 1 when any has a problem. Both report names only, never a value.
 
 [ADR 0006](docs/adr/0006-scripts-and-instructions-are-for-mechanical-work-only.md) explains why there are so few.
