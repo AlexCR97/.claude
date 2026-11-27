@@ -2,7 +2,7 @@
 
 Agentic software development life cycle: intake, plan, implement and document. A Claude Code plugin that mirrors a GitHub issue or an Azure DevOps work item (or adopts a spec, text or an idea) into a local store, then plans, implements, checkpoints and documents it, keeping what a later session needs on disk.
 
-Every skill but `/sdlc:setup` and `/sdlc:import` is model-invokable ([ADR 0007](docs/adr/0007-skills-are-model-invokable-and-gate-themselves.md)): the model may run one when its description fits the request, and one sdlc skill may run another. Each description says narrowly when its skill applies, and a skill that writes outside the machine asks before it does. `setup` and `import` rewrite the SDLC home, so they stay explicit-only (`disable-model-invocation: true`) and run only when you type them. A ship run passes the `ship` flag, which waives every confirmation but the hard stops and the steps only you can take; [shared/conventions.md](shared/conventions.md#ship-runs) has the rules.
+Every skill but `/sdlc:setup`, `/sdlc:import` and `/sdlc:connect` is model-invokable ([ADR 0007](docs/adr/0007-skills-are-model-invokable-and-gate-themselves.md)): the model may run one when its description fits the request, and one sdlc skill may run another. Each description says narrowly when its skill applies, and a skill that writes outside the machine asks before it does. `setup` and `import` rewrite the SDLC home, and `connect` writes credential profiles and a global rule, so they stay explicit-only (`disable-model-invocation: true`) and run only when you type them. `/sdlc:query` is model-invokable but applies only when your request names a connection; [shared/connections.md](shared/connections.md) is the policy. A ship run passes the `ship` flag, which waives every confirmation but the hard stops and the steps only you can take; [shared/conventions.md](shared/conventions.md#ship-runs) has the rules.
 
 ## Skills
 
@@ -22,6 +22,8 @@ Every skill but `/sdlc:setup` and `/sdlc:import` is model-invokable ([ADR 0007](
 | `/sdlc:ship`       | A ticket reference, or a spec file, text or an idea, and an end point (`pr`, the default, or an environment)                             | The whole cycle in one unattended run: a ticket branch with one commit per phase, a ready pull request, a deployment to the end point; waits only where you must act |
 | `/sdlc:export`     | Nothing (the whole SDLC home), a namespace, `{namespace}/{product}` or a ticket reference, and optionally where to write it              | An archive: a zip of that scope's directories, the config files above it and a manifest, for `/sdlc:import` on another machine                                       |
 | `/sdlc:import`     | An archive `/sdlc:export` wrote                                                                                                          | The archive merged into the SDLC home after a report and a yes: missing files added, conflicts asked per ticket, nothing deleted                                     |
+| `/sdlc:connect`    | `new`, to set up a connection to a database or API, or `check`, to review the connections and the rule                                   | A credential profile of empty placeholders for you to fill in, an optional `connections` entry, and the always-loaded rule; explicit-only, and never reads a secret  |
+| `/sdlc:query`      | A connection by name, what to look at, and optionally `save`                                                                             | The answer, from a command run through the connection with its credentials masked; production only when your message names it, writes only after a yes               |
 
 ## The cycle
 
@@ -107,11 +109,13 @@ Everything lives under the SDLC home, `~/.sdlc` or `$SDLC_HOME`:
 | `{namespace}/{product}/product.json` | a product   | the same keys, the product-level source coordinates, and `environments` (each a name and a production mark)  |
 | `…/{id}/ticket.json`                 | a ticket    | its record, keyed as [shared/store.md](shared/store.md) lists                                                |
 
-The inner level wins. [GLOSSARY.md](GLOSSARY.md) defines the terms, [shared/conventions.md](shared/conventions.md) the filing, mirror, path and ship-run rules, and `/sdlc:setup` the keys. Specific formats sit beside it in [shared/](shared/): [store.md](shared/store.md) (the layout and `ticket.json`), [archive.md](shared/archive.md) (the archive and its manifest), [plan.md](shared/plan.md), [journal.md](shared/journal.md), [sync.md](shared/sync.md), [artifacts.md](shared/artifacts.md), [guard.md](shared/guard.md), [tdd.md](shared/tdd.md) and [types.md](shared/types.md).
+Credential profiles for connections sit beside the tickets in `.connections/` (or the directory `$SDLC_CONNECTIONS_HOME` names), one flat `.env` file per profile. The folder starts with a dot, so it is never a namespace and a whole-home export never includes it. A `namespace.json` or `product.json` may also list its connections by profile name under `connections`: each entry can mark a profile production, and an entry in a product file can link one of that product's environments. An entry never holds a credential, and a product's list replaces its namespace's.
+
+The inner level wins. [GLOSSARY.md](GLOSSARY.md) defines the terms, [shared/conventions.md](shared/conventions.md) the filing, mirror, path and ship-run rules, and `/sdlc:setup` the keys. Specific formats sit beside it in [shared/](shared/): [store.md](shared/store.md) (the layout and `ticket.json`), [archive.md](shared/archive.md) (the archive and its manifest), [plan.md](shared/plan.md), [journal.md](shared/journal.md), [sync.md](shared/sync.md), [artifacts.md](shared/artifacts.md), [connections.md](shared/connections.md) (connection profiles and their policy), [guard.md](shared/guard.md), [tdd.md](shared/tdd.md) and [types.md](shared/types.md).
 
 ## Scripts
 
-Skills call `python "${CLAUDE_PLUGIN_ROOT}/shared/sdlc.py" <verb>`. There are six verbs, each for work that must come out identical every time:
+Skills call `python "${CLAUDE_PLUGIN_ROOT}/shared/sdlc.py" <verb>`. There are seven verbs, each for work that must come out identical every time:
 
 - `resolve`: report the ticket directory for a reference, or where a new ticket would be filed; read-only.
 - `fetch`: mirror an issue or work item into `raw/`, and its journal entries into `journal/`; `--check` compares revisions without writing, and says when only journal entries moved.
@@ -120,5 +124,7 @@ Skills call `python "${CLAUDE_PLUGIN_ROOT}/shared/sdlc.py" <verb>`. There are si
 - `effect`: vet a script's side effects (including a `sensitive` target) before it runs.
 - `archive export`: write the SDLC home, or one namespace, product or ticket of it, to a zip with a manifest; never writes inside the home.
 - `archive import`: report, as JSON, what merging an archive into the home would add, merge and ask about; with `--apply`, the digest and a choice per conflicting ticket, write that merge.
+
+- `connection list`: list the connection profiles with their kind and production mark, and with `--context` apply that context's `connections` registry (a linked environment's mark wins); `connection check` validates each profile, and exits 1 when any has a problem. Both report names only, never a value. `connection run <profile> -- <command>` runs the command with the profile's variables in its environment only and prints one JSON envelope holding its exit code and output, the profile's values masked; it refuses a production profile or a `sensitive` target with exit 4 until `--approved`, and `--dry-run` reports the variable names and any refusal without running anything. Its options go before the profile.
 
 [ADR 0006](docs/adr/0006-scripts-and-instructions-are-for-mechanical-work-only.md) explains why there are so few.

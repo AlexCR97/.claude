@@ -4,6 +4,11 @@ import os
 from pathlib import Path
 
 HOME_ENV_VAR = "SDLC_HOME"
+CONNECTIONS_HOME_ENV_VAR = "SDLC_CONNECTIONS_HOME"
+
+# The leading dot is what keeps the profiles out of namespace listing and export:
+# `layout.is_name` never accepts a name that starts with one.
+CONNECTIONS_DIR_NAME = ".connections"
 
 # The fallback namespace and product that receive a ticket nothing else claims.
 DEFAULT_NAME = "default"
@@ -18,6 +23,13 @@ def sdlc_home() -> Path:
     if override:
         return Path(override).expanduser().resolve()
     return Path.home() / ".sdlc"
+
+
+def connections_home() -> Path:
+    override = os.environ.get(CONNECTIONS_HOME_ENV_VAR)
+    if override:
+        return Path(override).expanduser().resolve()
+    return sdlc_home() / CONNECTIONS_DIR_NAME
 
 
 def root_config_path() -> Path:

@@ -23,6 +23,9 @@ from .errors import SdlcError
 
 NAME_PATTERN = re.compile(r"[a-z0-9][a-z0-9-]*")
 
+# A profile is a file name that the production classifier also splits on `-`, `_` and `.`.
+PROFILE_PATTERN = re.compile(r"[a-z0-9][a-z0-9._-]*")
+
 
 @dataclass(frozen=True, order=True)
 class Product:
@@ -82,6 +85,10 @@ class Scope:
 
 def is_name(name: str) -> bool:
     return bool(NAME_PATTERN.fullmatch(name))
+
+
+def is_profile_name(name: str) -> bool:
+    return bool(PROFILE_PATTERN.fullmatch(name))
 
 
 def require_name(name: str, what: str) -> str:

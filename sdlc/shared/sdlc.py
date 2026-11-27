@@ -17,6 +17,10 @@ Usage:
                                   [--context namespace[/product]]
     python sdlc.py archive import <zip> [--apply --digest <digest>
                                   [--take-theirs <ticket>]... [--keep-mine <ticket>]...]
+    python sdlc.py connection list [--context namespace[/product]]
+    python sdlc.py connection check
+    python sdlc.py connection run [--context namespace[/product]] [--approved] [--dry-run]
+                                  <profile> -- <command> [<argument> ...]
 
 Exit codes:
     0  ok
@@ -41,8 +45,8 @@ for stream in (sys.stdout, sys.stderr):
     if callable(reconfigure):
         reconfigure(encoding="utf-8", errors="replace")
 
-from sdlclib import archive, effect, fetch, guard, importing, resolve, sync
-from sdlclib.errors import EXIT_OK, EXIT_REFUSED, SdlcError
+from sdlclib import archive, connections, effect, fetch, guard, importing, resolve, sync
+from sdlclib.errors import EXIT_ERROR, EXIT_OK, EXIT_REFUSED, SdlcError
 
 
 def emit(data: Mapping[str, object]) -> None:
@@ -111,6 +115,23 @@ def verb_archive(args: argparse.Namespace) -> int:
             cwd=Path.cwd(),
         )
     )
+    return EXIT_OK
+
+
+def verb_connection(args: argparse.Namespace) -> int:
+    if args.action == "run":
+        # argparse keeps the `--` that separates the command from our options.
+        command = args.command[1:] if args.command[:1] == ["--"] else args.command
+        outcome = connections.run_command(
+            args.profile, command, args.context, args.approved, args.dry_run
+        )
+        emit(outcome)
+        return EXIT_REFUSED if outcome.get("refused") else EXIT_OK
+    if args.action == "check":
+        report = connections.check_connections()
+        emit(report)
+        return EXIT_OK if report["ok"] else EXIT_ERROR
+    emit(connections.list_connections(args.context))
     return EXIT_OK
 
 
@@ -270,6 +291,46 @@ def build_parser() -> argparse.ArgumentParser:
         help="--apply: keep this home's side of a conflicting ticket",
     )
     archiving.set_defaults(handler=verb_archive)
+
+    connecting = verbs.add_parser(
+        "connection",
+        help="list, check or run a command with a connection profile's credentials",
+    )
+    connection_actions = connecting.add_subparsers(dest="action", required=True)
+    listing = connection_actions.add_parser(
+        "list", help="list the profiles, never their values"
+    )
+    listing.add_argument(
+        "--context",
+        help="the session's namespace[/product], whose registry of connections applies",
+    )
+    connection_actions.add_parser(
+        "check", help="validate every profile, reporting key names only"
+    )
+    running = connection_actions.add_parser(
+        "run", help="run a command with a profile's variables in its environment"
+    )
+    running.add_argument(
+        "--context",
+        help="the session's namespace[/product], whose registry of connections applies",
+    )
+    running.add_argument(
+        "--approved",
+        action="store_true",
+        help="the user approved this run: lifts the production refusal",
+    )
+    running.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="run nothing: report the variable names, the command and any refusal",
+    )
+    running.add_argument("profile")
+    running.add_argument(
+        "command",
+        nargs=argparse.REMAINDER,
+        help="`--`, then the command; the options above go before the profile",
+    )
+    connecting.set_defaults(handler=verb_connection)
     return parser
 
 

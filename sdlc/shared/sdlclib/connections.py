@@ -1,0 +1,335 @@
+"""
+Connection profiles: flat `.env` files in the connections home, one per profile.
+
+A profile holds a connection's credentials and three reserved keys describing
+it (`RESERVED_KEYS`). Nothing here ever prints a value: reports carry profile and
+key names only, because the agent reading them must never see a secret.
+"""
+
+import os
+import re
+from collections.abc import Mapping
+from dataclasses import dataclass, field
+from pathlib import Path
+
+from . import config as configuration
+from . import effect, layout, paths, process
+from .errors import SdlcError
+
+KIND_KEY = "CONNECTION_KIND"
+ENV_FILE_KEY = "CONNECTION_ENV_FILE"
+
+# A shorter value would mangle ordinary output wherever it happens to appear,
+# so it is never masked and `check` warns about it instead.
+MASK_MIN_LENGTH = 4
+
+REFERENCE = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}")
+
+PRODUCTION_KEY = "CONNECTION_PRODUCTION"
+
+# Exact names, not the `CONNECTION_` prefix: `CONNECTION_STRING` is a common
+# credential key, and withholding it would leave the command without it.
+RESERVED_KEYS = frozenset({KIND_KEY, PRODUCTION_KEY, ENV_FILE_KEY})
+PRODUCTION_SEGMENTS = frozenset({"prod", "production"})
+NON_PRODUCTION_SEGMENTS = frozenset(
+    {
+        "dev",
+        "development",
+        "int",
+        "integration",
+        "qa",
+        "test",
+        "uat",
+        "stage",
+        "staging",
+        "sandbox",
+        "local",
+        "localhost",
+        "preprod",
+        "pre",
+    }
+)
+NAME_SEPARATORS = re.compile(r"[-_.]")
+FLAGS = {"true": True, "false": False}
+
+
+@dataclass
+class ParsedEnv:
+    values: dict[str, str] = field(default_factory=dict)
+    problems: list[str] = field(default_factory=list)
+
+
+def parse_env(text: str) -> ParsedEnv:
+    parsed = ParsedEnv()
+    for number, raw in enumerate(text.splitlines(), start=1):
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        line = line.removeprefix("export ").lstrip()
+        key, separator, value = line.partition("=")
+        key = key.strip()
+        if not separator or not key:
+            parsed.problems.append(f"line {number} is not a KEY=VALUE assignment")
+            continue
+        parsed.values[key] = expand(key, unquote(value.strip()), parsed)
+    return parsed
+
+
+def unquote(value: str) -> str:
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
+        return value[1:-1]
+    return value
+
+
+def expand(key: str, value: str, parsed: ParsedEnv) -> str:
+    """A reference takes an earlier key of the same file first, then the process environment."""
+
+    def replace(match: re.Match[str]) -> str:
+        name = match.group(1)
+        if name in parsed.values:
+            return parsed.values[name]
+        if name in os.environ:
+            return os.environ[name]
+        parsed.problems.append(f"{key} references ${{{name}}}, which is not defined")
+        return match.group(0)
+
+    return REFERENCE.sub(replace, value)
+
+
+def load_profile(file: Path) -> ParsedEnv:
+    """The profile's own keys, then those of the env file it names, the profile's winning."""
+    parsed = parse_env(file.read_text(encoding="utf-8"))
+    reference = parsed.values.get(ENV_FILE_KEY)
+    if not reference:
+        return parsed
+    target = file.parent / Path(reference).expanduser()
+    if not target.is_file():
+        parsed.problems.append(f"{ENV_FILE_KEY} names {reference}, which is not a file")
+        return parsed
+    referenced = parse_env(target.read_text(encoding="utf-8"))
+    parsed.problems.extend(
+        f"{target.name}: {problem}" for problem in referenced.problems
+    )
+    for key, value in referenced.values.items():
+        parsed.values.setdefault(key, value)
+    return parsed
+
+
+def profile_files() -> list[Path]:
+    home = paths.connections_home()
+    return sorted(home.glob("*.env")) if home.is_dir() else []
+
+
+def classify_by_name(profile: str) -> bool | None:
+    """
+    Whether a profile name says production: True, False, or None when it says nothing.
+
+    A production segment wins even beside a non-production one (`dev-prod-mirror`),
+    except `pre` directly followed by `prod`, which is the one term `pre-prod`.
+    """
+    segments = [part for part in NAME_SEPARATORS.split(profile.casefold()) if part]
+    production = False
+    recognised = False
+    index = 0
+    while index < len(segments):
+        segment = segments[index]
+        if segment == "pre" and segments[index + 1 : index + 2] == ["prod"]:
+            recognised = True
+            index += 2
+            continue
+        if segment in PRODUCTION_SEGMENTS:
+            production = True
+        elif segment in NON_PRODUCTION_SEGMENTS:
+            recognised = True
+        index += 1
+    if production:
+        return True
+    return False if recognised else None
+
+
+def production_mark(
+    profile: str,
+    values: Mapping[str, str],
+    entry: Mapping[str, object] | None = None,
+    environments: list[dict] | None = None,
+) -> tuple[bool, str]:
+    """
+    The mark and what decided it, strongest first: the linked environment's, then
+    the registry entry's and the profile's own marks (either saying production
+    wins), then the name. Anything unreadable or unrecognised is production.
+    """
+    entry = entry or {}
+    linked = entry.get("environment")
+    if linked is not None:
+        for environment in environments or []:
+            if environment["name"].casefold() == str(linked).casefold():
+                return environment["production"], "environment"
+    marks: list[tuple[bool, str]] = []
+    if "production" in entry:
+        marks.append((bool(entry["production"]), "registry"))
+    flag = values.get(PRODUCTION_KEY)
+    if flag is not None:
+        marks.append((FLAGS.get(flag.strip().casefold(), True), "profile"))
+    if marks:
+        decided = any(mark for mark, _ in marks)
+        return decided, next(source for mark, source in marks if mark == decided)
+    by_name = classify_by_name(profile)
+    if by_name is not None:
+        return by_name, "name"
+    return True, "default"
+
+
+def registered_connections(
+    context_text: str | None,
+) -> tuple[dict[str, dict], list[dict]]:
+    """The context's registry by profile name, and the environments its product lists."""
+    context = layout.parse_context(context_text)
+    if context is None:
+        return {}, []
+    effective = configuration.load().effective(context.namespace, context.product)
+    registry = {entry["profile"]: entry for entry in effective.get("connections", [])}
+    return registry, effective.get("environments", [])
+
+
+def sensitive_patterns(context_text: str | None) -> list[str]:
+    """The `sensitive` targets effective for the context, as `effect` reads them."""
+    context = layout.parse_context(context_text)
+    config = configuration.load()
+    effective = config.effective(
+        context.namespace if context else config.default_namespace(),
+        context.product if context else None,
+    )
+    return effective.get("sensitive", [])
+
+
+def list_connections(context_text: str | None) -> Mapping[str, object]:
+    registry, environments = registered_connections(context_text)
+    files = {file.stem: file for file in profile_files()}
+    entries = []
+    for profile in sorted({*files, *registry}):
+        file = files.get(profile)
+        values = load_profile(file).values if file else {}
+        entry = registry.get(profile)
+        production, source = production_mark(profile, values, entry, environments)
+        entries.append(
+            {
+                "profile": profile,
+                "kind": values.get(KIND_KEY),
+                "production": production,
+                "production_source": source,
+                "environment": entry.get("environment") if entry else None,
+                "registered": entry is not None,
+                "file": file is not None,
+            }
+        )
+    return {"home": str(paths.connections_home()), "connections": entries}
+
+
+def check_profile(file: Path) -> dict[str, object]:
+    parsed = load_profile(file)
+    problems = list(parsed.problems)
+    if KIND_KEY not in parsed.values:
+        problems.append(f"{KIND_KEY} is missing")
+    flag = parsed.values.get(PRODUCTION_KEY)
+    if flag is not None and flag.strip().casefold() not in FLAGS:
+        problems.append(f"{PRODUCTION_KEY} must be true or false")
+    warnings = [
+        f"{key} is shorter than {MASK_MIN_LENGTH} characters, so it will not be masked"
+        for key, value in parsed.values.items()
+        if key not in RESERVED_KEYS and 0 < len(value) < MASK_MIN_LENGTH
+    ]
+    return {
+        "profile": file.stem,
+        "ok": not problems,
+        "problems": problems,
+        "warnings": warnings,
+        "keys": list(parsed.values),
+    }
+
+
+def mask(text: str, secrets: list[str]) -> str:
+    """Longest first, so a value holding a shorter one is masked whole."""
+    for secret in sorted(secrets, key=len, reverse=True):
+        text = text.replace(secret, "***")
+    return text
+
+
+def run_command(
+    profile: str,
+    command: list[str],
+    context_text: str | None = None,
+    approved: bool = False,
+    dry_run: bool = False,
+) -> dict[str, object]:
+    if not layout.is_profile_name(profile):
+        raise SdlcError(f"'{profile}' is not a valid profile name")
+    file = paths.connections_home() / f"{profile}.env"
+    if not file.is_file():
+        raise SdlcError(f"no profile '{profile}' in {paths.connections_home()}")
+    if not command:
+        raise SdlcError("connection run takes a command after `--`")
+    parsed = load_profile(file)
+    if parsed.problems:
+        raise SdlcError(
+            f"profile '{profile}' has problems",
+            hint="Run `connection check` to see them.",
+        )
+    values = parsed.values
+    registry, environments = registered_connections(context_text)
+    production, source = production_mark(
+        profile, values, registry.get(profile), environments
+    )
+    reasons = []
+    if production:
+        reasons.append(
+            f"'{profile}' is a production connection (decided by its {source})"
+        )
+    hits = effect.sensitive_hits(
+        " ".join([profile, *command]), sensitive_patterns(context_text)
+    )
+    if hits:
+        reasons.append("it targets a sensitive pattern: " + ", ".join(hits))
+    refusal = (
+        "; ".join(reasons) + ". Approve only once the user has said yes to this run, "
+        "and a production connection only when their message names it"
+        if reasons and not approved
+        else None
+    )
+    injected = {key: value for key, value in values.items() if key not in RESERVED_KEYS}
+    secrets = [value for value in injected.values() if len(value) >= MASK_MIN_LENGTH]
+    if dry_run:
+        return {
+            "profile": profile,
+            "production": production,
+            "production_source": source,
+            "dry_run": True,
+            "would_refuse": refusal is not None,
+            "reason": refusal,
+            "variables": list(injected),
+            "command": [mask(part, secrets) for part in command],
+        }
+    if refusal:
+        return {
+            "profile": profile,
+            "production": production,
+            "production_source": source,
+            "refused": True,
+            "reason": refusal,
+        }
+    completed = process.run(command, text=True, env={**os.environ, **injected})
+    return {
+        "profile": profile,
+        "production": production,
+        "production_source": source,
+        "exit_code": completed.returncode,
+        "stdout": mask(completed.stdout, secrets),
+        "stderr": mask(completed.stderr, secrets),
+    }
+
+
+def check_connections() -> dict[str, object]:
+    reports = [check_profile(file) for file in profile_files()]
+    return {
+        "ok": all(report["ok"] for report in reports),
+        "profiles": reports,
+    }

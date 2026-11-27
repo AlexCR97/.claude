@@ -274,5 +274,15 @@ _Avoid_: Stage (that names where a journal entry stands), deployment target, wor
 Where a ship run stops: a ready pull request, or a named environment the work is deployed to.
 
 **Hard stop**:
-An action a ship run never takes without an explicit yes, because it cannot be undone or it reaches production: merging into a protected branch, deploying to a production environment, or changing the upstream ticket's state.
+An action a ship run never takes without an explicit yes, because it cannot be undone or it reaches production: merging into a protected branch, deploying to a production environment, changing the upstream ticket's state, or writing through a connection or reaching a production one.
 _Avoid_: Gate, checkpoint (that names recording a session)
+
+### Reaching external systems
+
+**Connection**:
+A named, credentialed way to reach one external system, such as a database or an API, in one environment. Its credentials live in a connection profile and never in a ticket or a config file; a namespace or product may list its connections by profile name under `connections`. Not a ticket source.
+_Avoid_: Data source, integration, endpoint, Source (that names the system a ticket lives in)
+
+**Connection profile**:
+The flat `.env` file named after a connection, in the connections home (`.connections` under the SDLC home, or the directory `SDLC_CONNECTIONS_HOME` names). It holds the connection's credentials and its three reserved keys (`CONNECTION_KIND`, `CONNECTION_PRODUCTION`, `CONNECTION_ENV_FILE`), and only the `connection` verb reads it: the model sees profile and key names, never a value.
+_Avoid_: Credentials file, secrets file, config

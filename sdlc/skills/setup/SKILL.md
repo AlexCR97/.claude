@@ -13,17 +13,19 @@ Set up where tickets are filed and where they come from, as asked in `$ARGUMENTS
 
 Under the SDLC home (`~/.sdlc`, or `$SDLC_HOME`), one file per level; the inner level wins, objects merge key by key, anything else replaces, `[]` clears an inherited list.
 
-| File                                 | Keys                                                                                                             |
-| ------------------------------------ | ---------------------------------------------------------------------------------------------------------------- |
-| `sdlc.json`                          | `default_namespace`, `default_source`, `scan_roots`, `protected_branches`, `sensitive`, `worktree_root`          |
-| `{namespace}/namespace.json`         | `default_product`, `default_source`, `scan_roots`, `protected_branches`, `sensitive`, `worktree_root`, `sources` |
-| `{namespace}/{product}/product.json` | `default_source`, `scan_roots`, `protected_branches`, `sensitive`, `worktree_root`, `sources`, `environments`    |
+| File                                 | Keys                                                                                                                            |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------- |
+| `sdlc.json`                          | `default_namespace`, `default_source`, `scan_roots`, `protected_branches`, `sensitive`, `worktree_root`                         |
+| `{namespace}/namespace.json`         | `default_product`, `default_source`, `scan_roots`, `protected_branches`, `sensitive`, `worktree_root`, `sources`, `connections` |
+| `{namespace}/{product}/product.json` | `default_source`, `scan_roots`, `protected_branches`, `sensitive`, `worktree_root`, `sources`, `environments`, `connections`    |
 
 `worktree_root` is one absolute directory under which `implement` creates ticket worktrees instead of `{repository}/.worktrees/` (see `${CLAUDE_PLUGIN_ROOT}/shared/guard.md`).
 
 `environments` is a product's list of environments, each `{"name": "qa", "production": false}`: names unique regardless of case, and `production` a boolean. `/sdlc:deploy` proposes it the first time it deploys the product and saves it on a yes; it is never set in `sdlc.json` or `namespace.json`.
 
 `sensitive` is a list of hosts, databases or other targets a script must never touch unasked: the `effect` verb makes a script that names one ask first, even when it is read-only.
+
+`connections` is an optional list of the connections a namespace or product uses, each `{"profile": "qa-db"}` with an optional `"production": true` and, in a product file only, an optional `"environment"` naming one of the product's `environments` (case-insensitive). It holds profile names and marks, never a credential, which lives in the profile (`/sdlc:connect` writes it). The inner level's list replaces the outer one's, and `[]` clears an inherited list. Prefer `/sdlc:connect new` to editing it by hand; see `${CLAUDE_PLUGIN_ROOT}/shared/connections.md`.
 
 A binding is `sources.{source}.{coordinate}`. Each coordinate lives at the level its provider declares in `${CLAUDE_PLUGIN_ROOT}/shared/providers/{source}.json`: Azure DevOps `organization` in `namespace.json` and `project` in `product.json`; GitHub `owner` in `namespace.json` and `repository` in `product.json`. A namespace or product with no binding is valid: create its directory with a `{}` config file.
 
