@@ -252,3 +252,13 @@ def test_the_connections_home_never_reaches_an_export_or_a_namespace_listing(
         )
     assert listed.code == 1
     assert "not a valid namespace name" in listed.err
+
+
+def test_check_warns_about_a_short_connection_string_key_too(run_cli, write_profile):
+    write_profile("qa", "CONNECTION_KIND=database\nCONNECTION_STRING=ab\n")
+
+    result = run_cli("connection", "check")
+
+    assert result.code == 0, result.err
+    [warning] = result.json["profiles"][0]["warnings"]
+    assert "CONNECTION_STRING" in warning

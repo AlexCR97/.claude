@@ -297,3 +297,44 @@ def test_a_dry_run_reports_a_refusal_instead_of_exiting_4(
     assert result.json["would_refuse"] is True
     assert "production" in result.json["reason"]
     assert not ran.exists()
+
+
+def test_a_connection_string_key_reaches_the_child_and_is_masked(
+    run_cli, write_profile
+):
+    write_profile(
+        "qa",
+        "CONNECTION_KIND=database\n"
+        "CONNECTION_STRING=postgres://app:s3cret-pw@db.example.com/orders\n",
+    )
+
+    result = run_child(
+        run_cli, "qa", "import os; print(os.environ['CONNECTION_STRING'])"
+    )
+
+    assert result.code == 0, result.err
+    assert result.json["stdout"].strip() == "***"
+    assert "s3cret-pw" not in result.out + result.err
+
+
+def test_only_the_three_reserved_keys_are_withheld_from_the_child(
+    run_cli, write_profile, tmp_path
+):
+    project_env = tmp_path / "project.env"
+    project_env.write_text("API_KEY=file-key-9999\n", encoding="utf-8")
+    write_profile(
+        "qa",
+        "CONNECTION_KIND=rest\n"
+        "CONNECTION_PRODUCTION=false\n"
+        f"CONNECTION_ENV_FILE={project_env}\n"
+        "CONNECTION_STRING=postgres://app:s3cret-pw@db.example.com/orders\n",
+    )
+
+    result = run_child(
+        run_cli,
+        "qa",
+        "import os; print(sorted(k for k in os.environ if k.startswith('CONNECTION_')))",
+    )
+
+    assert result.code == 0, result.err
+    assert result.json["stdout"].strip() == "['CONNECTION_STRING']"

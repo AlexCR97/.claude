@@ -1,8 +1,8 @@
 """
 Connection profiles: flat `.env` files in the connections home, one per profile.
 
-A profile holds a connection's credentials and a few reserved `CONNECTION_*`
-keys describing it. Nothing here ever prints a value: reports carry profile and
+A profile holds a connection's credentials and three reserved keys describing
+it (`RESERVED_KEYS`). Nothing here ever prints a value: reports carry profile and
 key names only, because the agent reading them must never see a secret.
 """
 
@@ -18,7 +18,6 @@ from .errors import SdlcError
 
 KIND_KEY = "CONNECTION_KIND"
 ENV_FILE_KEY = "CONNECTION_ENV_FILE"
-RESERVED_PREFIX = "CONNECTION_"
 
 # A shorter value would mangle ordinary output wherever it happens to appear,
 # so it is never masked and `check` warns about it instead.
@@ -27,6 +26,10 @@ MASK_MIN_LENGTH = 4
 REFERENCE = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}")
 
 PRODUCTION_KEY = "CONNECTION_PRODUCTION"
+
+# Exact names, not the `CONNECTION_` prefix: `CONNECTION_STRING` is a common
+# credential key, and withholding it would leave the command without it.
+RESERVED_KEYS = frozenset({KIND_KEY, PRODUCTION_KEY, ENV_FILE_KEY})
 PRODUCTION_SEGMENTS = frozenset({"prod", "production"})
 NON_PRODUCTION_SEGMENTS = frozenset(
     {
@@ -233,7 +236,7 @@ def check_profile(file: Path) -> dict[str, object]:
     warnings = [
         f"{key} is shorter than {MASK_MIN_LENGTH} characters, so it will not be masked"
         for key, value in parsed.values.items()
-        if not key.startswith(RESERVED_PREFIX) and 0 < len(value) < MASK_MIN_LENGTH
+        if key not in RESERVED_KEYS and 0 < len(value) < MASK_MIN_LENGTH
     ]
     return {
         "profile": file.stem,
@@ -292,11 +295,7 @@ def run_command(
         if reasons and not approved
         else None
     )
-    injected = {
-        key: value
-        for key, value in values.items()
-        if not key.startswith(RESERVED_PREFIX)
-    }
+    injected = {key: value for key, value in values.items() if key not in RESERVED_KEYS}
     secrets = [value for value in injected.values() if len(value) >= MASK_MIN_LENGTH]
     if dry_run:
         return {

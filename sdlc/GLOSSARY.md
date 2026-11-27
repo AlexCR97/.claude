@@ -284,5 +284,5 @@ A named, credentialed way to reach one external system, such as a database or an
 _Avoid_: Data source, integration, endpoint, Source (that names the system a ticket lives in)
 
 **Connection profile**:
-The flat `.env` file named after a connection, in the connections home (`.connections` under the SDLC home, or the directory `SDLC_CONNECTIONS_HOME` names). It holds the connection's credentials and its reserved `CONNECTION_*` keys, and only the `connection` verb reads it: the model sees profile and key names, never a value.
+The flat `.env` file named after a connection, in the connections home (`.connections` under the SDLC home, or the directory `SDLC_CONNECTIONS_HOME` names). It holds the connection's credentials and its three reserved keys (`CONNECTION_KIND`, `CONNECTION_PRODUCTION`, `CONNECTION_ENV_FILE`), and only the `connection` verb reads it: the model sees profile and key names, never a value.
 _Avoid_: Credentials file, secrets file, config

@@ -20,10 +20,10 @@ This skill is explicit-only (`disable-model-invocation`): it writes credential f
 ## Mode: new
 
 1. **Interview**, in chat, one question at a time and only what the request left out:
-   - **What it reaches and its kind**: `rest` for an HTTP API, `generic` for any command line tool, or a name of the developer's own. Read the matching `${CLAUDE_PLUGIN_ROOT}/shared/connections/{kind}.md` when the plugin ships one.
+   - **What it reaches and its kind**: `rest` for an HTTP API, `database` for a SQL or NoSQL database, `generic` for any other command line tool, or a name of the developer's own. Read the matching `${CLAUDE_PLUGIN_ROOT}/shared/connections/{kind}.md` when the plugin ships one.
    - **The profile name**: a lowercase slug that says system and environment (`billing-qa`), proposed from the answers. It must not already exist: run `connection list`, and when it does, stop and say the profile is edited by hand, never overwritten.
    - **The environment and whether it is production.** Apply the name rule of `connections.md` to the proposed name, show what it decides, and ask only to confirm or correct it. An unrecognised name is production.
-   - **The variable names the profile needs**, never their values: `BASE_URL` and `TOKEN` for a `rest` connection, the variable a tool reads (`MONGO_URI`) for a `generic` one.
+   - **The variable names the profile needs**, never their values: for a `rest` connection `BASE_URL` and the keys of its authentication scheme (`ACCESS_TOKEN`, `API_KEY`, `CLIENT_ID` with `CLIENT_SECRET` and `TOKEN_URL`, or `BASIC_USER` with `BASIC_PASSWORD`, as `rest.md` lists them); for a `database` one a connection string (`CONNECTION_STRING`, `DATABASE_URL` or `MONGODB_URI`) or the `DB_*` parts; for a `generic` one the variable the tool reads.
    - **Whether a project's own env file supplies them** (`.env.qa`): then the profile names it with `CONNECTION_ENV_FILE=<path>` and holds no copy.
    - **Where it is registered**, if anywhere: a namespace or product (`namespace/product`), and for a product the environment it links.
 2. **Preview, then one yes per write set.** Show exactly what will be written: the profile file's path and its lines (placeholders only), the registry entry and the config file it joins, and the rule file when it is missing or stale. Wait for an explicit yes to the whole preview; anything else writes nothing. A change to the preview needs a new showing.

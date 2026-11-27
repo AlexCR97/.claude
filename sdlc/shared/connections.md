@@ -8,11 +8,11 @@ A **connection** is a named, credentialed way to reach one external system in on
 
 - **Profile names** are lowercase letters, digits, `.`, `_` and `-`, starting with a letter or digit (`edx-qa`, `billing.dev`).
 - **Values** are literals or `${VAR}`, which takes an earlier key of the same file first and then the process environment. A value is one line.
-- **Reserved keys** describe the connection and are never passed to the command it runs:
+- **Reserved keys** are exactly these three. They describe the connection and are never passed to the command it runs; every other key, `CONNECTION_STRING` included, is a credential the command receives and its output masks:
 
 | Key                     | Holds                                                                                                                                             |
 | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `CONNECTION_KIND`       | Required. What the system is: `rest`, `generic`, or a name of your own. `connections/{kind}.md` holds the instructions for a kind this plugin ships. |
+| `CONNECTION_KIND`       | Required. What the system is: `rest`, `database`, `generic`, or a name of your own. `connections/{kind}.md` holds the instructions for a kind this plugin ships. |
 | `CONNECTION_PRODUCTION` | Optional `true` or `false`. Anything else counts as production and `connection check` names it.                                                   |
 | `CONNECTION_ENV_FILE`   | Optional path to another env file, such as a project's `.env.qa`, whose keys join the profile's; the profile's own keys win. Relative to the profile's directory. |
 

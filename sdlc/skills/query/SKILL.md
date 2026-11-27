@@ -10,7 +10,7 @@ Answer the question `$ARGUMENTS` asks of the connection it names, by running a c
 
 ## Inputs
 
-- **The connection**: a profile name, or a system the request names that has one. Never infer one the request does not name, and never offer to query on the model's own initiative: `plan` and `implement` do not call this skill, and neither does anything else that was not asked.
+- **The connection**: a profile name, or a system the request names that has one. Never infer one the request does not name.
 - **What to look at**: the question, in the user's words.
 - **`save`**: the literal word. Save the result under a ticket's `artifacts/` (see Saving).
 - **A ticket**, optional: only for `save`, and for the session's context. Without one the skill works the same and has nowhere to save.
