@@ -17,7 +17,7 @@ Usage:
                                   [--context namespace[/product]]
     python sdlc.py archive import <zip> [--apply --digest <digest>
                                   [--take-theirs <ticket>]... [--keep-mine <ticket>]...]
-    python sdlc.py connection list
+    python sdlc.py connection list [--context namespace[/product]]
     python sdlc.py connection check
 
 Exit codes:
@@ -121,7 +121,7 @@ def verb_connection(args: argparse.Namespace) -> int:
         report = connections.check_connections()
         emit(report)
         return EXIT_OK if report["ok"] else EXIT_ERROR
-    emit(connections.list_connections())
+    emit(connections.list_connections(args.context))
     return EXIT_OK
 
 
@@ -287,7 +287,13 @@ def build_parser() -> argparse.ArgumentParser:
         help="list, check or run a command with a connection profile's credentials",
     )
     connection_actions = connecting.add_subparsers(dest="action", required=True)
-    connection_actions.add_parser("list", help="list the profiles, never their values")
+    listing = connection_actions.add_parser(
+        "list", help="list the profiles, never their values"
+    )
+    listing.add_argument(
+        "--context",
+        help="the session's namespace[/product], whose registry of connections applies",
+    )
     connection_actions.add_parser(
         "check", help="validate every profile, reporting key names only"
     )

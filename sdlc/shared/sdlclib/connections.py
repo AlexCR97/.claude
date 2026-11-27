@@ -12,7 +12,8 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from . import paths
+from . import config as configuration
+from . import layout, paths
 
 KIND_KEY = "CONNECTION_KIND"
 ENV_FILE_KEY = "CONNECTION_ENV_FILE"
@@ -142,28 +143,68 @@ def classify_by_name(profile: str) -> bool | None:
     return False if recognised else None
 
 
-def production_mark(profile: str, values: Mapping[str, str]) -> tuple[bool, str]:
-    """The mark and what decided it. Anything unreadable or unrecognised is production."""
+def production_mark(
+    profile: str,
+    values: Mapping[str, str],
+    entry: Mapping[str, object] | None = None,
+    environments: list[dict] | None = None,
+) -> tuple[bool, str]:
+    """
+    The mark and what decided it, strongest first: the linked environment's, then
+    the registry entry's and the profile's own marks (either saying production
+    wins), then the name. Anything unreadable or unrecognised is production.
+    """
+    entry = entry or {}
+    linked = entry.get("environment")
+    if linked is not None:
+        for environment in environments or []:
+            if environment["name"].casefold() == str(linked).casefold():
+                return environment["production"], "environment"
+    marks: list[tuple[bool, str]] = []
+    if "production" in entry:
+        marks.append((bool(entry["production"]), "registry"))
     flag = values.get(PRODUCTION_KEY)
     if flag is not None:
-        return FLAGS.get(flag.strip().casefold(), True), "profile"
+        marks.append((FLAGS.get(flag.strip().casefold(), True), "profile"))
+    if marks:
+        decided = any(mark for mark, _ in marks)
+        return decided, next(source for mark, source in marks if mark == decided)
     by_name = classify_by_name(profile)
     if by_name is not None:
         return by_name, "name"
     return True, "default"
 
 
-def list_connections() -> Mapping[str, object]:
+def registered_connections(
+    context_text: str | None,
+) -> tuple[dict[str, dict], list[dict]]:
+    """The context's registry by profile name, and the environments its product lists."""
+    context = layout.parse_context(context_text)
+    if context is None:
+        return {}, []
+    effective = configuration.load().effective(context.namespace, context.product)
+    registry = {entry["profile"]: entry for entry in effective.get("connections", [])}
+    return registry, effective.get("environments", [])
+
+
+def list_connections(context_text: str | None) -> Mapping[str, object]:
+    registry, environments = registered_connections(context_text)
+    files = {file.stem: file for file in profile_files()}
     entries = []
-    for file in profile_files():
-        values = load_profile(file).values
-        production, source = production_mark(file.stem, values)
+    for profile in sorted({*files, *registry}):
+        file = files.get(profile)
+        values = load_profile(file).values if file else {}
+        entry = registry.get(profile)
+        production, source = production_mark(profile, values, entry, environments)
         entries.append(
             {
-                "profile": file.stem,
+                "profile": profile,
                 "kind": values.get(KIND_KEY),
                 "production": production,
                 "production_source": source,
+                "environment": entry.get("environment") if entry else None,
+                "registered": entry is not None,
+                "file": file is not None,
             }
         )
     return {"home": str(paths.connections_home()), "connections": entries}

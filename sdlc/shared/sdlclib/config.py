@@ -34,11 +34,12 @@ SHARED_KEYS = {"default_source", *LIST_KEYS, *MACHINE_KEYS}
 # is not there, so each such key is allowed in one file only.
 ALLOWED_KEYS = {
     "sdlc": {"default_namespace", *SHARED_KEYS},
-    "namespace": {"default_product", "sources", *SHARED_KEYS},
-    "product": {"sources", "environments", *SHARED_KEYS},
+    "namespace": {"default_product", "sources", "connections", *SHARED_KEYS},
+    "product": {"sources", "environments", "connections", *SHARED_KEYS},
 }
 LEVEL_ONLY_KEYS = frozenset({"default_namespace", "default_product"})
 ENVIRONMENT_KEYS = frozenset({"name", "production"})
+CONNECTION_KEYS = frozenset({"profile", "environment", "production"})
 
 
 FIX_HINT = "Fix the file by hand, or rewrite it with `/sdlc:setup`."
@@ -81,6 +82,55 @@ def check_value(path: Path, level: str, key: str, value: object) -> None:
         check_sources(path, level, value)
     elif key == "environments":
         check_environments(path, value)
+    elif key == "connections":
+        check_connections(path, level, value)
+
+
+def check_connections(path: Path, level: str, value: object) -> None:
+    """A registry of connections by profile name: never a credential, which lives in the profile."""
+    if not isinstance(value, list):
+        raise invalid(path, "'connections' must be a list of objects, one per profile")
+    seen: set[str] = set()
+    for connection in value:
+        if not isinstance(connection, dict):
+            raise invalid(path, "each connection must be an object")
+        profile = connection.get("profile")
+        if not isinstance(profile, str) or not profile.strip():
+            raise invalid(
+                path, "every connection needs a 'profile', a non-empty string"
+            )
+        if not layout.is_profile_name(profile):
+            raise invalid(
+                path,
+                f"'{profile}' is not a valid profile name "
+                "(lowercase letters, digits, '.', '_' and '-')",
+            )
+        for key in connection:
+            if key not in CONNECTION_KEYS:
+                raise invalid(
+                    path,
+                    f"'{key}' is not a connection key ({', '.join(sorted(CONNECTION_KEYS))})",
+                )
+        if "environment" in connection:
+            # Environments are listed in a product file alone, so only a product can name one.
+            if level != "product":
+                raise invalid(
+                    path,
+                    f"connection '{profile}' links an environment, but environment links belong in a product file",
+                )
+            environment = connection["environment"]
+            if not isinstance(environment, str) or not environment.strip():
+                raise invalid(
+                    path,
+                    f"connection '{profile}': 'environment' must be a non-empty string",
+                )
+        if "production" in connection and not isinstance(
+            connection["production"], bool
+        ):
+            raise invalid(path, f"connection '{profile}' needs a boolean 'production'")
+        if profile in seen:
+            raise invalid(path, f"connection '{profile}' is listed twice")
+        seen.add(profile)
 
 
 def check_environments(path: Path, value: object) -> None:
@@ -229,7 +279,25 @@ def load() -> Config:
     config = Config(root, namespaces, products)
     check_defaults(config)
     check_bindings(config)
+    check_environment_links(config)
     return config
+
+
+def check_environment_links(config: Config) -> None:
+    """A connection may only link an environment its own product lists, matched case-insensitively."""
+    for product, level in config.products.items():
+        listed = {
+            environment["name"].casefold()
+            for environment in level.get("environments", [])
+        }
+        for connection in level.get("connections", []):
+            environment = connection.get("environment")
+            if environment is not None and environment.casefold() not in listed:
+                raise invalid(
+                    paths.product_config_path(product.namespace, product.name),
+                    f"connection '{connection['profile']}' links environment '{environment}', "
+                    "which the product does not list",
+                )
 
 
 def fallback_bound_problem(kind: str) -> str:
